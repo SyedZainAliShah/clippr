@@ -2,6 +2,10 @@
 
 **Design tooling for synthetic PPR regulators.** iGEM Marburg 2026.
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SyedZainAliShah/clippr/blob/main/notebooks/CLIPPR_designer.ipynb)
+[![License: MIT](https://img.shields.io/badge/License-MIT-1a7f5a.svg)](LICENSE)
+
+
 Give it a target RNA sequence and it returns a PPR protein that binds that sequence, a
 synthesisable coding sequence, a Golden Gate assembly plan, and the DNA fragments to order.
 
@@ -21,9 +25,7 @@ in. Any host can be used by supplying a codon table.
 pip install git+https://github.com/SyedZainAliShah/clippr.git
 ```
 
-Python 3.10+. Runs anywhere, including a fresh Colab runtime — see
-[`notebooks/CLIPPR_designer.ipynb`](notebooks/CLIPPR_designer.ipynb) for a form-driven
-version that needs no code.
+Python 3.10+. Or skip the install entirely and **[open the notebook in Colab](https://colab.research.google.com/github/SyedZainAliShah/clippr/blob/main/notebooks/CLIPPR_designer.ipynb)** — a form-driven version that needs no code.
 
 ## A worked example
 

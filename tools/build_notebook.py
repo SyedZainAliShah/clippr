@@ -1,0 +1,329 @@
+"""Generate the CLIPPR Colab notebook.
+
+Written as a generator rather than hand-edited JSON so cell order, titles and the form
+metadata stay consistent, and so the whole notebook can be regenerated after an API change
+instead of patched.
+"""
+import json
+from pathlib import Path
+
+OUT = Path("notebooks/CLIPPR_designer.ipynb")
+REPO = "SyedZainAliShah/clippr"
+COLAB = f"https://colab.research.google.com/github/{REPO}/blob/main/notebooks/CLIPPR_designer.ipynb"
+
+
+def md(text):
+    return {"cell_type": "markdown", "metadata": {}, "source": text.strip("\n").splitlines(True)}
+
+
+def code(text, title=None, form=True):
+    meta = {"cellView": "form"} if (title and form) else {}
+    body = (f'#@title {title} {{display-mode: "form"}}\n' if title else "") + text.strip("\n")
+    return {"cell_type": "code", "execution_count": None, "metadata": meta,
+            "outputs": [], "source": body.splitlines(True)}
+
+
+cells = []
+
+# ---------------------------------------------------------------- header
+cells.append(md(f"""
+<div align="center">
+
+# CLIPPR
+
+### Design a PPR protein that binds any RNA sequence you choose
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]({COLAB})
+[![License: MIT](https://img.shields.io/badge/License-MIT-1a7f5a.svg)](https://github.com/{REPO}/blob/main/LICENSE)
+[![Tests](https://img.shields.io/badge/tests-283%20passing-1a7f5a.svg)](https://github.com/{REPO})
+
+**iGEM Marburg 2026**
+
+</div>
+
+---
+
+Pentatricopeptide repeat proteins are built from tandem ~31-residue repeats, and **each
+repeat reads exactly one RNA base** through two specificity residues:
+
+| 5th + last residue | reads |     | 5th + last residue | reads |
+|:---:|:---:|---|:---:|:---:|
+| `T` `N` | **A** |  | `T` `D` | **G** |
+| `N` `N` | **C** |  | `N` `D` | **U** |
+
+So the protein is a deterministic function of your target — no catalogue to search. Give it
+nine bases and you get a nine-repeat protein, a synthesisable coding sequence, a Golden Gate
+assembly plan, and the fragments to order.
+
+**Run the cells top to bottom.** Only the *Design parameters* cell normally needs editing.
+
+> ##### Before you read any number
+> **Predicted fidelity** comes from published ligation-count matrices (Pryor *et al.* 2020) —
+> it is not a measured assembly efficiency in your hands. **QC** is a sequence-complexity
+> check, not calibrated against vendor outcomes. **Cost** is a list price, not a quote.
+> Nothing here has been validated at the bench.
+"""))
+
+# ---------------------------------------------------------------- install
+cells.append(code(f'''
+#@markdown Installs the package if it is not already available. Safe to re-run — it never
+#@markdown reinstalls over a working copy.
+REPO = "{REPO}"
+
+try:
+    import clippr
+    _msg = f"clippr {{clippr.__version__}} already available"
+except ImportError:
+    token = None
+    try:
+        from google.colab import userdata          # private-repo fallback
+        token = userdata.get("GITHUB_TOKEN")
+    except Exception:
+        pass
+    url = (f"git+https://{{token}}@github.com/{{REPO}}.git" if token
+           else f"git+https://github.com/{{REPO}}.git")
+    %pip install --quiet $url
+    import clippr
+    _msg = f"installed clippr {{clippr.__version__}}"
+
+from IPython.display import HTML, display
+display(HTML(
+    f'<div style="border-left:3px solid #1a7f5a;padding:.5em .9em;'
+    f'font-family:ui-monospace,monospace;font-size:13px;opacity:.85">{{_msg}}</div>'))
+''', title="Setup — install CLIPPR"))
+
+# ---------------------------------------------------------------- parameters
+cells.append(code('''
+#@markdown ### Target
+#@markdown The RNA sequence the PPR should bind. **Its length sets the architecture** —
+#@markdown 9, 14 or 19 bases give a 9S, 14S or 19S protein.
+target_rna = "AAAAUGUGG"  #@param {type:"string"}
+
+#@markdown ### Host
+organism = "c_reinhardtii_nuclear"  #@param ["c_reinhardtii_nuclear"]
+
+#@markdown ### Which enzyme sites must be absent
+#@markdown `assembly` — this assembly's own chemistry (BsaI, BbsI)
+#@markdown &nbsp;&nbsp;·&nbsp; `igem_rfc1000` — adds SapI, required by iGEM's Type IIS standard
+#@markdown &nbsp;&nbsp;·&nbsp; `moclo_compat` — adds BsmBI to keep later MoClo levels open,
+#@markdown a preference that can make some junctions infeasible
+enzyme_profile = "igem_rfc1000"  #@param ["assembly", "igem_rfc1000", "moclo_compat"]
+
+#@markdown ### Destination vector level
+destination_level = "level0"  #@param ["level_minus1", "level0", "level1"]
+
+#@markdown ### Reproducibility
+#@markdown The same seed always gives the same design.
+seed = 42  #@param {type:"integer"}
+write_files = True  #@param {type:"boolean"}
+''', title="Design parameters — edit these"))
+
+# ---------------------------------------------------------------- design + results
+cells.append(code('''
+#@markdown Picks cut positions and Golden Gate overhangs **first**, then codon-optimises with
+#@markdown those positions locked — optimising first would let the optimiser rewrite the very
+#@markdown bases the junctions depend on.
+from clippr import DESTINATION_OVERHANGS, design_oneshot
+from IPython.display import HTML, display
+
+result = design_oneshot(
+    target_rna,
+    organism=organism,
+    enzyme_profile=enzyme_profile,
+    destination=DESTINATION_OVERHANGS[destination_level],
+    seed=seed,
+    outdir="clippr_output" if write_files else None,
+)
+
+qc = result["qc"]
+TONE = {"PASS": "#1a7f5a", "WARNING": "#9a6b1f", "FAIL": "#a8402c"}
+tone = TONE.get(qc["status"], "#6b7b75")
+
+
+def _stat(label, value, hint=""):
+    return (
+        f'<div style="padding:.55em .9em .6em;border-left:1px solid rgba(128,145,138,.35)">'
+        f'<div style="font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;'
+        f'opacity:.6">{label}</div>'
+        f'<div style="font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;'
+        f'margin-top:.15em">{value}</div>'
+        f'<div style="font-size:11.5px;opacity:.6">{hint}</div></div>')
+
+
+ppr_code = result["ppr_code"]
+if len(ppr_code) > 24:
+    ppr_code = ppr_code[:24] + "…"
+
+cards = "".join([
+    _stat("architecture", result["architecture"], f'{len(result["protein"])} aa protein'),
+    _stat("coding sequence", f'{len(result["cds"])} nt', ppr_code),
+    _stat("fragments", len(result["oligos"]),
+          "cuts at " + ", ".join(str(c) for c in result["cuts"])),
+    _stat("fidelity", f'{result["fidelity"]:.3f}', "predicted, not measured"),
+    _stat("GC", f'{qc["gc_pct"]:.1f}%',
+          f'windows {qc["gc_window_min"]:.0f}–{qc["gc_window_max"]:.0f}%'),
+    _stat("repeats", f'{qc["repeated_kmer_fraction"]:.1%}',
+          f'longest {qc["longest_repeat"]} nt'),
+])
+
+warn = "".join(
+    f'<div style="border-left:3px solid {TONE["WARNING"]};padding:.5em .9em;'
+    f'margin-top:.7em;font-size:13px;line-height:1.5">{w}</div>'
+    for w in result["warnings"])
+
+RULE = "1px solid rgba(128,145,138,.35)"
+card = (
+    f'<div style="font-family:ui-sans-serif,system-ui,sans-serif;border:{RULE};'
+    f'border-radius:5px;overflow:hidden;max-width:920px">'
+    f'<div style="display:flex;align-items:center;gap:.8em;padding:.7em 1em;'
+    f'border-bottom:{RULE}">'
+    f'<span style="font-family:ui-monospace,monospace;font-size:16px;font-weight:600">'
+    f'{result["target_rna"]}</span>'
+    f'<span style="background:{tone};color:#fff;font-size:11px;font-weight:700;'
+    f'letter-spacing:.07em;padding:.2em .7em;border-radius:99px">{qc["status"]}</span>'
+    f'<span style="margin-left:auto;font-size:12.5px;opacity:.65">'
+    f'{result["cost"]["total_eur"]:.2f} EUR list price · not a quote</span></div>'
+    f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">'
+    f'{cards}</div></div>{warn}')
+
+display(HTML(card))
+''', title="Design — run this"))
+
+# ---------------------------------------------------------------- fragments
+cells.append(md("""
+## The fragments to order
+
+One row per orderable piece. `oh5` and `oh3` are the four-base Golden Gate overhangs that
+join each fragment to its neighbours.
+"""))
+
+cells.append(code('''
+cols = {"fragment_id": "fragment", "assembly_order": "order", "aa_length": "residues",
+        "oligo_length": "oligo nt", "oh5_coding_site_5to3": "oh5",
+        "oh3_coding_site_5to3": "oh3"}
+table = result["oligos"][list(cols)].rename(columns=cols)
+
+table.style.hide(axis="index").set_properties(
+    subset=["oh5", "oh3"], **{"font-family": "ui-monospace, monospace"}).set_table_styles([
+        {"selector": "th", "props": [("text-align", "left"), ("font-size", "11px"),
+                                     ("letter-spacing", ".07em"), ("text-transform", "uppercase"),
+                                     ("opacity", ".65"), ("padding", ".4em .9em")]},
+        {"selector": "td", "props": [("padding", ".4em .9em"),
+                                     ("font-variant-numeric", "tabular-nums")]}])
+''', title="Fragment table"))
+
+# ---------------------------------------------------------------- audit
+cells.append(md("""
+## Why this design, and not another
+
+Every junction records the overhangs it *could* have used and what became of each:
+
+- **selected** — the one used
+- **considered** — feasible, but another scored at least as well
+- **rejected** — no synonymous codon arrangement could avoid an excluded enzyme site, so
+  that junction is *impossible* under the active profile, not merely worse
+
+`local realizations` counts the synonymous arrangements still available around a junction.
+It is reported, never used to choose — but a junction with 2 is more fragile than one with
+16, and that is worth seeing before you order.
+
+**If a design looks surprising, read this rather than trusting it.**
+"""))
+
+cells.append(code('''
+audit = result["audit"]
+print(audit.report())
+
+rejected = audit.rejected
+print(f"\\n{len(rejected)} candidate overhang(s) ruled out entirely under "
+      f"profile '{audit.enzyme_profile}'")
+for d in rejected[:8]:
+    print(f"    {d.sequence}  cut {d.junction_cut:>4d}   {d.reason}")
+if len(rejected) > 8:
+    print(f"    … and {len(rejected) - 8} more")
+if not rejected:
+    print("    (every achievable overhang was usable at every junction)")
+''', title="Design audit"))
+
+# ---------------------------------------------------------------- download
+cells.append(md("""
+## Take the files
+
+Four artefacts: the order CSV, the oligos as FASTA, the assembled gene, and an annotated
+GenBank record — every PPR repeat labelled with the base it reads — that opens directly in
+Benchling or SnapGene.
+"""))
+
+cells.append(code('''
+import os
+from IPython.display import HTML, display
+
+if not result["paths"]:
+    display(HTML('<div style="opacity:.7">Set <code>write_files</code> to True in the '
+                 'parameters cell and re-run.</div>'))
+else:
+    try:
+        from google.colab import files as colab_files
+    except ImportError:
+        colab_files = None
+
+    LABEL = {"oligo_csv": "Order sheet (CSV)", "oligo_fasta": "Oligos (FASTA)",
+             "gene_fasta": "Assembled gene (FASTA)", "genbank": "Annotated GenBank"}
+    rows = "".join(
+        f'<tr><td style="padding:.35em .9em">{LABEL.get(k, k)}</td>'
+        f'<td style="padding:.35em .9em;font-family:ui-monospace,monospace;font-size:12px;'
+        f'opacity:.7">{os.path.basename(p)}</td>'
+        f'<td style="padding:.35em .9em;text-align:right;font-variant-numeric:tabular-nums;'
+        f'opacity:.7">{os.path.getsize(p):,} B</td></tr>'
+        for k, p in result["paths"].items())
+    display(HTML(f'<table style="font-family:ui-sans-serif,system-ui,sans-serif;'
+                 f'font-size:13px;border-collapse:collapse">{rows}</table>'))
+
+    if colab_files:
+        for p in result["paths"].values():
+            colab_files.download(p)
+''', title="Download the design files"))
+
+# ---------------------------------------------------------------- library
+cells.append(md("""
+---
+
+## Designing a whole library
+
+For a set of regulators, what matters is **orthogonality**: PPRᵢ must bind UTRᵢ and not
+UTRⱼ. The matrix below is the pairwise distance between targets — larger is better
+separated. Targets that sit close together risk one PPR binding another's UTR.
+
+> `orthogonal.py` is a **capability, not a validated result**. Every other part of this
+> package is checked against a 200-design corpus; this one has unit tests only, because no
+> ground truth for it exists.
+"""))
+
+cells.append(code('''
+targets = "AAAAUGUGG, GCUAAAGAC, UUACACGUG"  #@param {type:"string"}
+
+from clippr import crosstalk_report
+
+target_list = [t.strip().upper() for t in targets.split(",") if t.strip()]
+print(crosstalk_report(target_list))
+print()
+for t in target_list:
+    r = design_oneshot(t, organism=organism, enzyme_profile=enzyme_profile, seed=seed)
+    print(f"{t}   {r['qc']['status']:8s} {len(r['oligos'])} fragments   "
+          f"fidelity {r['fidelity']:.3f}")
+''', title="Library cross-talk check"))
+
+nb = {
+    "cells": cells,
+    "metadata": {
+        "colab": {"provenance": [], "toc_visible": True, "name": "CLIPPR_designer.ipynb"},
+        "kernelspec": {"display_name": "Python 3", "name": "python3"},
+        "language_info": {"name": "python"},
+    },
+    "nbformat": 4,
+    "nbformat_minor": 0,
+}
+OUT.write_text(json.dumps(nb, indent=1, ensure_ascii=False), encoding="utf-8")
+print(f"wrote {OUT}  ({len(cells)} cells: "
+      f"{sum(1 for c in cells if c['cell_type']=='code')} code, "
+      f"{sum(1 for c in cells if c['cell_type']=='markdown')} markdown)")
