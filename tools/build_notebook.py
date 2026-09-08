@@ -10,6 +10,9 @@ from pathlib import Path
 OUT = Path("notebooks/CLIPPR_designer.ipynb")
 REPO = "SyedZainAliShah/clippr"
 COLAB = f"https://colab.research.google.com/github/{REPO}/blob/main/notebooks/CLIPPR_designer.ipynb"
+DIAGRAM = Path("notebooks/pipeline.svg")
+#: Served from the repository rather than inlined -- see pipeline_svg().
+DIAGRAM_URL = f"https://raw.githubusercontent.com/{REPO}/main/{DIAGRAM.as_posix()}"
 
 
 def md(text):
@@ -26,12 +29,20 @@ def code(text, title=None, form=True):
 cells = []
 
 
-def pipeline_svg():
-    """The pipeline as inline SVG.
+#: Single ink colour for the pipeline diagram, chosen to read on both Colab themes.
+#: Contrast is 3.3:1 on white and 4.9:1 on Colab's #202124 -- above the 3:1 the WCAG
+#: non-text threshold asks for, on both. `currentColor` cannot be used: Colab strips
+#: inline SVG from markdown, so the diagram has to be an external image, and an image has
+#: no inherited colour to take.
+INK = "#7d918a"
 
-    Every stroke and fill is `currentColor`, so the diagram inherits the notebook's text
-    colour and reads correctly on Colab's light and dark themes alike. A diagram with
-    baked-in colours is the usual way notebook graphics break in dark mode.
+
+def pipeline_svg():
+    """The pipeline diagram, as a standalone SVG file.
+
+    Written to `notebooks/pipeline.svg` and referenced by URL rather than inlined: Colab's
+    markdown sanitiser removes inline <svg> entirely, so an inlined diagram renders as
+    nothing at all.
     """
     stages = [
         ("ppr", "RNA -> protein"),
@@ -47,40 +58,42 @@ def pipeline_svg():
         x = x0 + i * (box_w + gap)
         parts.append(
             f'<rect x="{x}" y="{y}" width="{box_w}" height="52" rx="4" fill="none" '
-            f'stroke="currentColor" stroke-opacity=".35"/>'
+            f'stroke="{INK}" stroke-opacity=".5"/>'
             f'<text x="{x + box_w / 2}" y="{y + 21}" text-anchor="middle" '
             f'font-family="ui-monospace,monospace" font-size="13" font-weight="600" '
-            f'fill="currentColor">{name}</text>'
+            f'fill="{INK}">{name}</text>'
             f'<text x="{x + box_w / 2}" y="{y + 38}" text-anchor="middle" '
             f'font-family="ui-sans-serif,system-ui" font-size="10.5" '
-            f'fill="currentColor" fill-opacity=".6">{sub}</text>')
+            f'fill="{INK}" fill-opacity=".72">{sub}</text>')
         if i < len(stages) - 1:
             ax = x + box_w + 3
             parts.append(f'<path d="M{ax} {y + 26} l9 0 m-3 -3 l3 3 l-3 3" fill="none" '
-                         f'stroke="currentColor" stroke-opacity=".45" stroke-width="1.3"/>')
+                         f'stroke="{INK}" stroke-opacity=".6" stroke-width="1.3"/>')
 
     end_x = x0 + len(stages) * (box_w + gap) - gap
     # Right margin sized to the widest right-hand label ("4-7 fragments" at 12.5px),
     # which overflowed a 96px margin and was clipped.
     right_margin = 120
     label = ('font-family="ui-sans-serif,system-ui" font-size="11" '
-             'fill="currentColor" fill-opacity=".75"')
+             f'fill="{INK}" fill-opacity=".85"')
     return (
-        f'<svg viewBox="0 0 {end_x + right_margin} 122" width="100%" '
-        f'style="max-width:980px;height:auto" xmlns="http://www.w3.org/2000/svg" '
+        f'<?xml version="1.0" encoding="UTF-8"?>'
+        f'<svg viewBox="0 0 {end_x + right_margin} 122" '
+        f'width="{end_x + right_margin}" height="122" '
+        f'xmlns="http://www.w3.org/2000/svg" '
         f'role="img" aria-label="CLIPPR pipeline: target RNA through six stages to '
         f'orderable DNA">'
         f'<text x="0" y="{y + 21}" {label}>target</text>'
         f'<text x="0" y="{y + 36}" font-family="ui-monospace,monospace" font-size="12.5" '
-        f'fill="currentColor">AAAAUGUGG</text>'
+        f'fill="{INK}">AAAAUGUGG</text>'
         f'<path d="M78 {y + 26} l11 0 m-4 -3.5 l4 3.5 l-4 3.5" fill="none" '
-        f'stroke="currentColor" stroke-opacity=".45" stroke-width="1.3"/>'
+        f'stroke="{INK}" stroke-opacity=".6" stroke-width="1.3"/>'
         + "".join(parts) +
         f'<text x="{end_x + 14}" y="{y + 21}" {label}>order</text>'
         f'<text x="{end_x + 14}" y="{y + 36}" font-family="ui-sans-serif,system-ui" '
-        f'font-size="12.5" fill="currentColor">4-7 fragments</text>'
+        f'font-size="12.5" fill="{INK}">4-7 fragments</text>'
         f'<text x="{x0}" y="112" font-family="ui-sans-serif,system-ui" font-size="10.5" '
-        f'fill="currentColor" fill-opacity=".55">'
+        f'fill="{INK}" fill-opacity=".7">'
         f'overhangs are chosen before the sequence is optimised, then locked into it'
         f'</text>'
         f'</svg>')
@@ -104,7 +117,7 @@ cells.append(md(f"""
 
 <div align="center">
 
-{pipeline_svg()}
+<img src="{DIAGRAM_URL}" alt="CLIPPR pipeline: a target RNA passes through ppr, arelf, overhangs, codons, assembly and qc to become orderable DNA fragments" width="100%" style="max-width:980px">
 
 </div>
 
@@ -390,7 +403,9 @@ nb = {
     "nbformat": 4,
     "nbformat_minor": 0,
 }
+DIAGRAM.write_text(pipeline_svg(), encoding="utf-8")
 OUT.write_text(json.dumps(nb, indent=1, ensure_ascii=False), encoding="utf-8")
+print(f"wrote {DIAGRAM} ({DIAGRAM.stat().st_size} B)")
 print(f"wrote {OUT}  ({len(cells)} cells: "
       f"{sum(1 for c in cells if c['cell_type']=='code')} code, "
       f"{sum(1 for c in cells if c['cell_type']=='markdown')} markdown)")
