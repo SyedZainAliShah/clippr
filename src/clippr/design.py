@@ -168,6 +168,7 @@ def design_oneshot(
     enzyme_profile: str | tuple[str, ...] = C.DEFAULT_ENZYME_PROFILE,
     matrix: str = "BsaI-HFv2",
     seed: int = 42,
+    check_offtarget: bool = True,
     outdir: str | Path | None = None,
 ) -> dict:
     """Design a complete PPR binder for `target_rna`, ready to order.
@@ -240,9 +241,28 @@ def design_oneshot(
                                          genetic_code, enzyme, destination)),
         }
 
+    # Does the target also occur in the host? A PPR cannot tell which copy you meant, so
+    # an endogenous occurrence is a specificity problem no amount of assembly quality
+    # fixes. Measured: 48% of random 9-nt targets occur in the Chlamydomonas chloroplast
+    # genome; 14-nt and 19-nt targets essentially never do.
+    offtarget = None
+    if check_offtarget:
+        try:
+            from .offtarget import scan as _scan
+            offtarget = _scan(d["target_rna"], max_mismatches=1)
+        except Exception as exc:
+            offtarget = {"verdict": "not checked", "error": f"{type(exc).__name__}: {exc}",
+                         "n_exact": None, "n_near": None}
+
     warnings = list(qc["warnings"])
     if not opt["constraints_ok"]:
         warnings.append("codon optimiser could not satisfy every constraint")
+    if offtarget and offtarget.get("n_exact"):
+        warnings.append(
+            f"this target occurs {offtarget['n_exact']}x in the host chloroplast genome, "
+            f"so the PPR has endogenous RNA to bind as well as your construct. A longer "
+            f"target is the reliable fix: 14-nt and 19-nt targets essentially never occur."
+        )
     backbone = set_fidelity([dest[0], _rc(dest[1])], matrix)
     if backbone < 0.95:
         warnings.append(
@@ -288,6 +308,7 @@ def design_oneshot(
         "fragments": fragments,
         "oligos": oligos,
         "qc": qc,
+        "offtarget": offtarget,
         "fidelity": fidelity,
         "cost": cost,
         "constraints_ok": opt["constraints_ok"],

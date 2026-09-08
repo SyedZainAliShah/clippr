@@ -63,6 +63,40 @@ class DesignAudit:
     def rejected(self) -> tuple[OverhangDecision, ...]:
         return tuple(d for d in self.overhang_decisions if d.status == "rejected")
 
+    def to_dataframe(self):
+        """The decision record as a table, one row per candidate overhang.
+
+        Every row carries the design-level context as well as the decision, so a single
+        exported file is self-contained -- a lab notebook entry should not depend on
+        remembering which profile was active when it was made.
+        """
+        import pandas as pd
+
+        return pd.DataFrame([{
+            "target_rna": self.target_rna,
+            "architecture": self.architecture,
+            "enzyme_profile": self.enzyme_profile,
+            "enzymes_excluded": " ".join(self.enzymes_excluded),
+            "genetic_code": self.genetic_code,
+            "organism": self.organism,
+            "junction_cut": d.junction_cut,
+            "overhang": d.sequence,
+            "status": d.status,
+            "reason": d.reason,
+            "local_realizations": d.local_realizations,
+            "reaction_fidelity": self.fidelity,
+            "qc_status": self.qc_status,
+        } for d in self.overhang_decisions])
+
+    def write_csv(self, path) -> str:
+        """Write the decision record for a lab notebook or a submission appendix."""
+        from pathlib import Path
+
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        self.to_dataframe().to_csv(p, index=False)
+        return str(p)
+
     def report(self) -> str:
         """A readable account of the design decisions, for a person."""
         lines = [

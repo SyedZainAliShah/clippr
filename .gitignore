@@ -35,3 +35,6 @@ CLAUDE.md
 validation/compare_ppr.py
 validation/sweep_reference.py
 tests/test_no_reference_import.py
+
+# Fetched genomes, cached on first use
+data/genomes/

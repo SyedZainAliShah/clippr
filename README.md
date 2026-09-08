@@ -86,10 +86,49 @@ everywhere" emits the same DNA once per repeat. Measured across 9S–19S targets
 Costs about 6% codon adaptation. Across 200 designs, 197 come out with no repeated 20-mer.
 Uniquifying is an *objective*, not a constraint, so it cannot be promised.
 
-**3. Its synthesis QC actually discriminates.** The baseline flagged WARNING on 200 of 200
+**3. It checks the host genome.** A PPR cannot tell which copy of a sequence you meant.
+Measured against the *Chlamydomonas* chloroplast genome (203,828 bp, 34.5% GC), over 200
+random targets of each length:
+
+| target length | occurs somewhere in the host |
+|---|---|
+| **9 nt** | **97 of 200 — 48%** |
+| 14 nt | 0 of 200 |
+| 19 nt | 0 of 200 |
+
+A nine-base sequence is not rare enough in a 204 kb genome. Every design is checked, and a
+flagged target is warned about with the fix: a longer target. Occurrence is a *necessary*
+condition for off-target binding, not a sufficient one — this reports sequence, not
+affinity.
+
+**4. Its synthesis QC actually discriminates.** The baseline flagged WARNING on 200 of 200
 designs — a verdict that never varies carries no information. The same sequences here split
 12 PASS / 83 WARNING / 105 FAIL, with every threshold documented by the percentile it sits
 at.
+
+## Designing a whole library
+
+Fifty regulators is not fifty designs in fifty folders — it is one order sheet.
+
+```python
+from clippr import design_library
+
+lib = design_library(my_targets, outdir="library")
+print(lib.summary())
+```
+
+```
+library of 50 designs
+  fragments      212 across all designs, 54,900 bases
+  pooled cost    109.00 EUR as one pool, versus 5450.00 separately — 5341.00 EUR saved
+  QC             48 PASS, 2 WARNING
+  closest targets UUACACGUG/ACGUACGUA differ at 5
+```
+
+An oligo pool is priced per pool, essentially flat across these sizes, so ordering a
+library as one pool rather than fifty is the single largest cost decision in the workflow.
+`write_library` emits a combined order sheet, a vendor-ready oPool CSV, a QC table, one
+GenBank per design, and the cross-talk matrix.
 
 ## Constraints are declared, not assumed
 

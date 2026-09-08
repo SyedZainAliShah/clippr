@@ -36,6 +36,8 @@ from .codons import (
 )
 from .audit import DesignAudit, OverhangDecision
 from .design import ORGANISMS, design_oneshot
+from .library import LibraryResult, design_library, write_library
+from .offtarget import architecture_advice, load_genome, scan
 from .policy import DEFAULT_ENZYME_PROFILE, ENZYME_PROFILES, ENZYME_ROLES, enzymes_for
 from .qc import DEFAULT_THRESHOLDS, synthesis_qc
 from .export import (
@@ -99,6 +101,8 @@ __all__ = [
     "opool_quote", "write_fasta", "write_gene_fasta", "write_genbank", "write_oligo_csv",
     "DEFAULT_THRESHOLDS", "synthesis_qc",
     "ORGANISMS", "design_oneshot", "balanced_cuts",
+    "LibraryResult", "design_library", "write_library",
+    "architecture_advice", "load_genome", "scan",
     "DesignAudit", "OverhangDecision", "realization_count", "safe_overhangs",
     "DEFAULT_ENZYME_PROFILE", "ENZYME_PROFILES", "ENZYME_ROLES", "enzymes_for",
     "best_set", "enumerate_candidates", "fidelity_components", "load_matrix",

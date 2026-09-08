@@ -192,10 +192,16 @@ enzyme_profile = "igem_rfc1000"  #@param ["assembly", "igem_rfc1000", "moclo_com
 #@markdown ### Destination vector level
 destination_level = "level0"  #@param ["level_minus1", "level0", "level1"]
 
+#@markdown ### Fragments
+#@markdown How many pieces to split the gene into. Leave at 0 to let the length decide —
+#@markdown set it only if your vendor has an awkward limit.
+n_fragments = 0  #@param {type:"integer"}
+
 #@markdown ### Reproducibility
 #@markdown The same seed always gives the same design.
 seed = 42  #@param {type:"integer"}
 write_files = True  #@param {type:"boolean"}
+check_offtarget = True  #@param {type:"boolean"}
 ''', title="Design parameters — edit these"))
 
 # ---------------------------------------------------------------- design + results
@@ -211,7 +217,9 @@ result = design_oneshot(
     organism=organism,
     enzyme_profile=enzyme_profile,
     destination=DESTINATION_OVERHANGS[destination_level],
+    n_fragments=n_fragments or None,
     seed=seed,
+    check_offtarget=check_offtarget,
     outdir="clippr_output" if write_files else None,
 )
 
@@ -365,6 +373,46 @@ else:
 ''', title="Download the design files"))
 
 # ---------------------------------------------------------------- library
+# ---------------------------------------------------------------- off-target
+cells.append(md("""
+## Does this target also exist in the chloroplast?
+
+A PPR cannot tell which copy of a sequence you meant. If your target also occurs in an
+endogenous chloroplast transcript, the protein binds there too and stops being specific to
+your construct.
+
+**This is a length problem, and the numbers are stark.** The *Chlamydomonas* chloroplast
+genome is 203,828 bases and 34.5% GC. Measured over 200 random targets of each length:
+
+| target length | occur somewhere in the host |
+|---|---|
+| **9 nt** | **97 of 200 — 48%** |
+| 14 nt | 0 of 200 |
+| 19 nt | 0 of 200 |
+
+A nine-base sequence is simply not rare enough in a 204 kb genome. If you need a 9S design,
+check it; if a target comes back flagged, lengthening it is the reliable fix.
+
+Occurrence is a *necessary* condition for off-target binding, not a sufficient one — this
+reports sequence, not affinity.
+"""))
+
+cells.append(code('''
+from clippr.offtarget import architecture_advice, load_genome, report, scan
+
+genome = load_genome()
+gc = 100 * (genome.count("G") + genome.count("C")) / len(genome)
+print(f"host: Chlamydomonas reinhardtii chloroplast, {len(genome):,} bp, {gc:.1f}% GC")
+print()
+
+print("expected occurrences by chance, for an average target:")
+for n, e in architecture_advice(genome).items():
+    print(f"  {n:>2}-nt target : {e:8.3f}")
+
+print()
+print(report([scan(target_rna, genome, max_mismatches=1)]))
+''', title="Off-target check — does the host already contain this sequence?"))
+
 cells.append(md("""
 ---
 
@@ -382,16 +430,24 @@ separated. Targets that sit close together risk one PPR binding another's UTR.
 cells.append(code('''
 targets = "AAAAUGUGG, GCUAAAGAC, UUACACGUG"  #@param {type:"string"}
 
-from clippr import crosstalk_report
+from clippr import design_library
 
 target_list = [t.strip().upper() for t in targets.split(",") if t.strip()]
-print(crosstalk_report(target_list))
+lib = design_library(target_list, codon_table=None, organism=organism,
+                     enzyme_profile=enzyme_profile, seed=seed,
+                     check_offtarget=check_offtarget,
+                     outdir="clippr_library" if write_files else None,
+                     on_progress=lambda i, n, t: print(f"  {i}/{n}  {t}", flush=True))
+
 print()
-for t in target_list:
-    r = design_oneshot(t, organism=organism, enzyme_profile=enzyme_profile, seed=seed)
-    print(f"{t}   {r['qc']['status']:8s} {len(r['oligos'])} fragments   "
-          f"fidelity {r['fidelity']:.3f}")
-''', title="Library cross-talk check"))
+print(lib.summary())
+print()
+print(lib.crosstalk())
+''', title="Design the whole library"))
+
+cells.append(code('''
+lib.qc_table()
+''', title="Library QC table"))
 
 nb = {
     "cells": cells,
