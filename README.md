@@ -119,7 +119,7 @@ Checked against a fixed 200-design reference corpus:
 | Codon constraints, independently verified | **200/200** |
 | End-to-end pipeline | **200/200, zero exceptions, seed-reproducible** |
 
-Plus 291 unit tests, including an exhaustive comparison of the overhang feasibility filter
+Plus 283 unit tests, including an exhaustive comparison of the overhang feasibility filter
 against an independently written brute-force oracle.
 
 ```bash
@@ -139,7 +139,7 @@ Every constant traces to a primary published source, not to any other implementa
   supplementary tables by `tools/derive_scaffold.py`, which assembles the deposited
   modules per the published recipe;
 - ligation matrices come from the Pryor et al. (2020) supplement directly, and ship with
-  the package (see [LICENSE](LICENSE) for their attribution);
+  the package (see [NOTICE.md](NOTICE.md) for their attribution);
 - `biology.py`, `assembly_spec.py` and `policy.py` separate published fact from assembly
   mechanics from this project's own choices, so a reader can tell which is which.
 
@@ -157,5 +157,6 @@ Every constant traces to a primary published source, not to any other implementa
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE), which also lists the third-party data redistributed with the
-package and its attribution.
+MIT — see [LICENSE](LICENSE). [NOTICE.md](NOTICE.md) records the third-party data that
+ships with the package, its attribution, and the published sources every scientific
+constant derives from.

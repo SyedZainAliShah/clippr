@@ -19,21 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Third-party data redistributed with this package
-------------------------------------------------
-
-data/matrices/BsaI-HFv2.xlsx, data/matrices/BbsI-HF.xlsx
-    Supplementary Tables S1 and S4 of Pryor JM et al. (2020), "Enabling one-pot
-    Golden Gate assemblies of unprecedented complexity using data-optimized
-    assembly design", PLoS ONE 15(9):e0238592. PLoS ONE publishes under
-    CC BY 4.0; redistributed here with attribution. Required at runtime — the
-    package cannot score ligation fidelity without them.
-
-Scaffold constants in src/clippr/biology.py and src/clippr/scaffold.json are
-derived from Farley KV et al. (2025), Nucleic Acids Research,
-doi:10.1093/nar/gkaf1169, and its supplementary tables. They were assembled
-from the deposited modules per the published recipe by tools/derive_scaffold.py.
-No third-party implementation was consulted or copied.
