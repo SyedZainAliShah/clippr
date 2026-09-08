@@ -266,6 +266,7 @@ def optimize_cds(
     gc_window: int = 50,
     max_homopolymer: int = 4,
     unique_kmer_size: int | None = 20,
+    avoid_sequences: Sequence[str] = (),
 ) -> dict:
     """Design a coding sequence for `protein` under the assembly's constraints.
 
@@ -274,6 +275,8 @@ def optimize_cds(
     `overhangs.best_set` has picked them. `codon_table` is required: see the module
     docstring for why there is no default. `unique_kmer_size` defaults to 20 for the
     repeat reasons in the module docstring; pass `None` to optimise codons alone.
+    `avoid_sequences` forbids specific DNA verbatim, which is how `homology.py` stops
+    library members from sharing their scaffold sequence.
 
     Returns `{'cds', 'constraints_ok', 'summary', 'objectives_score'}`. A design that
     cannot satisfy every constraint is returned with `constraints_ok=False` and the
@@ -317,6 +320,14 @@ def optimize_cds(
                     for e in C.enzymes_for(enzymes)]
     constraints += [dc.AvoidPattern(dc.HomopolymerPattern(b, max_homopolymer + 1))
                     for b in "ACGT"]
+
+    # Sequences this design must not reproduce verbatim. Used to break DNA shared with other
+    # members of a library: the scaffold regions are protein-identical across members, so
+    # without this pressure every member receives the same codons there. See `homology.py`.
+    for pattern in avoid_sequences or ():
+        pattern = str(pattern).upper().replace("U", "T")
+        if pattern:
+            constraints.append(dc.AvoidPattern(pattern))
 
     for start, locked in (locked_sites or {}).items():
         locked = str(locked).upper().replace("U", "T")

@@ -78,12 +78,18 @@ def _resolve_codon_table(codon_table, organism: str, genetic_code: int):
 
 
 def _plan_fragments(protein: str, n_fragments: int, destination, matrix: str,
-                    enzyme_profile=C.DEFAULT_ENZYME_PROFILE):
+                    enzyme_profile=C.DEFAULT_ENZYME_PROFILE,
+                    want: int | None = None):
     """Pick cut positions and their overhangs together, best balance first.
 
     Returns (cuts, overhangs, fidelity). Stops at the first split whose reaction reaches
     the metric's ceiling; otherwise returns the best seen within `SPLIT_BUDGET`.
+
+    `want` is how many ceiling-scoring plans to collect before stopping, defaulting to
+    `OPTIMISE_ATTEMPTS`. `design_oneshot` leaves it alone so its behaviour is unchanged;
+    `search.explore` raises it, because three plans is barely a search.
     """
+    want = OPTIMISE_ATTEMPTS if want is None else want
     splits = balanced_cuts(protein, n_fragments, MIN_FRAGMENT_AA, MAX_FRAGMENT_AA,
                            limit=SPLIT_BUDGET)
     if not splits:
@@ -119,7 +125,7 @@ def _plan_fragments(protein: str, n_fragments: int, destination, matrix: str,
         # Enough plans already at the ceiling: nothing later can score better, and each
         # extra split costs a full overhang enumeration. Scoring all of them regressed a
         # 19S design from 6 s to 190 s.
-        if sum(1 for _, _, s in out if s >= ceiling - 1e-12) >= OPTIMISE_ATTEMPTS:
+        if sum(1 for _, _, s in out if s >= ceiling - 1e-12) >= want:
             break
     if not out:
         raise ValueError("no split produced a valid overhang set")
@@ -130,6 +136,24 @@ def _plan_fragments(protein: str, n_fragments: int, destination, matrix: str,
 
 def _rc(seq: str) -> str:
     return seq.upper().translate(str.maketrans("ACGT", "TGCA"))[::-1]
+
+
+def plan_candidates(protein: str, n_fragments: int, destination, matrix: str,
+                    enzyme_profile=C.DEFAULT_ENZYME_PROFILE, want: int | None = None):
+    """Every assembly plan this design would consider, best predicted fidelity first.
+
+    `design_oneshot` walks this list and keeps the first plan whose coding sequence
+    satisfies every constraint, so everything after that point is discarded unexamined.
+    Exposed because those discarded plans are exactly what `search.py` needs in order to
+    answer "is the chosen design good relative to what was available?" — and reusing the
+    same enumeration guarantees the search explores the real alternatives rather than a
+    separately generated set that might differ.
+
+    Returns `(plans, ceiling)` where each plan is `(cuts, overhangs, fidelity)` and
+    `ceiling` is the best fidelity the destination pair permits. `want` widens the
+    enumeration past the three plans `design_oneshot` needs.
+    """
+    return _plan_fragments(protein, n_fragments, destination, matrix, enzyme_profile, want)
 
 
 def _overhang_decisions(protein, cuts, chosen, profile) -> list[OverhangDecision]:
@@ -174,6 +198,8 @@ def design_oneshot(
     matrix: str = "BsaI-HFv2",
     seed: int = 42,
     check_offtarget: bool = True,
+    avoid_sequences: tuple[str, ...] = (),
+    lock_prefix: str = "",
     outdir: str | Path | None = None,
 ) -> dict:
     """Design a complete PPR binder for `target_rna`, ready to order.
@@ -184,6 +210,12 @@ def design_oneshot(
     Returns the protein, the coding sequence, the oligo table, the QC verdict, the
     predicted ligation fidelity, a cost estimate and -- when `outdir` is given -- the
     paths written.
+
+    `avoid_sequences` forbids specific DNA verbatim, and `lock_prefix` fixes the first bases
+    of the coding sequence to a given synonymous encoding. Both exist so
+    `homology.diversify_library` can stop library members from sharing their scaffold
+    sequence, and both default to nothing, so a design that does not ask for them is
+    unaffected.
     """
     d = describe(target_rna)
     protein, architecture = d["aa_sequence"], d["architecture"]
@@ -215,9 +247,20 @@ def design_oneshot(
     attempt = fallback = None
     for cuts, overhangs, fidelity in plans[:OPTIMISE_ATTEMPTS]:
         locked = {3 * c - 4: o for c, o in zip(cuts, overhangs)}
+        if lock_prefix:
+            prefix = str(lock_prefix).upper().replace("U", "T")
+            # Overlapping a junction overhang would give DNA Chisel two EnforceSequence
+            # constraints on the same bases; if they disagreed the design would fail with a
+            # message about neither of them. Refuse up front instead.
+            clash = [s for s in locked if s < len(prefix)]
+            if clash:
+                raise ValueError(
+                    f"lock_prefix covers {len(prefix)} nt but a junction overhang is locked "
+                    f"at {min(clash)}; they would conflict")
+            locked[0] = prefix
         opt = optimize_cds(protein, locked_sites=locked, codon_table=table,
                            genetic_code=genetic_code, seed=seed,
-                           enzymes=enzyme_profile)
+                           enzymes=enzyme_profile, avoid_sequences=avoid_sequences)
         if opt["constraints_ok"]:
             attempt = (cuts, overhangs, fidelity, opt)
             break
@@ -342,4 +385,13 @@ def design_oneshot(
         "constraints_ok": opt["constraints_ok"],
         "warnings": warnings,
         "paths": paths,
+        # The resolved inputs, not the requested ones. `organism` names a table but
+        # `codon_table` may override it, and `extra_blacklist` is merged into the profile,
+        # so a caller cannot reconstruct either from its own arguments. Reported so a design
+        # can be reproduced exactly, and so `search.py` can re-optimise under identical
+        # settings rather than re-deriving them.
+        "codon_table": table,
+        "genetic_code": genetic_code,
+        "enzyme_profile_effective": tuple(C.enzymes_for(enzyme_profile)),
+        "n_fragments": n_fragments,
     }
