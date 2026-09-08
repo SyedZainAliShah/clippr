@@ -32,6 +32,7 @@ from .codons import (
     optimize_cds,
     table_from_cds_fasta,
     table_from_csv,
+    table_from_genome,
     table_from_kazusa,
 )
 from .audit import DesignAudit, OverhangDecision
@@ -95,7 +96,7 @@ __all__ = [
     "achievable_overhangs", "candidate_cuts", "cut_context", "find_motifs",
     "offsets_from_motif", "tunable_cuts",
     "BLACKLIST_ENZYMES", "CHLAMYDOMONAS_TAXID", "complete_table", "optimize_cds",
-    "table_from_cds_fasta", "table_from_csv", "table_from_kazusa",
+    "table_from_cds_fasta", "table_from_csv", "table_from_genome", "table_from_kazusa",
     "Fragment", "build_oligos", "enzyme_geometry", "reassemble", "split_cds",
     "wrap_fragment",
     "opool_quote", "write_fasta", "write_gene_fasta", "write_genbank", "write_oligo_csv",

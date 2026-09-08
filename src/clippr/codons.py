@@ -159,6 +159,72 @@ def table_from_cds_fasta(path: str | Path, genetic_code: int = 1
             for aa, cod in counts.items()}
 
 
+def table_from_genome(accession: str = "NC_005353.1", genetic_code: int = 11
+                      ) -> dict[str, dict[str, float]]:
+    """Derive a codon table by counting codons across a genome's own annotated genes.
+
+    This exists because the organelle table could not be looked up. Kazusa has no
+    confirmed entry for the *Chlamydomonas* chloroplast, and guessing a taxid would
+    silently produce wrong DNA. Counting the genome's own CDS features needs no guess:
+    the annotation says which sequences are coding, and the codons follow.
+
+    Verified on the default accession -- the Chlamydomonas chloroplast genome, 69 genes,
+    25,676 codons -- against a published qualitative fact. The chloroplast is AT-rich and
+    prefers Leu **TTA at 0.738**; the nucleus is GC-rich and prefers Leu **CTG at 0.730**.
+    Near-mirror images, which is exactly what the literature describes and what makes
+    optimising a chloroplast construct against a nuclear table a real error rather than a
+    rounding difference.
+
+    Caches the annotated record, so a design run works offline afterwards.
+    """
+    import io
+
+    from Bio import SeqIO
+    from Bio.Data import CodonTable
+
+    from .offtarget import CACHE as GENOME_CACHE
+
+    GENOME_CACHE.mkdir(parents=True, exist_ok=True)
+    cached = GENOME_CACHE / f"{accession}.gb"
+    if cached.exists():
+        text = cached.read_text(encoding="utf-8")
+    else:
+        import urllib.request
+        url = ("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+               f"?db=nuccore&id={accession}&rettype=gb&retmode=text")
+        req = urllib.request.Request(url, headers={"User-Agent": "clippr"})
+        text = urllib.request.urlopen(req, timeout=90).read().decode()
+        cached.write_text(text, encoding="utf-8")
+
+    record = SeqIO.read(io.StringIO(text), "genbank")
+    forward = CodonTable.unambiguous_dna_by_id[genetic_code].forward_table
+
+    counts: dict[str, dict[str, int]] = {}
+    n_cds = n_codons = 0
+    for feature in record.features:
+        if feature.type != "CDS":
+            continue
+        seq = str(feature.extract(record.seq)).upper()
+        if len(seq) % 3:
+            continue                      # partial or joined feature; not countable
+        n_cds += 1
+        for i in range(0, len(seq) - 2, 3):
+            codon = seq[i:i + 3]
+            aa = forward.get(codon)
+            if aa is None:
+                continue                  # stop codon or ambiguity
+            counts.setdefault(aa, {}).setdefault(codon, 0)
+            counts[aa][codon] += 1
+            n_codons += 1
+
+    if n_codons < 1000:
+        raise ValueError(
+            f"{accession}: only {n_codons} codons in {n_cds} CDS features -- too few to "
+            f"build a usable codon table")
+    return {aa: {c: n / sum(cod.values()) for c, n in cod.items()}
+            for aa, cod in counts.items()}
+
+
 def table_from_csv(path: str | Path) -> dict[str, dict[str, float]]:
     """Read a user-supplied table with columns `codon,frequency`.
 

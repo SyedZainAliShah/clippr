@@ -22,7 +22,8 @@ from .arelf import (achievable_overhangs, balanced_cuts, realization_count,
                     safe_overhangs)
 from .audit import DesignAudit, OverhangDecision
 from .assembly import build_oligos, split_cds
-from .codons import optimize_cds, table_from_cds_fasta, table_from_csv, table_from_kazusa
+from .codons import (optimize_cds, table_from_cds_fasta, table_from_csv,
+                     table_from_genome, table_from_kazusa)
 from .export import (opool_quote, write_fasta, write_gene_fasta, write_genbank,
                      write_oligo_csv)
 from .overhangs import (best_set, enumerate_candidates, fidelity_components,
@@ -66,11 +67,14 @@ def _resolve_codon_table(codon_table, organism: str, genetic_code: int):
     if organism not in ORGANISMS:
         raise ValueError(
             f"unknown organism {organism!r}; known: {sorted(ORGANISMS)}. For any other "
-            f"host -- including the Chlamydomonas chloroplast -- pass codon_table= a CDS "
-            f"FASTA or CSV together with the right genetic_code."
+            f"host, pass codon_table= a CDS FASTA or CSV together with the right "
+            f"genetic_code."
         )
-    taxid, _ = ORGANISMS[organism]
-    return table_from_kazusa(taxid)
+    source, _ = ORGANISMS[organism]
+    # An int is a Kazusa lookup; a str is a genome accession whose annotated genes are
+    # counted. Organelles take the second path because Kazusa has no entry for them.
+    return (table_from_genome(source, genetic_code) if isinstance(source, str)
+            else table_from_kazusa(source))
 
 
 def _plan_fragments(protein: str, n_fragments: int, destination, matrix: str,
@@ -166,6 +170,7 @@ def design_oneshot(
     destination: tuple[str, str] | None = None,
     enzyme: str = "BsaI",
     enzyme_profile: str | tuple[str, ...] = C.DEFAULT_ENZYME_PROFILE,
+    extra_blacklist: tuple[str, ...] | str = (),
     matrix: str = "BsaI-HFv2",
     seed: int = 42,
     check_offtarget: bool = True,
@@ -189,6 +194,15 @@ def design_oneshot(
 
     if n_fragments is None:
         n_fragments = max(1, -(-len(protein) // MAX_FRAGMENT_AA))
+
+    # A profile says which sites this project always excludes. `extra_blacklist` is for
+    # the site a particular experiment needs clear -- an EcoRI in a downstream vector, say
+    # -- which is a property of that experiment, not of CLIPPR's policy, so it is added
+    # here rather than becoming a new profile.
+    if extra_blacklist:
+        extra = (tuple(e.strip() for e in extra_blacklist.split(",") if e.strip())
+                 if isinstance(extra_blacklist, str) else tuple(extra_blacklist))
+        enzyme_profile = tuple(dict.fromkeys(C.enzymes_for(enzyme_profile) + extra))
 
     plans, _ceiling = _plan_fragments(protein, n_fragments, destination, matrix,
                                       enzyme_profile)

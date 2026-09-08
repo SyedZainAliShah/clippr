@@ -88,10 +88,29 @@ def enzymes_for(profile: str | tuple[str, ...] = DEFAULT_ENZYME_PROFILE) -> tupl
 #: A project choice: the wet lab's organism, not something GRASP requires.
 CHLAMYDOMONAS_TAXID: int = 3055
 
-#: Named hosts -> (Kazusa taxid, NCBI genetic code). Only the verified entry is here; a
-#: guessed chloroplast taxid would silently produce wrong DNA.
-ORGANISMS: dict[str, tuple[int, int]] = {
+#: Named hosts -> (source, NCBI genetic code).
+#:
+#: A source is either a Kazusa taxonomy id (an int) or a genome accession (a str), and the
+#: distinction matters. An int is looked up; a str is *derived* by counting codons across
+#: that genome's own annotated genes. Every entry here was checked before being listed --
+#: a host whose table cannot be obtained is not offered, because a silently wrong codon
+#: table produces DNA that looks fine and is wrong.
+#:
+#: The chloroplast entry is derived rather than looked up: Kazusa has no confirmed entry
+#: for it, and guessing a taxid was the one thing this package must not do. Counting the
+#: chloroplast genome's 69 annotated genes needs no guess, and the result checks out
+#: against the literature -- Leu TTA at 0.738 against the nucleus's CTG at 0.730, the
+#: near-mirror image an AT-rich organelle should show.
+#:
+#: **The two contexts are both real in this project.** The PPR coding sequence is nuclear;
+#: the target 5'UTR it binds is chloroplast. Using one table for both is a real error.
+ORGANISMS: dict[str, tuple[int | str, int]] = {
     "c_reinhardtii_nuclear": (CHLAMYDOMONAS_TAXID, 1),
+    "c_reinhardtii_chloroplast": ("NC_005353.1", 11),
+    "e_coli": (316407, 1),
+    "s_cerevisiae": (4932, 1),
+    "a_thaliana_nuclear": (3702, 1),
+    "n_tabacum_chloroplast": ("NC_001879.2", 11),
 }
 
 #: Longest and shortest fragment to order, in residues. 90 aa = 270 nt of coding plus

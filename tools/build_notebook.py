@@ -180,7 +180,25 @@ cells.append(code('''
 target_rna = "AAAAUGUGG"  #@param {type:"string"}
 
 #@markdown ### Host
-organism = "c_reinhardtii_nuclear"  #@param ["c_reinhardtii_nuclear"]
+#@markdown The genetic code follows automatically — nuclear hosts use table 1, chloroplasts
+#@markdown table 11. **The two Chlamydomonas entries are not interchangeable:** the nucleus
+#@markdown is GC-rich and prefers Leu `CTG` (0.73); the chloroplast is AT-rich and prefers
+#@markdown Leu `TTA` (0.74). Using one for the other produces DNA that looks fine and is wrong.
+organism = "c_reinhardtii_nuclear"  #@param ["c_reinhardtii_nuclear", "c_reinhardtii_chloroplast", "e_coli", "s_cerevisiae", "a_thaliana_nuclear", "n_tabacum_chloroplast"]
+
+#@markdown ### Or bring your own codon usage
+#@markdown Three ways, in order of precedence. Leave all blank to use the host above.
+#@markdown
+#@markdown **A file** — a `codon,frequency` CSV or a CDS FASTA. Upload it with the folder
+#@markdown icon in the sidebar, or run the upload cell below, then put the filename here.
+codon_table_file = ""  #@param {type:"string"}
+#@markdown **A Kazusa species ID** — any NCBI taxonomy id Kazusa carries, e.g. `4577` for
+#@markdown maize. Fetched and cached on first use.
+kazusa_taxid = 0  #@param {type:"integer"}
+#@markdown **The genetic code** to go with a table you supplied. Leave 0 to inherit from
+#@markdown the host. Set 11 for anything organellar — a nuclear code on a chloroplast
+#@markdown construct produces DNA that looks fine and is wrong.
+genetic_code_override = 0  #@param {type:"integer"}
 
 #@markdown ### Which enzyme sites must be absent
 #@markdown `assembly` — this assembly's own chemistry (BsaI, BbsI)
@@ -189,8 +207,24 @@ organism = "c_reinhardtii_nuclear"  #@param ["c_reinhardtii_nuclear"]
 #@markdown a preference that can make some junctions infeasible
 enzyme_profile = "igem_rfc1000"  #@param ["assembly", "igem_rfc1000", "moclo_compat"]
 
+#@markdown **Extra sites to keep clear** — anything else this particular experiment needs
+#@markdown absent, beyond the profile. Comma-separated, any name Biopython knows.
+#@markdown Examples: `EcoRI, BamHI, HindIII, NotI`.
+extra_blacklist = ""  #@param {type:"string"}
+
+#@markdown ### Assembly
+#@markdown Which Type IIS enzyme cuts the fragments out, and which published mis-ligation
+#@markdown table scores the junctions. `BsaI-HFv2` and `BbsI-HF` are the two measured in
+#@markdown Pryor *et al.* 2020 at 25 °C over 18 h.
+assembly_enzyme = "BsaI"  #@param ["BsaI", "BbsI", "BsmBI", "SapI"]
+ligation_table = "BsaI-HFv2"  #@param ["BsaI-HFv2", "BbsI-HF"]
+
 #@markdown ### Destination vector level
+#@markdown Or type your own acceptor overhangs below as `5prime,3prime` coding sites —
+#@markdown they override the level. Remember the 3' entry is the **coding site**; the
+#@markdown enzyme leaves its reverse complement.
 destination_level = "level0"  #@param ["level_minus1", "level0", "level1"]
+custom_destination = ""  #@param {type:"string"}
 
 #@markdown ### Fragments
 #@markdown How many pieces to split the gene into. Leave at 0 to let the length decide —
@@ -204,19 +238,42 @@ write_files = True  #@param {type:"boolean"}
 check_offtarget = True  #@param {type:"boolean"}
 ''', title="Design parameters — edit these"))
 
+# ---------------------------------------------------------------- optional upload
+cells.append(code('''
+#@markdown Optional. Run this only if you want to upload a codon table from your computer
+#@markdown rather than type a path. It puts the file in the runtime and fills in the
+#@markdown filename for you — then re-run the Design cell.
+try:
+    from google.colab import files as _f
+    _up = _f.upload()
+    if _up:
+        codon_table_file = list(_up)[0]
+        print(f"using {codon_table_file}")
+except ImportError:
+    print("not running on Colab — put the file beside the notebook and give its path "
+          "in codon_table_file instead.")
+''', title="Upload a codon table (optional)"))
+
 # ---------------------------------------------------------------- design + results
 cells.append(code('''
 #@markdown Picks cut positions and Golden Gate overhangs **first**, then codon-optimises with
 #@markdown those positions locked — optimising first would let the optimiser rewrite the very
 #@markdown bases the junctions depend on.
-from clippr import DESTINATION_OVERHANGS, design_oneshot
+from clippr import DESTINATION_OVERHANGS, design_oneshot, table_from_kazusa
 from IPython.display import HTML, display
 
 result = design_oneshot(
     target_rna,
     organism=organism,
+    codon_table=(codon_table_file or
+                 (table_from_kazusa(kazusa_taxid) if kazusa_taxid else None)),
+    genetic_code=genetic_code_override or None,
     enzyme_profile=enzyme_profile,
-    destination=DESTINATION_OVERHANGS[destination_level],
+    extra_blacklist=extra_blacklist,
+    enzyme=assembly_enzyme,
+    matrix=ligation_table,
+    destination=(tuple(s.strip().upper() for s in custom_destination.split(",")[:2])
+                 if custom_destination else DESTINATION_OVERHANGS[destination_level]),
     n_fragments=n_fragments or None,
     seed=seed,
     check_offtarget=check_offtarget,

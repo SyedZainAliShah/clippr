@@ -101,14 +101,21 @@ class TestDeterminism:
 
 
 class TestOrganismAndTable:
-    def test_only_verified_organisms_are_named(self):
-        """A guessed chloroplast taxid would silently produce wrong DNA."""
-        assert set(ORGANISMS) == {"c_reinhardtii_nuclear"}
+    def test_every_named_organism_is_usable(self):
+        """A listed host that cannot resolve is worse than one that is not listed."""
         assert ORGANISMS["c_reinhardtii_nuclear"] == (3055, 1)
+        assert len(ORGANISMS) >= 2
+        for name, (source, code) in ORGANISMS.items():
+            assert isinstance(source, (int, str)) and code in (1, 11), name
+
+    def test_both_chlamydomonas_contexts_are_offered(self):
+        """The PPR is nuclear; the UTR it binds is chloroplast. Both are needed."""
+        assert ORGANISMS["c_reinhardtii_nuclear"][1] == 1
+        assert ORGANISMS["c_reinhardtii_chloroplast"][1] == 11
 
     def test_unknown_organism_rejected_with_guidance(self):
-        with pytest.raises(ValueError, match="chloroplast"):
-            design_oneshot("AAAAUGUGG", organism="e_coli")
+        with pytest.raises(ValueError, match="unknown organism"):
+            design_oneshot("AAAAUGUGG", organism="tyrannosaurus_rex")
 
     def test_missing_table_file_rejected(self):
         with pytest.raises(FileNotFoundError):
