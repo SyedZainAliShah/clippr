@@ -13,6 +13,12 @@ compares the two so the difference is impossible to miss.
 
 **Cross-talk is a property of the set, not of any member.** A design that is perfect alone
 is useless if another target in the same library sits one base away from it.
+
+**So is DNA homology, and it is a different risk.** Cross-talk asks whether two PPRs could bind
+each other's target; homology asks whether two *genes* share enough identical DNA to recombine.
+Every member of a PPR library carries the same scaffold, so measured on five designs every pair
+shared at least 59 nt before anything was done about it. `LibraryResult.homology` reports it and
+`homology.diversify_library` reduces it.
 """
 from __future__ import annotations
 
@@ -20,6 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .crosstalk import report as two_tier_report
 from .design import design_oneshot
 from .export import OPOOL_LIST_PRICE_EUR, PHOSPHORYLATION_EUR_PER_OLIGO
 from .orthogonal import crosstalk_report, distance
@@ -97,8 +104,22 @@ class LibraryResult:
             "list_price_not_a_quote": True,
         }
 
-    def crosstalk(self, metric: str = "uniform") -> str:
-        """Pairwise separation between targets. Only defined for one length at a time."""
+    def crosstalk(self, metric: str = "uniform", scores=None) -> str:
+        """Pairwise separation between targets. Only defined for one length at a time.
+
+        Without `scores`, a distance matrix: every pair, sequence separation only. Pass a
+        PPR specificity table (see `clippr.crosstalk.load_ppr_scores`) to get the two-tier
+        report instead -- pairs sorted by risk, annotated with predicted affinity. The
+        annotation gates nothing; separation remains the only criterion either way.
+
+        The two-tier report counts differing positions unweighted, so asking for both a
+        weighted metric and a scoring table is refused rather than silently ignoring one.
+        """
+        if scores and metric != "uniform":
+            raise ValueError(
+                f"the two-tier report uses unweighted Hamming, so metric={metric!r} "
+                f"would be ignored; call crosstalk(metric) and crosstalk(scores=...) "
+                f"separately")
         by_len: dict[int, list[str]] = {}
         for t in self.targets:
             by_len.setdefault(len(t), []).append(t)
@@ -107,8 +128,21 @@ class LibraryResult:
             if len(group) < 2:
                 continue
             blocks.append(f"{len(group)} targets of length {length}:")
-            blocks.append(crosstalk_report(group, metric))
+            blocks.append(two_tier_report(group, scores) if scores
+                          else crosstalk_report(group, metric))
         return "\n\n".join(blocks) if blocks else "fewer than two targets of any one length"
+
+    def homology(self, limit: int = 10) -> str:
+        """DNA shared between members — the recombination and synthesis risk, not RNA cross-talk.
+
+        A separate question from `crosstalk`: that one asks whether two PPRs could bind each
+        other's target, this one asks whether two *genes* share enough identical DNA to
+        recombine. Members of a PPR library share a scaffold by construction, so the answer is
+        never trivially no. See `homology.py` for what was measured.
+        """
+        from .homology import report as homology_report
+
+        return homology_report({t: r["cds"] for t, r in self.designs.items()}, limit=limit)
 
     def closest_pairs(self, limit: int = 5) -> list[tuple[str, str, int]]:
         """The pairs most at risk of cross-reacting, closest first."""
@@ -200,6 +234,7 @@ def write_library(lib: LibraryResult, outdir: str | Path) -> dict[str, str]:
     paths["genbank_dir"] = str(gb)
 
     p = out / "library_summary.txt"
-    p.write_text(lib.summary() + "\n\n" + lib.crosstalk() + "\n", encoding="utf-8")
+    p.write_text(lib.summary() + "\n\n" + lib.crosstalk() + "\n\n"
+                 + lib.homology() + "\n", encoding="utf-8")
     paths["summary"] = str(p)
     return paths

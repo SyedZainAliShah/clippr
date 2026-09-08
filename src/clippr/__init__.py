@@ -36,7 +36,31 @@ from .codons import (
     table_from_kazusa,
 )
 from .audit import DesignAudit, OverhangDecision
-from .design import ORGANISMS, design_oneshot
+from .crosstalk import (
+    SCORE_TABLE_SOURCE,
+    PairRisk,
+    assess,
+    compare_tiers,
+    load_ppr_scores,
+    predicted_affinity,
+)
+from .design import ORGANISMS, design_oneshot, plan_candidates
+from .homology import (
+    HR_THRESHOLD_NT,
+    SharedStretch,
+    diversify_library,
+    longest_shared,
+    scaffold_encoding,
+    shared_kmers,
+)
+from .search import (
+    FIDELITY_TOLERANCE,
+    Candidate,
+    certificate,
+    design_searched,
+    explore,
+    select,
+)
 from .library import LibraryResult, design_library, write_library
 from .offtarget import architecture_advice, load_genome, scan
 from .policy import DEFAULT_ENZYME_PROFILE, ENZYME_PROFILES, ENZYME_ROLES, enzymes_for
@@ -110,6 +134,12 @@ __all__ = [
     "reaction_overhangs", "reverse_complement", "set_fidelity", "valid_set",
     "POSITION_WEIGHTS", "TargetSet", "crosstalk_report", "design_orthogonal_set",
     "distance",
+    "SCORE_TABLE_SOURCE", "PairRisk", "assess", "compare_tiers", "load_ppr_scores",
+    "predicted_affinity",
+    "FIDELITY_TOLERANCE", "Candidate", "certificate", "design_searched", "explore",
+    "select", "plan_candidates",
+    "HR_THRESHOLD_NT", "SharedStretch", "diversify_library", "longest_shared",
+    "scaffold_encoding", "shared_kmers",
     "architecture_of", "code_to_protein", "code_to_rna", "describe",
     "normalize_target", "rna_to_code",
     "__version__",

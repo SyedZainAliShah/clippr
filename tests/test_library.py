@@ -78,6 +78,26 @@ class TestCrosstalk:
                                codon_table=TOY_TABLE, check_offtarget=False)
         assert mixed.closest_pairs() == []
 
+    def test_two_tier_report_when_scores_are_supplied(self, lib, tmp_path):
+        from clippr.crosstalk import load_ppr_scores
+
+        p = tmp_path / "scores.tsv"
+        p.write_text("For motif types: P\n5th/last\tA\tC\tG\tU\n"
+                     "TN\t0.70\t-0.51\t0.53\t-0.22\nNN\t-0.44\t0.77\t-0.07\t0.62\n"
+                     "TD\t0.01\t-1.0\t0.84\t-0.02\nND\t-0.53\t0.66\t0.55\t0.83\n",
+                     encoding="utf-8")
+        text = lib.crosstalk(scores=load_ppr_scores(p))
+        assert "hamming" in text and "gates nothing" in text
+
+    def test_a_weighted_metric_with_scores_is_refused_not_ignored(self, lib):
+        """The two-tier report counts positions unweighted.
+
+        Accepting both and honouring one is the silent-lie failure mode: the caller would
+        believe a weighting had been applied that never was.
+        """
+        with pytest.raises(ValueError, match="would be ignored"):
+            lib.crosstalk(metric="weighted", scores={"TN": {"A": 1.0}})
+
 
 class TestWrite:
     def test_writes_the_order_sheet_and_qc(self, lib, tmp_path):
