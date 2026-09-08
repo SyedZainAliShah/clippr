@@ -32,6 +32,29 @@ On the five designs above:
     pairs over the 50 nt threshold    10 of 10 -> 0 of 10
     proteins still correct    5 of 5
 
+**But the pairwise view alone would overstate the fix.** Fixing the worst *pair* says nothing
+about blocks carried by most of the library, which are the risk that grows with library size, so
+`block_profile` reports the library as a whole. On six designs:
+
+    measure                          before   after
+    k-mers shared by >1 member         1120     860
+    ...present in EVERY member           56       0
+    ...present in half or more           480     272
+    widest block spans                6 of 6  5 of 6
+    pairs over threshold                 15       1
+    busiest member appears in             5       1
+    members in no flagged pair            0       4
+
+So the scaffold blocks are **eliminated** -- nothing is left in all six members -- but blocks in
+five of six survive, and they decode to the *repeat template* (`GAGCTGTTCGACAAGATGCC` is
+ELFDKMP..., `CAGAACGGCCGCATTGACGA` is QNGRID...). That residue is structural rather than a
+failure of the method: the repeat template is protein-identical across every member by
+definition, and with the codon table, GC band, enzyme sites and homopolymer limits all
+constraining the choice, some codon reuse across 302 residues is unavoidable. Note also that the
+six-member run leaves one pair at 60 nt where the five-member run cleared all of them, so these
+figures move with library size and should be re-measured for the real library rather than quoted
+from here.
+
 **Two approaches that did not work, recorded so they are not retried.** Reacting to observed
 sharing is unreliable. Forbidding a whole 59-nt stretch only obliges the optimiser to change
 one base, leaving 58 nt shared. Forbidding every k-length window inside the stretch does better
@@ -143,6 +166,46 @@ def assess(cds_by_name: dict[str, str], *, k: int = KMER) -> list[SharedStretch]
     return sorted(out, key=lambda s: -s.length)
 
 
+def repeat_blocks(cds_by_name: dict[str, str], *, k: int = KMER,
+                  min_members: int = 2) -> list[tuple[str, int]]:
+    """k-mers carried by several members at once, most widely shared first.
+
+    The pairwise view can be misleading. Reducing the worst *pair* says nothing about whether a
+    handful of blocks are still present in most of the library, and a k-mer in twenty members is
+    a different problem from one in two: it is a repeat that scales with library size rather
+    than a coincidence between two designs.
+    """
+    counts: dict[str, int] = {}
+    for seq in cds_by_name.values():
+        for km in {seq[i:i + k] for i in range(len(seq) - k + 1)}:
+            counts[km] = counts.get(km, 0) + 1
+    return sorted(((km, n) for km, n in counts.items() if n >= min_members),
+                  key=lambda kv: -kv[1])
+
+
+def block_profile(cds_by_name: dict[str, str], *, k: int = KMER) -> dict:
+    """How much of the library is shared structure rather than pairwise coincidence."""
+    n_members = len(cds_by_name)
+    blocks = repeat_blocks(cds_by_name, k=k, min_members=2)
+    pairs = assess(cds_by_name, k=k)
+    over = [p for p in pairs if p.length >= HR_THRESHOLD_NT]
+    degree: dict[str, int] = {n: 0 for n in cds_by_name}
+    for p in over:
+        degree[p.a] += 1
+        degree[p.b] += 1
+    return {
+        "k": k,
+        "n_members": n_members,
+        "shared_kmers": len(blocks),
+        "in_all_members": sum(1 for _, n in blocks if n == n_members),
+        "in_half_or_more": sum(1 for _, n in blocks if n * 2 >= n_members),
+        "max_multiplicity": blocks[0][1] if blocks else 0,
+        "edges_over_threshold": len(over),
+        "max_degree": max(degree.values(), default=0),
+        "isolated_members": sum(1 for v in degree.values() if v == 0),
+    }
+
+
 def report(cds_by_name: dict[str, str], *, k: int = KMER, limit: int = 10) -> str:
     """A readable summary with the caveat attached to the numbers."""
     pairs = assess(cds_by_name, k=k)
@@ -167,6 +230,18 @@ def report(cds_by_name: dict[str, str], *, k: int = KMER, limit: int = 10) -> st
                       "the fixed scaffold rather than a chance match. `diversify_library` "
                       "can break it: the scaffold's residues are fixed but its codons are "
                       "not."]
+
+    # The pairwise view alone can mislead: fixing the worst pair says nothing about blocks
+    # carried by most of the library, which are the risk that scales with library size.
+    prof = block_profile(cds_by_name, k=k)
+    lines += ["", f"library-wide structure at k={k}:",
+              f"  {prof['shared_kmers']} k-mers appear in more than one member",
+              f"  {prof['in_all_members']} appear in every member, "
+              f"{prof['in_half_or_more']} in half or more",
+              f"  widest block spans {prof['max_multiplicity']} of "
+              f"{prof['n_members']} members",
+              f"  {prof['edges_over_threshold']} pairs over threshold; busiest member is in "
+              f"{prof['max_degree']} of them; {prof['isolated_members']} members in none"]
     lines += ["", f"A shared stretch is a necessary substrate for homologous recombination, "
                   f"not a prediction that it will happen. The {HR_THRESHOLD_NT} nt threshold "
                   f"is a rule of thumb, not a measured constant for this host."]

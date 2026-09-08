@@ -188,6 +188,25 @@ Every shared stretch began at position 0 in both members and decoded to `MQGGNSE
 already well separated. The scaffold is simply protein-identical by construction and receives
 the same codons every time.
 
+**The pairwise view alone would overstate that fix**, because reducing the worst *pair* says
+nothing about blocks carried by most of the library — the risk that grows with library size. So
+the library is also assessed as a whole. On six designs:
+
+| | before | after |
+|---|---|---|
+| 20-mers present in **every** member | 56 | **0** |
+| present in half or more | 480 | 272 |
+| widest block spans | 6 of 6 | 5 of 6 |
+| members in no flagged pair | 0 | 4 |
+
+The scaffold blocks are eliminated. Blocks in five of six members survive, and they decode to the
+**repeat template** (`GAGCTGTTCGACAAGATGCC` is ELFDKMP…). That residue is structural, not a defect
+in the method: the template is protein-identical in every member by definition, and with the codon
+table, GC band, enzyme sites and homopolymer limits all constraining the choice, some codon reuse
+across 302 residues is unavoidable. These figures also move with library size — the six-member run
+leaves one pair at 60 nt where the five-member run cleared all of them — so re-measure for the real
+library rather than quoting them.
+
 The fix is constructive. Each member gets its own synonymous encoding of the scaffold, locked in
 place — deterministic in the member index, so a library stays reproducible.
 
@@ -276,7 +295,7 @@ Checked against a fixed 200-design reference corpus:
 | Codon constraints, independently verified | **200/200** |
 | End-to-end pipeline | **200/200, zero exceptions, seed-reproducible** |
 
-Plus 429 unit tests, including an exhaustive comparison of the overhang feasibility filter
+Plus 435 unit tests, including an exhaustive comparison of the overhang feasibility filter
 against an independently written brute-force oracle.
 
 ```bash

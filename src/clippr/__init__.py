@@ -48,8 +48,10 @@ from .design import ORGANISMS, design_oneshot, plan_candidates
 from .homology import (
     HR_THRESHOLD_NT,
     SharedStretch,
+    block_profile,
     diversify_library,
     longest_shared,
+    repeat_blocks,
     scaffold_encoding,
     shared_kmers,
 )
@@ -138,8 +140,8 @@ __all__ = [
     "predicted_affinity",
     "FIDELITY_TOLERANCE", "Candidate", "certificate", "design_searched", "explore",
     "select", "plan_candidates",
-    "HR_THRESHOLD_NT", "SharedStretch", "diversify_library", "longest_shared",
-    "scaffold_encoding", "shared_kmers",
+    "HR_THRESHOLD_NT", "SharedStretch", "block_profile", "diversify_library",
+    "longest_shared", "repeat_blocks", "scaffold_encoding", "shared_kmers",
     "architecture_of", "code_to_protein", "code_to_rna", "describe",
     "normalize_target", "rna_to_code",
     "__version__",

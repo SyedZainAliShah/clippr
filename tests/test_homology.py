@@ -11,7 +11,9 @@ import pytest
 from clippr.homology import (
     HR_THRESHOLD_NT,
     assess,
+    block_profile,
     longest_shared,
+    repeat_blocks,
     report,
     scaffold_encoding,
     shared_kmers,
@@ -85,6 +87,42 @@ class TestAssess:
     def test_a_chance_match_is_not_reported_as_a_shared_start(self):
         pairs = assess({"a": "TTTT" + "ACGTACGTACGT", "b": "GGGG" + "ACGTACGTACGT"})
         assert not pairs[0].at_sequence_start
+
+
+class TestRepeatBlocks:
+    """Blocks carried by many members are a different risk from a pairwise coincidence."""
+
+    def test_counts_members_not_occurrences(self):
+        """A k-mer twice in one member is not shared; the count is over members."""
+        blocks = dict(repeat_blocks({"a": "ACGTACGTAC" * 2, "b": "TTTTTTTTTT" * 2}, k=10,
+                                    min_members=1))
+        assert blocks["ACGTACGTAC"] == 1
+
+    def test_finds_a_block_in_every_member(self):
+        shared = "ACGTTGCAACGTTGCAACGT"
+        blocks = repeat_blocks({n: shared + n * 10 for n in "abc"}, k=20)
+        assert blocks and blocks[0][1] == 3
+
+    def test_min_members_filters(self):
+        cds = {"a": "ACGTACGTACGTACGTACGT", "b": "TTTTTTTTTTTTTTTTTTTT"}
+        assert repeat_blocks(cds, k=20, min_members=2) == []
+
+    def test_profile_reports_library_wide_structure(self):
+        shared = "ACGTTGCAACGTTGCAACGT"
+        prof = block_profile({n: shared + n * 10 for n in "abcd"})
+        assert prof["n_members"] == 4
+        assert prof["in_all_members"] >= 1
+        assert prof["max_multiplicity"] == 4
+
+    def test_profile_counts_isolated_members(self):
+        """A member sharing nothing over threshold should be reported as isolated."""
+        prof = block_profile({"a": "ACGT" * 30, "b": "ACGT" * 30, "c": "TTGA" * 30})
+        assert prof["isolated_members"] >= 1
+
+    def test_report_includes_the_library_wide_section(self):
+        text = report({"a": "ACGT" * 30, "b": "ACGT" * 30})
+        assert "library-wide structure" in text
+        assert "appear in every member" in text
 
 
 class TestReport:
