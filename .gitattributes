@@ -1,0 +1,14 @@
+# Normalise text to LF in the repository, whatever the checkout platform does.
+* text=auto eol=lf
+
+# Never touch data files. Earlier in this project, autocrlf rewriting two ligation-matrix
+# CSVs once broke their SHA-256 integrity checks in a related project -- the same class
+# of failure would silently corrupt any checksum or byte-comparison we run against these.
+*.xlsx  binary
+*.npz   binary
+*.gb    binary
+data/**   -text
+results/** -text
+
+# Notebooks are JSON; keep them diffable but never line-ending-converted.
+*.ipynb -text

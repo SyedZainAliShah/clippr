@@ -1,0 +1,37 @@
+# Environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Regenerable caches. The .npz are parsed from the .xlsx in data/matrices, which ARE
+# tracked -- the package cannot score ligation fidelity without them.
+src/clippr/data/matrices/*.npz
+data/codon_tables/
+
+# Publisher supplementary material (6.1 MB). Ours to read and analyse, not ours to
+# redistribute. Download it from the paper's supplementary files if you need it.
+data/grasp_supp/
+
+# The 200-design validation corpus (38 MB). Not tracked for two reasons: its size, and
+# it is third-party program output rather than anything this repository authored. The
+# validation scripts that read it are kept, and they fail with a clear message when the
+# corpus is absent.
+results/
+
+# Notebook and scratch output
+notebooks/clippr_output/
+clippr_output/
+our_cds.json
+*.ipynb_checkpoints/
+CLAUDE.md
+
+# Local-only validation. These depend on an external oracle that not every checkout has;
+# they stay on disk and keep working here, but are not part of the distributed repository.
+# Keep them — they are the record of how this package was verified.
+validation/compare_ppr.py
+validation/sweep_reference.py
+tests/test_no_reference_import.py
