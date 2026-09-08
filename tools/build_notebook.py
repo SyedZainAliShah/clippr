@@ -25,6 +25,67 @@ def code(text, title=None, form=True):
 
 cells = []
 
+
+def pipeline_svg():
+    """The pipeline as inline SVG.
+
+    Every stroke and fill is `currentColor`, so the diagram inherits the notebook's text
+    colour and reads correctly on Colab's light and dark themes alike. A diagram with
+    baked-in colours is the usual way notebook graphics break in dark mode.
+    """
+    stages = [
+        ("ppr", "RNA -> protein"),
+        ("arelf", "where to cut"),
+        ("overhangs", "will it join?"),
+        ("codons", "make it real"),
+        ("assembly", "fragments"),
+        ("qc", "worth ordering?"),
+    ]
+    x0, box_w, gap, y = 96, 118, 16, 34
+    parts = []
+    for i, (name, sub) in enumerate(stages):
+        x = x0 + i * (box_w + gap)
+        parts.append(
+            f'<rect x="{x}" y="{y}" width="{box_w}" height="52" rx="4" fill="none" '
+            f'stroke="currentColor" stroke-opacity=".35"/>'
+            f'<text x="{x + box_w / 2}" y="{y + 21}" text-anchor="middle" '
+            f'font-family="ui-monospace,monospace" font-size="13" font-weight="600" '
+            f'fill="currentColor">{name}</text>'
+            f'<text x="{x + box_w / 2}" y="{y + 38}" text-anchor="middle" '
+            f'font-family="ui-sans-serif,system-ui" font-size="10.5" '
+            f'fill="currentColor" fill-opacity=".6">{sub}</text>')
+        if i < len(stages) - 1:
+            ax = x + box_w + 3
+            parts.append(f'<path d="M{ax} {y + 26} l9 0 m-3 -3 l3 3 l-3 3" fill="none" '
+                         f'stroke="currentColor" stroke-opacity=".45" stroke-width="1.3"/>')
+
+    end_x = x0 + len(stages) * (box_w + gap) - gap
+    # Right margin sized to the widest right-hand label ("4-7 fragments" at 12.5px),
+    # which overflowed a 96px margin and was clipped.
+    right_margin = 120
+    label = ('font-family="ui-sans-serif,system-ui" font-size="11" '
+             'fill="currentColor" fill-opacity=".75"')
+    return (
+        f'<svg viewBox="0 0 {end_x + right_margin} 122" width="100%" '
+        f'style="max-width:980px;height:auto" xmlns="http://www.w3.org/2000/svg" '
+        f'role="img" aria-label="CLIPPR pipeline: target RNA through six stages to '
+        f'orderable DNA">'
+        f'<text x="0" y="{y + 21}" {label}>target</text>'
+        f'<text x="0" y="{y + 36}" font-family="ui-monospace,monospace" font-size="12.5" '
+        f'fill="currentColor">AAAAUGUGG</text>'
+        f'<path d="M78 {y + 26} l11 0 m-4 -3.5 l4 3.5 l-4 3.5" fill="none" '
+        f'stroke="currentColor" stroke-opacity=".45" stroke-width="1.3"/>'
+        + "".join(parts) +
+        f'<text x="{end_x + 14}" y="{y + 21}" {label}>order</text>'
+        f'<text x="{end_x + 14}" y="{y + 36}" font-family="ui-sans-serif,system-ui" '
+        f'font-size="12.5" fill="currentColor">4-7 fragments</text>'
+        f'<text x="{x0}" y="112" font-family="ui-sans-serif,system-ui" font-size="10.5" '
+        f'fill="currentColor" fill-opacity=".55">'
+        f'overhangs are chosen before the sequence is optimised, then locked into it'
+        f'</text>'
+        f'</svg>')
+
+
 # ---------------------------------------------------------------- header
 cells.append(md(f"""
 <div align="center">
@@ -38,6 +99,12 @@ cells.append(md(f"""
 [![Tests](https://img.shields.io/badge/tests-283%20passing-1a7f5a.svg)](https://github.com/{REPO})
 
 **iGEM Marburg 2026**
+
+</div>
+
+<div align="center">
+
+{pipeline_svg()}
 
 </div>
 
