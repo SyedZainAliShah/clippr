@@ -39,17 +39,31 @@ but is **not monotone**: measured, the longest run went 84 -> 65 nt at a 20-nt b
 84 -> 65 at 30 nt, and 84 -> **86** at 25 nt. Iterating oscillated, 10 flagged pairs going to 5
 on one pass and back to 7 on two. A fix that can make the metric worse is not a fix.
 
-Two hypotheses were also tested and refuted. Varying the random seed alone barely helps (median
-shared run 59 -> 62 nt). And homology is *not* predictable from target similarity: across these
-pairs, the correlation between the longest run of shared target positions and the longest shared
-DNA run was **-0.38**, i.e. weakly negative. The repeat body is genuinely well diversified --
-across 369 nt of identical protein the longest shared DNA run was 59 nt.
+Two hypotheses were also tested and not supported. Varying the random seed alone barely helps
+(median shared run 59 -> 62 nt). And **no positive relationship was found between target
+similarity and DNA homology** -- the rank correlation between the longest run of shared target
+positions and the longest shared DNA run came out at -0.38. That rests on 15 pairs from a
+five-member set, so it is enough to say the expected relationship did not appear and not enough
+to claim a negative one. The repeat body is genuinely well diversified either way: across 369 nt
+of identical protein the longest shared DNA run was 59 nt.
 
-**What this is not.** A shared stretch is a *necessary* substrate for recombination, not a
-prediction that recombination will occur -- that depends on the host, the loci, copy number and
-repair pathways, none of which this module models. The 50 nt default threshold is a widely used
-rule of thumb for where homologous recombination becomes plausible in many systems, not a
-measured constant for *Chlamydomonas*. Treat the output as a ranked risk list, not a verdict.
+**What this is not, stated plainly because the temptation runs the other way.** This module
+measures *sequence identity between designs*. It does not establish that any of it is dangerous.
+
+  * **There is no evidence here for a 50 nt danger threshold in *Chlamydomonas*.** The default is
+    a rule of thumb from general practice, not a measured constant for this host, and nothing in
+    this repository derives one. Never write "59 nt of homology is dangerous in Chlamydomonas".
+  * A shared stretch is a **necessary substrate** for homologous recombination, never a
+    prediction that recombination will occur. That depends on the host's repair pathways, the
+    integration loci, copy number and expression context, none of which this module models.
+  * **The risk depends on the physical library architecture, which is not ours to assume.** One
+    construct per strain is a different situation from many constructs entering the same nuclear
+    genome, which is different again from a pooled DNA mixture handled before transformation. The
+    measurement is a design precaution across all three; it is a cellular claim in none of them.
+
+The defensible sentence is: *independently designed library members acquired substantial
+unintended DNA identity through a fixed shared scaffold, and synonymous redesign reduced the
+longest shared tract from 84 to 47 nt.* Everything beyond that needs the bench.
 """
 from __future__ import annotations
 

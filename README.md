@@ -204,8 +204,15 @@ every k-mer inside it is **not monotone** — at one ban width the worst stretch
 to 86. A diversified member is now accepted only when it is no worse than the baseline it
 replaces.
 
-A shared stretch is a *necessary* substrate for recombination, never a prediction that it will
-occur, and the 50 nt threshold is a rule of thumb rather than a measured constant for this host.
+**What this does not claim.** There is no evidence here for a 50 nt danger threshold in
+*Chlamydomonas* — that default is a rule of thumb from general practice and nothing in this
+repository derives one. A shared stretch is a *necessary substrate* for homologous recombination,
+never a prediction that it will occur, and the risk depends on the physical library architecture:
+one construct per strain is a different situation from many constructs entering the same nuclear
+genome, or from a pooled DNA mixture. The defensible sentence is that **independently designed
+members acquired substantial unintended DNA identity through a shared scaffold, and synonymous
+redesign reduced the longest shared tract from 84 to 47 nt.** Everything beyond that needs the
+bench.
 
 ## Is the chosen design good relative to the alternatives?
 

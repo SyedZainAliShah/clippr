@@ -62,9 +62,15 @@ So **the hierarchy is currently single-objective in practice**. Do not describe 
 a multi-objective optimiser: on this pipeline, at these destination overhangs, there is nothing
 to trade off. What it genuinely delivers is narrower and still worth having:
 
-  * it selects the best of N *finished* designs on the one axis that varies, which changed the
-    answer for all three architectures tested — a 1-4% improvement in the optimiser objective
-    over the plan `design_oneshot` happened to reach first;
+  * it selects the best of N *finished* designs on the one axis that varies, and
+    `validation/benchmark_search.py` measures what that is worth against cheaper strategies over
+    12 targets. Taking the first feasible plan leaves **5.99 optimiser-score points** behind on
+    average — about **4.5%** of the typical score magnitude — and finds the best candidate in the
+    pool for only 1 of 12 targets; a random feasible plan manages 2 of 12 and the better of the
+    top two 3 of 12. Read that as a measure of how costly the first-feasible heuristic is: this
+    module's own 12-of-12 is definitional, since with the other objectives degenerate `select`
+    reduces to the argmax of the score it is being judged on. The units are DNA Chisel's, so
+    this is an internal sequence-quality gain and not a validated biological one;
   * it can answer "is this design good relative to the alternatives?" with evidence rather
     than assertion;
   * it establishes the degeneracy above, which is a real property of the design space and was

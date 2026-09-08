@@ -45,6 +45,7 @@ OPTIONAL = {"compare_ppr.py": ("protein sequence vs an external oracle", "oracle
 CHECKS = [
     ("check_regression.py", "our own output has not drifted", None, ["--limit", "20"]),
     ("integration.py", "end-to-end, 200 targets", None, ["--limit", "20"]),
+    ("benchmark_search.py", "exploring beats not exploring", None, ["--targets", "6"]),
     ("compare_cuts.py", "cut geometry over 200 designs", "corpus", []),
     ("compare_assembly.py", "oligos byte-identical", "corpus", []),
     ("compare_export.py", "quotes, GenBank, FASTA", "corpus", []),
