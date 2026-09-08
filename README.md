@@ -86,20 +86,24 @@ everywhere" emits the same DNA once per repeat. Measured across 9S–19S targets
 Costs about 6% codon adaptation. Across 200 designs, 197 come out with no repeated 20-mer.
 Uniquifying is an *objective*, not a constraint, so it cannot be promised.
 
-**3. It checks the host genome.** A PPR cannot tell which copy of a sequence you meant.
-Measured against the *Chlamydomonas* chloroplast genome (203,828 bp, 34.5% GC), over 200
-random targets of each length:
+**3. It checks the host, in the tier that matters.** A PPR binds **RNA**, so the question
+is not whether a sequence appears in the genome but whether it appears in a transcript, in
+the sense orientation. Measured against the *Chlamydomonas* chloroplast (203,828 bp,
+34.5% GC; 109 annotated transcripts covering 43.5% of it), 200 random targets per length:
 
-| target length | occurs somewhere in the host |
-|---|---|
-| **9 nt** | **97 of 200 — 48%** |
-| 14 nt | 0 of 200 |
-| 19 nt | 0 of 200 |
+| target length | in genomic DNA | **in a transcript** |
+|---|---|---|
+| 9 nt | 97 of 200 (48%) | **32 of 200 (16%)** |
+| 14 nt | 0 | 0 |
+| 19 nt | 0 | 0 |
 
-A nine-base sequence is not rare enough in a 204 kb genome. Every design is checked, and a
-flagged target is warned about with the fix: a longer target. Occurrence is a *necessary*
-condition for off-target binding, not a sufficient one — this reports sequence, not
-affinity.
+Counting genomic DNA on both strands overstates the risk roughly threefold: a match in a
+non-transcribed region is not an RNA off-target, and neither is a reverse-complement match
+in DNA. Every design is checked and reports both tiers separately, naming the gene when a
+transcript is hit.
+
+Occurrence is a *necessary* condition for an off-target interaction, never a sufficient
+one. No binding affinity is predicted.
 
 **4. Its synthesis QC actually discriminates.** The baseline flagged WARNING on 200 of 200
 designs — a verdict that never varies carries no information. The same sequences here split
@@ -195,6 +199,15 @@ Every constant traces to a primary published source, not to any other implementa
 - **`orthogonal.py` is a capability, not a validated result.** Every other module is checked
   against a 200-design oracle; this one has unit tests only, because no ground truth exists.
 - **Nothing here has been validated at the bench.**
+
+### Computable properties versus model-based annotations
+
+CLIPPR keeps these apart deliberately. Sequence uniqueness, restriction-site absence,
+translation, codon constraints and assembly geometry are **directly computable** — the
+package either satisfies them or reports that it could not. Predicted ligation fidelity,
+synthesis QC verdicts and host-occurrence warnings are **annotations**, useful for ranking
+and screening but not guarantees of binding, expression or assembly success. Experimental
+validation is required for any biological claim.
 
 ## Licence
 

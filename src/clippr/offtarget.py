@@ -1,25 +1,33 @@
-"""Does a designed target also occur somewhere it should not?
+"""Does a designed target also occur where the PPR could actually bind it?
 
-A PPR does not know which RNA you meant. If the sequence you designed it against also
-appears in an endogenous chloroplast transcript, the protein will bind there too, and the
-regulator stops being specific to your construct.
+A PPR binds **RNA**, so the universe that matters is transcribed sequence read 5'->3' in
+its own orientation. That is a narrower question than "does this sequence appear in the
+genome", and the difference is not small.
 
-`orthogonal.py` asks whether your targets differ from *each other*. This asks the question
-that module cannot: whether a target collides with **the host**.
+**Measured on the Chlamydomonas chloroplast genome, 200 random targets per length:**
 
-**The result is uncomfortable and it is the point of this module.** The Chlamydomonas
-chloroplast genome is 203,828 bp and 34.5% GC. A 9-nt target is expected to occur roughly
-one to several times in it by chance alone, and AT-rich targets far more often than that,
-because the genome itself is AT-rich. Length is what buys specificity: a 14-nt target is
-expected essentially never, and a 19-nt target never. Measure before assuming 9S is safe
-in vivo -- see `architecture_advice()`.
+    length   in genomic DNA   in a transcript
+      9 nt     97 (48%)         32 (16%)
+     14 nt      0                0
+     19 nt      0                0
 
-Nothing here predicts binding affinity. It reports sequence occurrence, which is a
-necessary condition for an off-target interaction, not a sufficient one.
+Counting genomic DNA on both strands overstates the risk roughly threefold. A match in a
+non-transcribed region is not an RNA off-target, and a reverse-complement match in DNA is
+not one either -- the transcript from that locus carries the other sequence.
+
+This module therefore reports **tiers**, not a single number:
+
+    genomic      the sequence exists somewhere in the chloroplast DNA
+    transcript   it exists inside an annotated transcript, in the sense orientation,
+                 which is the only tier a PPR could plausibly act on
+
+Sequence occurrence is a **necessary** condition for an off-target interaction, never a
+sufficient one. Nothing here predicts binding affinity: a PPR specificity score would be a
+separate, model-based annotation, and this module deliberately does not pretend to one.
 """
 from __future__ import annotations
 
-import json
+import io
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,6 +37,9 @@ CACHE = Path(__file__).resolve().parents[2] / "data" / "genomes"
 #: Chlamydomonas reinhardtii chloroplast, RefSeq complete genome.
 CHLOROPLAST = "NC_005353.1"
 
+#: Feature types that become RNA. A PPR can only bind what is transcribed.
+TRANSCRIBED_TYPES = ("CDS", "rRNA", "tRNA", "ncRNA", "misc_RNA", "tmRNA")
+
 _COMPLEMENT = str.maketrans("ACGT", "TGCA")
 
 
@@ -37,35 +48,77 @@ def reverse_complement(seq: str) -> str:
 
 
 @dataclass(frozen=True)
-class Hit:
-    """One place a target sequence occurs in the genome."""
+class Transcript:
+    """One annotated transcript, already in its own 5'->3' orientation."""
 
-    strand: str          # "+" or "-"
-    position: int        # 0-based, on the plus strand
-    mismatches: int
-    context: str         # the genomic sequence with flanks, match in upper case
+    name: str
+    kind: str
+    strand: int
+    start: int
+    sequence: str
+
+
+@dataclass(frozen=True)
+class Hit:
+    """One occurrence of a target sequence."""
+
+    tier: str            # "transcript" or "genomic"
+    where: str           # gene name, or "-" for a bare genomic hit
+    kind: str            # feature type, or "DNA"
+    position: int
+    context: str
 
     def __str__(self) -> str:
-        kind = "exact" if not self.mismatches else f"{self.mismatches} mismatch"
-        return f"{self.strand}{self.position:>7}  {kind:12s} {self.context}"
+        loc = f"{self.where} ({self.kind})" if self.tier == "transcript" else "genomic DNA"
+        return f"{self.tier:<11}{loc:<24}{self.position:>7}  {self.context}"
+
+
+def _fetch(accession: str, rettype: str, suffix: str) -> str:
+    CACHE.mkdir(parents=True, exist_ok=True)
+    cached = CACHE / f"{accession}{suffix}"
+    if cached.exists():
+        return cached.read_text(encoding="utf-8")
+    url = ("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+           f"?db=nuccore&id={accession}&rettype={rettype}&retmode=text")
+    req = urllib.request.Request(url, headers={"User-Agent": "clippr"})
+    text = urllib.request.urlopen(req, timeout=90).read().decode()
+    cached.write_text(text, encoding="utf-8")
+    return text
 
 
 def load_genome(accession: str = CHLOROPLAST) -> str:
-    """Fetch a genome from NCBI, caching it so a design run works offline afterwards."""
-    CACHE.mkdir(parents=True, exist_ok=True)
+    """The plus strand of the genome, as plain sequence."""
     cached = CACHE / f"{accession}.txt"
     if cached.exists():
         return cached.read_text(encoding="utf-8").strip()
-
-    url = ("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
-           f"?db=nuccore&id={accession}&rettype=fasta&retmode=text")
-    req = urllib.request.Request(url, headers={"User-Agent": "clippr"})
-    text = urllib.request.urlopen(req, timeout=60).read().decode()
-    seq = "".join(text.splitlines()[1:]).upper()
+    seq = "".join(_fetch(accession, "fasta", ".fasta").splitlines()[1:]).upper()
     if not seq or set(seq) - set("ACGTN"):
         raise ValueError(f"{accession}: fetched sequence is not plain nucleotides")
+    CACHE.mkdir(parents=True, exist_ok=True)
     cached.write_text(seq, encoding="utf-8")
     return seq
+
+
+def load_transcripts(accession: str = CHLOROPLAST) -> list[Transcript]:
+    """Every annotated transcript, each already in the orientation it is read in.
+
+    `feature.extract` reverse-complements minus-strand features for us, so the stored
+    sequence is the RNA a PPR would see rather than the plus strand of the DNA.
+    """
+    from Bio import SeqIO
+
+    record = SeqIO.read(io.StringIO(_fetch(accession, "gb", ".gb")), "genbank")
+    out: list[Transcript] = []
+    for f in record.features:
+        if f.type not in TRANSCRIBED_TYPES:
+            continue
+        name = (f.qualifiers.get("gene") or f.qualifiers.get("locus_tag")
+                or f.qualifiers.get("product") or ["unnamed"])[0]
+        out.append(Transcript(name=name, kind=f.type,
+                              strand=int(f.location.strand or 1),
+                              start=int(f.location.start),
+                              sequence=str(f.extract(record.seq)).upper()))
+    return out
 
 
 def _normalise(target: str) -> str:
@@ -75,121 +128,120 @@ def _normalise(target: str) -> str:
     return t
 
 
-def find_hits(target: str, genome: str, max_mismatches: int = 0,
-              flank: int = 6) -> list[Hit]:
-    """Every occurrence of `target` in either strand, allowing up to `max_mismatches`.
+def _context(seq: str, i: int, n: int, flank: int = 6) -> str:
+    lo, hi = max(0, i - flank), min(len(seq), i + n + flank)
+    return seq[lo:i].lower() + seq[i:i + n] + seq[i + n:hi].lower()
 
-    Both strands are searched because a chloroplast transcript may come from either, and
-    a PPR binds the RNA that is actually transcribed.
-    """
+
+def find_in_transcripts(target: str, transcripts: list[Transcript]) -> list[Hit]:
+    """Sense-strand occurrences inside annotated RNA -- the tier that can matter."""
     t = _normalise(target)
-    n, g = len(t), genome
     hits: list[Hit] = []
-
-    def _ctx(i: int) -> str:
-        lo, hi = max(0, i - flank), min(len(g), i + n + flank)
-        return g[lo:i].lower() + g[i:i + n] + g[i + n:hi].lower()
-
-    for strand, probe in (("+", t), ("-", reverse_complement(t))):
-        if max_mismatches == 0:
-            # str.find runs in C; the explicit position loop below is ~100x slower and
-            # exact matching is the common case, so it gets its own path.
-            i = g.find(probe)
-            while i != -1:
-                hits.append(Hit(strand, i, 0, _ctx(i)))
-                i = g.find(probe, i + 1)
-            continue
-
-        for i in range(len(g) - n + 1):
-            mm = 0
-            for a, b in zip(g[i:i + n], probe):
-                if a != b:
-                    mm += 1
-                    if mm > max_mismatches:
-                        break
-            else:
-                hits.append(Hit(strand, i, mm, _ctx(i)))
+    for tr in transcripts:
+        i = tr.sequence.find(t)
+        while i != -1:
+            hits.append(Hit("transcript", tr.name, tr.kind, i,
+                            _context(tr.sequence, i, len(t))))
+            i = tr.sequence.find(t, i + 1)
     return hits
 
 
-def expected_by_chance(target: str, genome: str) -> float:
-    """How often a sequence like this would occur by chance, given the genome's own bases.
+def find_in_genome(target: str, genome: str) -> list[Hit]:
+    """Occurrences anywhere in the DNA, either strand. The broader, weaker signal."""
+    t = _normalise(target)
+    hits: list[Hit] = []
+    for probe in {t, reverse_complement(t)}:
+        i = genome.find(probe)
+        while i != -1:
+            hits.append(Hit("genomic", "-", "DNA", i, _context(genome, i, len(t))))
+            i = genome.find(probe, i + 1)
+    return hits
 
-    Uses the genome's mononucleotide composition rather than assuming equal bases. That
-    matters here: the chloroplast genome is 34.5% GC, so an AT-rich target occurs far more
-    often than a uniform model predicts, and a uniform model would understate the risk for
-    exactly the targets most likely to be chosen.
+
+def expected_by_chance(target: str, sequence: str, both_strands: bool = True) -> float:
+    """Chance occurrences given the sequence's own base composition.
+
+    A uniform model is wrong here: the chloroplast is 34.5% GC, so an AT-rich target
+    occurs far more often than 4^-k predicts -- and AT-rich targets are exactly the ones
+    an AT-rich UTR context tends to produce. This is a sequence-composition null, not a
+    model of PPR binding.
     """
     t = _normalise(target)
-    total = len(genome)
-    freq = {b: genome.count(b) / total for b in "ACGT"}
+    total = len(sequence)
+    freq = {b: sequence.count(b) / total for b in "ACGT"}
     p = 1.0
     for base in t:
         p *= freq.get(base, 0.0)
-    positions = (total - len(t) + 1) * 2      # both strands
+    positions = (total - len(t) + 1) * (2 if both_strands else 1)
     return p * positions
 
 
-def scan(target: str, genome: str | None = None, max_mismatches: int = 1) -> dict:
-    """Assess one target against the host genome.
+def scan(target: str, genome: str | None = None,
+         transcripts: list[Transcript] | None = None) -> dict:
+    """Assess one target against the host, reporting genomic and transcript tiers apart.
 
-    Returns the exact hits, the near hits, what chance alone would predict, and a verdict
-    that is deliberately conservative: any exact occurrence is a concern worth reading,
-    not a pass/fail the caller can ignore.
+    The verdict names the strongest tier reached, because they mean different things: a
+    transcript hit is something a PPR could act on, a genomic-only hit is a sequence
+    coincidence in DNA that is not transcribed in that orientation.
     """
     g = load_genome() if genome is None else genome
+    trs = load_transcripts() if transcripts is None else transcripts
     t = _normalise(target)
-    exact = find_hits(t, g, 0)
-    near = [h for h in find_hits(t, g, max_mismatches) if h.mismatches]
-    expected = expected_by_chance(t, g)
 
-    if exact:
-        verdict = "OCCURS IN HOST"
-    elif near:
-        verdict = "NEAR MATCH IN HOST"
+    in_rna = find_in_transcripts(t, trs)
+    in_dna = find_in_genome(t, g)
+
+    if in_rna:
+        verdict = "OCCURS IN A TRANSCRIPT"
+    elif in_dna:
+        verdict = "in genomic DNA only, not in an annotated transcript"
     else:
-        verdict = "not found in host"
+        verdict = "not found in the host"
 
     return {
         "target": target,
         "length": len(t),
         "verdict": verdict,
-        "exact_hits": exact,
-        "near_hits": near,
-        "n_exact": len(exact),
-        "n_near": len(near),
-        "expected_by_chance": expected,
+        "transcript_hits": in_rna,
+        "genomic_hits": in_dna,
+        "n_transcript": len(in_rna),
+        "n_genomic": len(in_dna),
+        "genes": sorted({h.where for h in in_rna}),
+        "expected_by_chance": expected_by_chance(t, g),
         "genome_length": len(g),
+        "transcribed_nt": sum(len(x.sequence) for x in trs),
     }
 
 
 def architecture_advice(genome: str | None = None) -> dict[int, float]:
-    """Expected chance occurrences of a target of each architecture length.
+    """Expected chance occurrences per architecture length, on genomic DNA.
 
-    The number that decides whether a 9-nt target can be specific in this host at all.
-    Computed against the genome's real base composition, for an average target; an AT-rich
-    target will be worse and a GC-rich one better.
+    The number that shows why length buys specificity. Genomic rather than transcript
+    scale, so it is an upper bound on the risk rather than an estimate of it.
     """
     g = load_genome() if genome is None else genome
     total = len(g)
     freq = {b: g.count(b) / total for b in "ACGT"}
-    mean_p = sum(f * f for f in freq.values())      # per-position match probability
-    positions = total * 2
-    return {n: mean_p ** n * positions for n in (9, 14, 19)}
+    mean_p = sum(f * f for f in freq.values())
+    return {n: mean_p ** n * total * 2 for n in (9, 14, 19)}
 
 
 def report(results: list[dict]) -> str:
-    """A readable summary for a set of scanned targets."""
-    lines = [f"{'target':<22}{'len':>4}{'exact':>7}{'near':>6}{'expected':>10}  verdict",
-             "-" * 78]
+    """A readable summary, keeping the two tiers visibly separate."""
+    lines = [f"{'target':<22}{'len':>4}{'transcript':>12}{'genomic':>9}"
+             f"{'expected':>10}  verdict",
+             "-" * 92]
     for r in results:
-        lines.append(f"{r['target']:<22}{r['length']:>4}{r['n_exact']:>7}"
-                     f"{r['n_near']:>6}{r['expected_by_chance']:>10.2f}  {r['verdict']}")
-    flagged = [r for r in results if r["n_exact"]]
+        lines.append(f"{r['target']:<22}{r['length']:>4}{r['n_transcript']:>12}"
+                     f"{r['n_genomic']:>9}{r['expected_by_chance']:>10.2f}  {r['verdict']}")
+    flagged = [r for r in results if r["n_transcript"]]
     if flagged:
         lines.append("")
-        lines.append(f"{len(flagged)} target(s) occur in the host genome:")
+        lines.append("occurrences inside annotated transcripts — the tier a PPR could act on:")
         for r in flagged:
-            for h in r["exact_hits"][:3]:
+            for h in r["transcript_hits"][:3]:
                 lines.append(f"  {r['target']}  {h}")
+    lines.append("")
+    lines.append("Sequence occurrence is necessary for an off-target interaction, not "
+                 "sufficient. No binding affinity is predicted here.")
     return "\n".join(lines)

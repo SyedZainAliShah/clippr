@@ -255,27 +255,41 @@ def design_oneshot(
                                          genetic_code, enzyme, destination)),
         }
 
-    # Does the target also occur in the host? A PPR cannot tell which copy you meant, so
-    # an endogenous occurrence is a specificity problem no amount of assembly quality
-    # fixes. Measured: 48% of random 9-nt targets occur in the Chlamydomonas chloroplast
-    # genome; 14-nt and 19-nt targets essentially never do.
+    # Does the target also occur where a PPR could bind it? A PPR binds RNA, so the tier
+    # that matters is an annotated transcript in the sense orientation, not genomic DNA on
+    # either strand. Measured over 200 random targets: 16% of 9-nt targets occur in a
+    # transcript (48% occur somewhere in the DNA, which overstates it threefold); 14-nt
+    # and 19-nt targets occur in neither.
     offtarget = None
     if check_offtarget:
         try:
             from .offtarget import scan as _scan
-            offtarget = _scan(d["target_rna"], max_mismatches=1)
-        except Exception as exc:
-            offtarget = {"verdict": "not checked", "error": f"{type(exc).__name__}: {exc}",
-                         "n_exact": None, "n_near": None}
+            offtarget = _scan(d["target_rna"])
+        except (OSError, ValueError, ImportError) as exc:
+            # Only genuine unavailability -- no network, no cached genome -- is tolerated.
+            # A broad `except` here previously hid a signature mismatch behind a cheerful
+            # "not checked", which is exactly how a silent no-op ships.
+            offtarget = {"verdict": "not checked",
+                         "error": f"{type(exc).__name__}: {exc}",
+                         "n_transcript": None, "n_genomic": None, "genes": []}
 
     warnings = list(qc["warnings"])
     if not opt["constraints_ok"]:
         warnings.append("codon optimiser could not satisfy every constraint")
-    if offtarget and offtarget.get("n_exact"):
+    if offtarget and offtarget.get("n_transcript"):
+        genes = ", ".join(offtarget["genes"][:3])
         warnings.append(
-            f"this target occurs {offtarget['n_exact']}x in the host chloroplast genome, "
-            f"so the PPR has endogenous RNA to bind as well as your construct. A longer "
-            f"target is the reliable fix: 14-nt and 19-nt targets essentially never occur."
+            f"this target occurs inside {offtarget['n_transcript']} annotated host "
+            f"transcript(s) ({genes}), in the sense orientation — RNA a PPR could bind "
+            f"as well as your construct. A longer target is the reliable fix: 14-nt and "
+            f"19-nt targets do not occur. Occurrence is necessary for an off-target "
+            f"interaction, not sufficient; no binding affinity is predicted."
+        )
+    elif offtarget and offtarget.get("n_genomic"):
+        warnings.append(
+            f"this target occurs {offtarget['n_genomic']}x in host genomic DNA but in no "
+            f"annotated transcript, so there is no RNA for a PPR to bind at those loci. "
+            f"Worth noting, not acting on."
         )
     backbone = set_fidelity([dest[0], _rc(dest[1])], matrix)
     if backbone < 0.95:

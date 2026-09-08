@@ -438,26 +438,32 @@ A PPR cannot tell which copy of a sequence you meant. If your target also occurs
 endogenous chloroplast transcript, the protein binds there too and stops being specific to
 your construct.
 
-**This is a length problem, and the numbers are stark.** The *Chlamydomonas* chloroplast
-genome is 203,828 bases and 34.5% GC. Measured over 200 random targets of each length:
+**A PPR binds RNA, so only transcripts count.** A match in a non-transcribed region is not
+an RNA off-target, and neither is a reverse-complement match in DNA — the transcript from
+that locus carries the other sequence. The scan reports both tiers so you can tell them
+apart.
 
-| target length | occur somewhere in the host |
-|---|---|
-| **9 nt** | **97 of 200 — 48%** |
-| 14 nt | 0 of 200 |
-| 19 nt | 0 of 200 |
+The *Chlamydomonas* chloroplast is 203,828 bases and 34.5% GC, with 109 annotated
+transcripts covering 43.5% of it. Over 200 random targets of each length:
 
-A nine-base sequence is simply not rare enough in a 204 kb genome. If you need a 9S design,
-check it; if a target comes back flagged, lengthening it is the reliable fix.
+| target length | in genomic DNA | **in a transcript** |
+|---|---|---|
+| 9 nt | 97 of 200 (48%) | **32 of 200 (16%)** |
+| 14 nt | 0 | 0 |
+| 19 nt | 0 | 0 |
 
-Occurrence is a *necessary* condition for off-target binding, not a sufficient one — this
-reports sequence, not affinity.
+A nine-base sequence is not rare enough in a 204 kb genome; a fourteen-base one is. If a
+target comes back flagged in the transcript tier, lengthening it is the reliable fix.
+
+Occurrence is a *necessary* condition for an off-target interaction, never a sufficient
+one. This reports sequence, not affinity — no binding is predicted.
 """))
 
 cells.append(code('''
-from clippr.offtarget import architecture_advice, load_genome, report, scan
+from clippr.offtarget import architecture_advice, load_genome, load_transcripts, report, scan
 
 genome = load_genome()
+transcripts = load_transcripts()
 gc = 100 * (genome.count("G") + genome.count("C")) / len(genome)
 print(f"host: Chlamydomonas reinhardtii chloroplast, {len(genome):,} bp, {gc:.1f}% GC")
 print()
@@ -467,7 +473,11 @@ for n, e in architecture_advice(genome).items():
     print(f"  {n:>2}-nt target : {e:8.3f}")
 
 print()
-print(report([scan(target_rna, genome, max_mismatches=1)]))
+print(f"{len(transcripts)} annotated transcripts, "
+      f"{sum(len(x.sequence) for x in transcripts):,} nt "
+      f"({100*sum(len(x.sequence) for x in transcripts)/len(genome):.1f}% of the genome)")
+print()
+print(report([scan(target_rna, genome, transcripts)]))
 ''', title="Off-target check — does the host already contain this sequence?"))
 
 cells.append(md("""
