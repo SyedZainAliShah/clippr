@@ -134,6 +134,111 @@ library as one pool rather than fifty is the single largest cost decision in the
 `write_library` emits a combined order sheet, a vendor-ready oPool CSV, a QC table, one
 GenBank per design, and the cross-talk matrix.
 
+### Cross-talk: two tiers, one gate
+
+Cross-talk is a property of the set, not of any member: a design that is perfect alone is
+useless if another target in the library sits one base away. `crosstalk.py` reports it in
+two tiers that are deliberately not mixed.
+
+| tier | what it is | status |
+|---|---|---|
+| **A — Hamming distance** | two targets differ in *k* of *n* positions | **the hard criterion, and the only thing that gates** |
+| **B — predicted affinity** | score the PPR designed for A against B, relative to its own target | an annotation; gates nothing |
+
+Tier A makes no biological claim. It says two sequences differ in *k* places, which is
+geometry, and stays true whatever anyone later learns about PPR binding.
+
+Tier B needs a PPR specificity table, and comes with a caveat that cannot be argued away:
+the available table (Yan et al., as distributed with PPRmatcher) was derived from **P-type**
+PPR motifs, while the GRASP scaffold here is **S-type**. All four code pairs GRASP uses do
+score their cognate base highest in that table, which is reassuring, but a P-type model has
+not been shown to apply to an S-type scaffold. So a high score means *look*, never *fail*.
+
+**The table is not distributed with CLIPPR.** PPRmatcher carries no licence, so vendoring
+it would be a rights problem however useful it is. Supply your own path; with no table the
+module reports tier A alone and says so.
+
+```python
+from clippr import compare_tiers, load_ppr_scores
+
+scores = load_ppr_scores("Yan.tsv")          # obtained separately
+print(lib.crosstalk(scores=scores))
+compare_tiers(lib.targets, scores)["tiers_disagree"]
+```
+
+The useful question about a model whose applicability is unproven is not "is it right" but
+**"does it point anywhere Hamming does not"** — which is what `compare_tiers` answers. Its
+`tiers_disagree` flag never means the gate moved; it means a pair is worth a human look.
+
+### DNA shared between members — the other library risk
+
+Cross-talk asks whether two PPRs could bind each other's target. **Homology asks whether two
+*genes* share enough identical DNA to recombine**, which is a different question with a
+different answer. Every member of a PPR library carries the same scaffold, so it is never
+trivially no. Measured on five 9S designs:
+
+| | before | after |
+|---|---|---|
+| longest shared stretch | 84 nt | **47 nt** |
+| pairs sharing ≥ 50 nt | 10 of 10 | **0 of 10** |
+
+Every shared stretch began at position 0 in both members and decoded to `MQGGNSEEPRKSFDERPER…`
+— the fixed 23-residue N-terminal scaffold. It is not a codon-diversification failure: across
+369 nt of *identical protein* the longest shared DNA run was only 59 nt, so the repeat body is
+already well separated. The scaffold is simply protein-identical by construction and receives
+the same codons every time.
+
+The fix is constructive. Each member gets its own synonymous encoding of the scaffold, locked in
+place — deterministic in the member index, so a library stays reproducible.
+
+```python
+from clippr import diversify_library
+
+res = diversify_library(my_targets)
+print(res["max_before"], "->", res["max_after"])   # 84 -> 47
+```
+
+Two simpler approaches were tried first and are documented in `homology.py` so they are not
+retried: forbidding the shared stretch outright only forces a one-base change, and forbidding
+every k-mer inside it is **not monotone** — at one ban width the worst stretch went from 84 nt
+to 86. A diversified member is now accepted only when it is no worse than the baseline it
+replaces.
+
+A shared stretch is a *necessary* substrate for recombination, never a prediction that it will
+occur, and the 50 nt threshold is a rule of thumb rather than a measured constant for this host.
+
+## Is the chosen design good relative to the alternatives?
+
+`design_oneshot` ranks assembly plans by predicted fidelity and keeps the first that works,
+discarding the rest unexamined — so it could not answer that question. `search.py` carries
+several plans all the way through codon optimisation and QC, then applies a **declared priority
+hierarchy** rather than arbitrary weights:
+
+1. every constraint satisfied and QC not FAIL
+2. predicted fidelity within a tolerance of the best feasible value
+3. prefer QC PASS, then the higher optimiser score
+4. tie-break on fidelity
+
+```python
+from clippr import design_searched
+
+r = design_searched("AAAAUGUGG", budget=8)
+print(r["certificate"])
+```
+
+It returns **one answer with the alternatives shown** — what was considered, how far the choice
+sits from the best available value on each objective, whether anything dominates it, and what
+the nearest alternatives would cost. Not a Pareto front: arbitrating a trade-off surface is not
+work a wet lab asked for.
+
+**Measured caveat, stated because it matters.** Across all three architectures, predicted
+fidelity was **identical for every candidate** and QC passed for every candidate — fidelity is
+capped by the destination overhang pair, and `safe_overhangs` has already removed the designs
+that would have failed QC. So the hierarchy is currently *single-objective in practice*, and
+this is not a multi-objective optimiser. What it does deliver is a better design than the
+first-feasible plan (it changed the answer for all three architectures) and an evidenced answer
+to the question above.
+
 ## Constraints are declared, not assumed
 
 Which Type IIS sites are excluded is a *policy*, and the reasons differ in kind:
@@ -164,7 +269,7 @@ Checked against a fixed 200-design reference corpus:
 | Codon constraints, independently verified | **200/200** |
 | End-to-end pipeline | **200/200, zero exceptions, seed-reproducible** |
 
-Plus 283 unit tests, including an exhaustive comparison of the overhang feasibility filter
+Plus 429 unit tests, including an exhaustive comparison of the overhang feasibility filter
 against an independently written brute-force oracle.
 
 ```bash
@@ -198,6 +303,9 @@ Every constant traces to a primary published source, not to any other implementa
   range — it cannot rank designs.
 - **`orthogonal.py` is a capability, not a validated result.** Every other module is checked
   against a 200-design oracle; this one has unit tests only, because no ground truth exists.
+- **Predicted PPR affinity is an unvalidated annotation**, from a P-type table applied to an
+  S-type scaffold. It is reported beside sequence separation and never allowed to override
+  it — see [Cross-talk: two tiers, one gate](#cross-talk-two-tiers-one-gate).
 - **Nothing here has been validated at the bench.**
 
 ### Computable properties versus model-based annotations

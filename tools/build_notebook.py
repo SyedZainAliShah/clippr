@@ -483,6 +483,47 @@ print(report([scan(target_rna, genome, transcripts)]))
 cells.append(md("""
 ---
 
+## Is this design good, relative to the alternatives?
+
+The design above ranks assembly plans by predicted ligation fidelity and keeps the first one
+whose coding sequence satisfies every constraint. The rest are discarded unexamined — so it
+cannot tell you whether the answer was a good one.
+
+The cell below carries several plans **all the way through** codon optimisation and QC, then
+picks between finished designs using a stated priority order rather than hidden weights:
+
+1. every constraint satisfied and QC not FAIL
+2. predicted fidelity within a tolerance of the best feasible value
+3. prefer QC PASS, then the higher optimiser score
+4. tie-break on fidelity
+
+You get one answer plus the alternatives and what each would cost — not a trade-off plot to
+arbitrate.
+
+> **Measured caveat.** Across 9S, 14S and 19S, predicted fidelity came out *identical for every
+> candidate* and QC passed for every candidate: fidelity is capped by the destination overhang
+> pair, and the infeasible overhangs were already removed earlier. So in this configuration the
+> ranking is effectively decided by sequence quality alone. It still improves on the
+> first-feasible plan for all three architectures — but this is not a multi-objective optimiser,
+> and calling it one would be wrong.
+"""))
+
+cells.append(code('''
+search_budget = 6  #@param {type:"slider", min:2, max:12, step:1}
+
+from clippr import design_searched
+
+searched = design_searched(target_rna, organism=organism, codon_table=None,
+                           enzyme_profile=enzyme_profile, seed=seed,
+                           check_offtarget=False, budget=search_budget)
+print(f"exploring changed the chosen design: {searched['differs_from_oneshot']}")
+print()
+print(searched["certificate"])
+''', title="Explore the alternatives, then justify one"))
+
+cells.append(md("""
+---
+
 ## Designing a whole library
 
 For a set of regulators, what matters is **orthogonality**: PPRᵢ must bind UTRᵢ and not
@@ -515,6 +556,75 @@ print(lib.crosstalk())
 cells.append(code('''
 lib.qc_table()
 ''', title="Library QC table"))
+
+cells.append(md("""
+### DNA shared between members
+
+Cross-talk asks whether two PPRs could bind each other's **target**. This asks whether two
+**genes** share enough identical DNA to recombine — a different question with a different
+answer. Every member of a PPR library carries the same scaffold, so it is never trivially no.
+
+Measured on five 9S designs, every pair shared at least **59 nt**, and every one of those
+stretches began at position 0 in both members: the fixed 23-residue N-terminal scaffold. That is
+not a codon-diversification failure — across 369 nt of *identical protein* the longest shared run
+was only 59 nt, so the repeat body is already well separated. The scaffold is protein-identical
+by construction and gets the same codons every time.
+
+`diversify_library` gives each member its own synonymous encoding of that scaffold, locked in
+place. On those five designs: longest shared stretch **84 → 47 nt**, pairs over the 50 nt
+threshold **10 → 0**. It is deterministic in the member index, so the library stays reproducible,
+and a diversified member is accepted only when it is no worse than the one it replaces.
+
+A shared stretch is a *necessary* substrate for recombination, never a prediction that it will
+happen, and 50 nt is a rule of thumb rather than a measured constant for this host.
+"""))
+
+cells.append(code('''
+print(lib.homology())
+''', title="Homology — DNA shared between library members"))
+
+cells.append(md("""
+### Cross-talk, in two tiers
+
+Sequence separation is one question; *predicted binding* is a different one, and mixing
+them would smuggle an unvalidated model into a hard criterion. So they stay apart:
+
+| tier | what it is | status |
+|---|---|---|
+| **A — Hamming distance** | two targets differ in *k* of *n* positions | **the hard criterion, and the only thing that gates** |
+| **B — predicted affinity** | the PPR designed for A, scored against B | an annotation; gates nothing |
+
+Tier A makes no biological claim — it says two sequences differ in *k* places, which is
+geometry, and stays true whatever anyone later learns about PPR binding.
+
+Tier B needs a PPR specificity table. **CLIPPR does not ship one**: the available table
+(Yan *et al.*, distributed with [PPRmatcher](https://github.com/ian-small/PPRmatcher))
+carries no licence, so redistributing it would be a rights problem however useful it is.
+It also comes from **P-type** PPR experiments, while this scaffold is **S-type** — all four
+codes GRASP uses do score their cognate base highest in it, which is reassuring, but a
+P-type model has not been shown to apply here. A high score means *look*, never *fail*.
+
+Leave the path blank and you get tier A alone, which is the criterion that gates anyway.
+"""))
+
+cells.append(code('''
+ppr_score_table = ""  #@param {type:"string"}
+
+from clippr import compare_tiers, load_ppr_scores
+
+scores = load_ppr_scores(ppr_score_table) if ppr_score_table.strip() else None
+print(lib.crosstalk(scores=scores))
+
+if scores:
+    cmp = compare_tiers(lib.targets, scores)
+    print()
+    print(f"pairs flagged by separation:      {len(cmp['hamming_flagged'])}")
+    print(f"pairs flagged by predicted affinity: {len(cmp['affinity_flagged'])}")
+    print(f"the model points somewhere separation does not: {cmp['tiers_disagree']}")
+    print()
+    print("A disagreement is a reading recommendation, not a failed design —")
+    print("tier A alone decides what this library accepts.")
+''', title="Two-tier cross-talk — separation gates, affinity annotates"))
 
 nb = {
     "cells": cells,
