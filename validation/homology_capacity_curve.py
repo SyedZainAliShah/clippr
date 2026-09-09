@@ -96,14 +96,23 @@ def worst_pair(members):
     return worst
 
 
-def worst_pair_fast(members, lo=K, hi=200):
+def worst_pair_fast(members, lo=K, hi=None):
     """Longest shared tract, by binary search on shared substrings of a given length.
 
     Hashing every window of length L and asking whether two members share one answers "is the
     worst tract at least L" in linear time, and the answer is monotone in L, so a binary search
     finds the exact value in log steps. The dynamic-programming version is O(len^2) per pair and
     made a 20-member run intractable inside a repair loop.
+
+    `hi` defaults to the shortest member's length, which is the true upper bound: no shared
+    tract can exceed it. It was previously a fixed 200, which silently clipped -- a genuinely
+    shared 300 nt tract was reported as 200, and one earlier run reported 194, six below the
+    bound, so a slightly worse library would have been clipped with no indication.
     """
+    if len(members) < 2:
+        return 0
+    hi = min(len(m) for m in members) if hi is None else hi
+
     def shared_at(length):
         seen: dict[str, int] = {}
         for idx, m in enumerate(members):

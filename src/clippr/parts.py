@@ -63,6 +63,16 @@ LINKERS = (("1E", "2A"), ("14E", "14A"), ("19E", "19A"))
 #: Bases per sub-assembly: one `B C D` loop plus its linker.
 BASES_PER_BLOCK_RUN = 5
 
+#: The shortest architecture, 9S, is two sub-assemblies joined by one linker. A single run
+#: (1A B C D 2E) is arithmetically well-formed but is not a PPR the kit builds, so the lower
+#: bound has to be stated -- divisibility alone let 4-base targets through.
+MIN_RUNS = 2
+
+#: Every target length the kit can realise, derived rather than listed: N linkers allow N+1
+#: runs, and a run of `BASES_PER_BLOCK_RUN` modules reads one base fewer than it has modules.
+BUILDABLE_LENGTHS = tuple(runs * BASES_PER_BLOCK_RUN - 1
+                          for runs in range(MIN_RUNS, len(LINKERS) + 2))
+
 
 @dataclass(frozen=True)
 class Module:
@@ -114,17 +124,17 @@ def block_chain(n_bases: int) -> list[str]:
 
     Raises for any length the kit cannot build, rather than returning a partial answer.
     """
-    if (n_bases + 1) % BASES_PER_BLOCK_RUN != 0:
-        raise ValueError(
-            f"the kit builds targets of 9, 14 or 19 bases; {n_bases} needs "
-            f"{n_bases + 1} modules, which is not a whole number of "
-            f"{BASES_PER_BLOCK_RUN}-module runs")
     runs = (n_bases + 1) // BASES_PER_BLOCK_RUN
-    if runs - 1 > len(LINKERS):
+    if runs > len(LINKERS) + 1:
         raise ValueError(
             f"a {n_bases}-base target needs {runs - 1} internal linkers but the kit "
             f"contains only {len(LINKERS)} ({', '.join(a for a, _ in LINKERS)}), so the "
             f"deposited inventory cannot build it")
+    if n_bases not in BUILDABLE_LENGTHS:
+        listed = ", ".join(str(n) for n in BUILDABLE_LENGTHS[:-1])
+        raise ValueError(
+            f"the kit builds targets of {listed} or {BUILDABLE_LENGTHS[-1]} bases; "
+            f"{n_bases} is not one of them")
 
     chain = ["1A"]
     for i in range(runs):
@@ -158,7 +168,12 @@ class PartsPlan:
 
     @property
     def available(self) -> bool:
-        return self.reason is None
+        """A route is available only when it actually produced modules.
+
+        Defining this as `reason is None` alone let a default-constructed plan report as
+        available and then crash `report` on `modules[0]`.
+        """
+        return self.reason is None and bool(self.modules)
 
     @property
     def plates(self) -> tuple[str, ...]:
@@ -212,7 +227,8 @@ def select(target_rna: str) -> PartsPlan:
 def report(plan: PartsPlan) -> str:
     """A readable pick list, or a clear statement that this route is unavailable."""
     if not plan.available:
-        return (f"GRASP kit route unavailable for {plan.target}: {plan.reason}\n"
+        why = plan.reason or "no modules were selected"
+        return (f"GRASP kit route unavailable for {plan.target}: {why}\n"
                 f"Use the de novo synthesis route instead.")
 
     lines = [f"GRASP kit route for {plan.target} — {len(plan.modules)} modules "

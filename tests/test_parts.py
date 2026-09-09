@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 
 from clippr.parts import (
+    BUILDABLE_LENGTHS,
     LINKERS,
     LOOP_BLOCKS,
     PartsPlan,
@@ -61,6 +62,20 @@ class TestBlockChain:
     def test_a_length_the_kit_cannot_build_is_refused(self):
         with pytest.raises(ValueError, match="9, 14 or 19"):
             block_chain(12)
+
+    def test_the_buildable_set_is_exactly_the_three_architectures(self):
+        """Derived from the linker count, so it cannot drift from the inventory."""
+        assert BUILDABLE_LENGTHS == (9, 14, 19)
+
+    @pytest.mark.parametrize("n", [n for n in range(1, 40) if n not in (9, 14, 19)])
+    def test_no_other_length_is_accepted(self, n):
+        """Divisibility alone let n=4 through: 5 modules is a whole run but not a PPR.
+
+        Parametrising every length up to 39 rather than a hand-picked few is the difference
+        between catching that and missing it, which is what happened.
+        """
+        with pytest.raises(ValueError):
+            block_chain(n)
 
     def test_beyond_the_kit_says_which_resource_ran_out(self):
         """24 bases would need a fourth internal linker; the kit contains three."""
@@ -140,6 +155,16 @@ class TestUnavailable:
     def test_a_non_rna_string_is_refused(self):
         assert not select("hello world").available
 
+    def test_a_four_base_target_is_refused_rather_than_silently_built(self):
+        """The regression: 4+1 is a whole run, so the old guard produced a confident plan.
+
+        A wet lab following that output would have pulled five plasmids for an architecture
+        the kit cannot assemble.
+        """
+        plan = select("ACGU")
+        assert not plan.available
+        assert plan.reason and "is not one of them" in plan.reason
+
     def test_an_empty_target_is_refused(self):
         assert not select("").available
 
@@ -171,3 +196,12 @@ class TestPlanShape:
     def test_an_unavailable_plan_carries_no_modules(self):
         plan = PartsPlan(target="ACGU", reason="too short")
         assert not plan.available and plan.modules == () and plan.plates == ()
+
+    def test_a_plan_with_no_modules_is_not_available_even_without_a_reason(self):
+        """`reason is None` alone made this report as available and then crash report()."""
+        assert not PartsPlan(target="ACGU").available
+
+    def test_report_on_such_a_plan_explains_rather_than_crashing(self):
+        text = report(PartsPlan(target="ACGU"))
+        assert "unavailable" in text
+        assert "no modules were selected" in text
