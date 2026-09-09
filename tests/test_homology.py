@@ -12,6 +12,7 @@ from clippr.homology import (
     HR_THRESHOLD_NT,
     assess,
     block_profile,
+    encoding_capacity,
     longest_shared,
     repeat_blocks,
     report,
@@ -176,6 +177,40 @@ class TestScaffoldEncoding:
     def test_raises_rather_than_returning_something_invalid(self):
         with pytest.raises(ValueError, match="no valid synonymous encoding"):
             scaffold_encoding(0, self.PREFIX, TOY_TABLE, gc_bounds=(0.99, 1.0), tries=5)
+
+
+class TestEncodingCapacity:
+    """The measurement that decides whether residual homology is a bug or a bound."""
+
+    REGION = "WTAMISGYAQNGRIDEARELFDKMPERNVVS"
+
+    def test_reports_a_capacity_and_agreement(self):
+        cap = encoding_capacity(self.REGION, TOY_TABLE, draws=4000)
+        assert cap["capacity"] >= 1
+        assert cap["region_aa"] == len(self.REGION)
+        assert "searches_agree" in cap
+
+    def test_a_region_with_no_synonymous_choice_admits_one_encoding(self):
+        """Methionine and tryptophan have a single codon each, so capacity is exactly 1."""
+        cap = encoding_capacity("MW", TOY_TABLE, k=3, draws=200)
+        assert cap["capacity"] == 1
+
+    def test_impossible_constraints_yield_zero(self):
+        cap = encoding_capacity(self.REGION, TOY_TABLE, gc_bounds=(0.99, 1.0), draws=500)
+        assert cap["capacity"] == 0
+
+    def test_capacity_rises_with_k(self):
+        """A longer window is a *weaker* disjointness requirement, so capacity must rise.
+
+        This is the opposite of the intuition that longer means stricter. Two sequences sharing
+        some 12-mer is near-inevitable; sharing a 40-mer takes 40 consecutive identical bases.
+        The direction matters for interpreting the capacity figure: 20-mer disjointness is far
+        stricter than recombination risk requires, so the practically relevant ceiling is higher
+        than the k=20 number.
+        """
+        small_k = encoding_capacity(self.REGION, TOY_TABLE, k=12, draws=3000)
+        large_k = encoding_capacity(self.REGION, TOY_TABLE, k=40, draws=3000)
+        assert large_k["capacity"] >= small_k["capacity"]
 
 
 class TestDiversify:

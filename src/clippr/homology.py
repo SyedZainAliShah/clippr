@@ -47,12 +47,33 @@ about blocks carried by most of the library, which are the risk that grows with 
 
 So the scaffold blocks are **eliminated** -- nothing is left in all six members -- but blocks in
 five of six survive, and they decode to the *repeat template* (`GAGCTGTTCGACAAGATGCC` is
-ELFDKMP..., `CAGAACGGCCGCATTGACGA` is QNGRID...). That residue is structural rather than a
-failure of the method: the repeat template is protein-identical across every member by
-definition, and with the codon table, GC band, enzyme sites and homopolymer limits all
-constraining the choice, some codon reuse across 302 residues is unavoidable. Note also that the
-six-member run leaves one pair at 60 nt where the five-member run cleared all of them, so these
-figures move with library size and should be re-measured for the real library rather than quoted
+ELFDKMP..., `CAGAACGGCCGCATTGACGA` is QNGRID...).
+
+**Whether that residue is avoidable was measured rather than assumed, and an earlier version of
+this docstring got it wrong.** It claimed the reuse was "unavoidable" without establishing a
+bound, which is the kind of rationalisation this package is supposed to refuse. `encoding_capacity`
+answers it: the 31-residue repeat template admits **84** mutually 20-mer-disjoint encodings under
+the codon table, GC band, enzyme set and homopolymer limit. Both an unbiased random search and a
+greedy search that steers away from used windows converge on exactly 84, and the random search
+finds its last new encoding after 25,000 draws and nothing in the following 775,000 -- so 84 is a
+ceiling, not a search artefact.
+
+Demand is roughly *repeats x members*, and that turns one number into two opposite conclusions:
+
+    a 6-member 9S library needs about  54 encodings -> 84 is SUFFICIENT
+    a 50-member 9S library needs about 450          -> 84 falls short about 5-fold
+
+So at six members the residual sharing is **an encoder limitation, not a bound** -- capacity
+exists and `diversify_library` is not reaching it. At the real library size the bound genuinely
+binds: **repeat-body homology cannot be engineered away in a 50-member library**, because roughly
+nine members' worth of disjoint encodings exist in total. That is a design constraint on PPR
+libraries rather than a defect in any tool.
+
+The figure is empirical, not a proof of the exact maximum (that is a set-packing problem), and it
+moves with `k`, the GC band, the enzyme profile and the codon table. Note too that 20-mer
+disjointness is stricter than recombination risk requires, so the practical ceiling is higher than
+84. Finally, these six-member numbers move with library size -- the run leaves one pair at 60 nt
+where the five-member run cleared all of them -- so measure the real library rather than quoting
 from here.
 
 **Two approaches that did not work, recorded so they are not retried.** Reacting to observed
@@ -285,6 +306,93 @@ def scaffold_encoding(member: int, protein_prefix: str, codon_table, *,
     raise ValueError(
         f"no valid synonymous encoding of the {len(protein_prefix)}-residue prefix found for "
         f"member {member} in {tries} tries under GC {gc_bounds} and sites {names}")
+
+
+def encoding_capacity(protein_region: str, codon_table, *, k: int = KMER,
+                      genetic_code: int = 1, enzymes=None,
+                      gc_bounds: tuple[float, float] = (0.35, 0.65),
+                      max_homopolymer: int = 4, draws: int = 200_000,
+                      seed: int = 0) -> dict:
+    """How many synonymous encodings of a protein region share no k-mer with each other?
+
+    **This is the question that decides whether residual library homology is a bug or a bound.**
+    A gene containing *r* copies of a repeat needs *r* mutually disjoint encodings for itself
+    alone, so a library of *N* members needs roughly *r x N*. If supply exceeds demand, residual
+    sharing means the encoder is failing to use available capacity; if supply falls short, the
+    sharing is forced and no encoder can remove it.
+
+    Searched two ways, because a plain random draw is a weak search whose acceptance curve
+    flattens for efficiency reasons as much as for exhaustion: unbiased sampling, and a greedy
+    pass that refuses codons which would recreate an already-used k-mer. Both converging on the
+    same number is the evidence that it is a real ceiling rather than a search artefact.
+
+    **Not a proof of the exact maximum** -- that is a set-packing problem -- but a well-supported
+    empirical ceiling under the stated constraints. It depends on `k`, the GC band, the enzyme
+    set and the codon table; change any of those and it changes.
+    """
+    import random
+
+    from Bio import Restriction
+    from Bio.Seq import Seq
+
+    from . import constants as C
+    from .codons import complete_table
+
+    table = complete_table(codon_table, genetic_code)
+    names = C.enzymes_for(C.DEFAULT_ENZYME_PROFILE if enzymes is None else enzymes)
+    sites = [e for e in (getattr(Restriction, n, None) for n in names) if e is not None]
+    options = {aa: [c.replace("U", "T") for c in table[aa]] for aa in set(protein_region)}
+
+    def ok(dna: str) -> bool:
+        gc = (dna.count("G") + dna.count("C")) / len(dna)
+        if not gc_bounds[0] <= gc <= gc_bounds[1]:
+            return False
+        if any(b * (max_homopolymer + 1) in dna for b in "ACGT"):
+            return False
+        if str(Seq(dna).translate()) != protein_region:
+            return False
+        return not any(e.search(Seq(dna)) for e in sites)
+
+    def windows(dna: str) -> set[str]:
+        return {dna[i:i + k] for i in range(len(dna) - k + 1)}
+
+    rng = random.Random(seed)
+    found = last_hit = 0
+    used: set[str] = set()
+    for i in range(1, draws + 1):
+        dna = "".join(rng.choice(options[aa]) for aa in protein_region)
+        if ok(dna):
+            w = windows(dna)
+            if not (w & used):
+                found += 1
+                used |= w
+                last_hit = i
+
+    rng2 = random.Random(seed + 1)
+    greedy, used2 = 0, set()
+    for _ in range(max(1, draws // 4)):
+        dna = ""
+        for aa in protein_region:
+            choices = options[aa][:]
+            rng2.shuffle(choices)
+            dna += next((c for c in choices
+                         if len(dna + c) < k or (dna + c)[-k:] not in used2), choices[0])
+        if ok(dna):
+            w = windows(dna)
+            if not (w & used2):
+                greedy += 1
+                used2 |= w
+
+    return {
+        "region_aa": len(protein_region),
+        "k": k,
+        "random_search": found,
+        "greedy_search": greedy,
+        "capacity": max(found, greedy),
+        "searches_agree": found == greedy,
+        "last_random_hit_at_draw": last_hit,
+        "draws": draws,
+    }
 
 
 def diversify_library(targets, *, threshold: int = HR_THRESHOLD_NT, codon_table=None,

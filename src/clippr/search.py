@@ -64,13 +64,18 @@ to trade off. What it genuinely delivers is narrower and still worth having:
 
   * it selects the best of N *finished* designs on the one axis that varies, and
     `validation/benchmark_search.py` measures what that is worth against cheaper strategies over
-    12 targets. Taking the first feasible plan leaves **5.99 optimiser-score points** behind on
-    average — about **4.5%** of the typical score magnitude — and finds the best candidate in the
-    pool for only 1 of 12 targets; a random feasible plan manages 2 of 12 and the better of the
-    top two 3 of 12. Read that as a measure of how costly the first-feasible heuristic is: this
-    module's own 12-of-12 is definitional, since with the other objectives degenerate `select`
-    reduces to the argmax of the score it is being judged on. The units are DNA Chisel's, so
-    this is an internal sequence-quality gain and not a validated biological one;
+    12 targets. Taking the first feasible plan leaves **5.99 DNA Chisel objective units** behind
+    on average, and finds the best candidate in the pool for only 1 of 12 targets; a random
+    feasible plan manages 2 of 12 and the better of the top two 3 of 12. Read that as a measure of
+    how costly the first-feasible heuristic is: this module's own 12-of-12 is definitional, since
+    with the other objectives degenerate `select` reduces to the argmax of the score it is being
+    judged on.
+
+    **That benchmark demonstrates algorithmic optimisation of the DNA Chisel objective, not
+    improved biological performance.** The score being optimised is also the score being measured,
+    so it establishes that broader candidate evaluation finds better points under that objective
+    and nothing about what the wet lab will observe. Twelve targets is also a small sample; the
+    ordering should be re-established on a larger set before it is quoted as settled;
   * it can answer "is this design good relative to the alternatives?" with evidence rather
     than assertion;
   * it establishes the degeneracy above, which is a real property of the design space and was
@@ -80,6 +85,13 @@ The hierarchy is kept in full because it is the correct structure the moment any
 objectives starts discriminating — a different destination pair, a stricter enzyme profile, a
 harder protein — and because a decision rule that only works when the answer is easy is not a
 decision rule.
+
+**The honest description of this module** is a candidate-search layer that stops the
+first-feasible heuristic from becoming an irreversible design choice. It is not a validated
+superior biological optimiser, and the optimiser score is never traded against fidelity: hard
+constraints and the declared priority levels decide selection, and the score only ranks within the
+sequence-quality level. "Why is 4 optimiser units worth 1% fidelity?" has an answer — that
+exchange is never made.
 
 **Cost.** One full codon optimisation per candidate, so runtime is roughly `budget` times a
 single design: measured 4.5 s for 9S, 10.5 s for 14S and 48.3 s for 19S at `budget=8`. The

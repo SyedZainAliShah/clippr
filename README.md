@@ -200,12 +200,31 @@ the library is also assessed as a whole. On six designs:
 | members in no flagged pair | 0 | 4 |
 
 The scaffold blocks are eliminated. Blocks in five of six members survive, and they decode to the
-**repeat template** (`GAGCTGTTCGACAAGATGCC` is ELFDKMP…). That residue is structural, not a defect
-in the method: the template is protein-identical in every member by definition, and with the codon
-table, GC band, enzyme sites and homopolymer limits all constraining the choice, some codon reuse
-across 302 residues is unavoidable. These figures also move with library size — the six-member run
-leaves one pair at 60 nt where the five-member run cleared all of them — so re-measure for the real
-library rather than quoting them.
+**repeat template** (`GAGCTGTTCGACAAGATGCC` is ELFDKMP…).
+
+**Whether that residue is avoidable was measured, and it corrected an earlier claim of ours.** We
+had called it "unavoidable" without establishing a bound. `encoding_capacity` settles it: the
+31-residue repeat template admits **84** mutually 20-mer-disjoint encodings under the codon table,
+GC band, enzyme set and homopolymer limit. An unbiased random search and a greedy search that
+steers away from used windows both converge on exactly 84, and the random search finds its last
+new encoding after 25,000 draws then nothing in the following 775,000 — a ceiling, not a search
+artefact.
+
+Demand is roughly *repeats × members*, which turns that one number into two opposite conclusions:
+
+| library | disjoint encodings needed | verdict |
+|---|---|---|
+| 6 members, 9S | ~54 | **84 is sufficient** — the residual sharing is an encoder limitation, not a bound |
+| 50 members, 9S | ~450 | **84 falls ~5× short** — repeat-body homology cannot be engineered away |
+
+So at the real library size this is a **design constraint on PPR libraries**, not a defect in any
+tool: roughly nine members' worth of disjoint repeat encodings exist in total. The figure is
+empirical rather than a proof of the exact maximum, and it moves with *k*, the GC band, the enzyme
+profile and the codon table — and since 20-mer disjointness is stricter than recombination risk
+requires, the practical ceiling is higher than 84.
+
+These six-member numbers also move with library size — the run leaves one pair at 60 nt where the
+five-member run cleared all of them — so re-measure for the real library rather than quoting them.
 
 The fix is constructive. Each member gets its own synonymous encoding of the scaffold, locked in
 place — deterministic in the member index, so a library stays reproducible.
@@ -260,10 +279,22 @@ work a wet lab asked for.
 **Measured caveat, stated because it matters.** Across all three architectures, predicted
 fidelity was **identical for every candidate** and QC passed for every candidate — fidelity is
 capped by the destination overhang pair, and `safe_overhangs` has already removed the designs
-that would have failed QC. So the hierarchy is currently *single-objective in practice*, and
-this is not a multi-objective optimiser. What it does deliver is a better design than the
-first-feasible plan (it changed the answer for all three architectures) and an evidenced answer
-to the question above.
+that would have failed QC. So the hierarchy is currently *single-objective in practice*, and this
+is not a multi-objective optimiser.
+
+`validation/benchmark_search.py` measures what exploring is worth against cheaper strategies over
+12 targets. Taking the first feasible plan leaves **5.99 DNA Chisel objective units** behind on
+average and finds the best candidate in the pool for only 1 of 12 targets, against 2 of 12 for a
+random feasible plan and 3 of 12 for the better of the top two. This module's own 12 of 12 is
+definitional — with the other objectives degenerate, selection reduces to the argmax of the score
+being measured — so read the *other* rows.
+
+**That is algorithmic optimisation of the DNA Chisel objective, not improved biological
+performance**, since the score optimised is the score measured. The honest description is a
+candidate-search layer that stops the first-feasible heuristic from becoming an irreversible
+design choice. The optimiser score is never traded against fidelity: hard constraints and the
+declared priority levels decide selection, and the score only ranks within the sequence-quality
+level.
 
 ## Constraints are declared, not assumed
 
@@ -295,7 +326,7 @@ Checked against a fixed 200-design reference corpus:
 | Codon constraints, independently verified | **200/200** |
 | End-to-end pipeline | **200/200, zero exceptions, seed-reproducible** |
 
-Plus 435 unit tests, including an exhaustive comparison of the overhang feasibility filter
+Plus 439 unit tests, including an exhaustive comparison of the overhang feasibility filter
 against an independently written brute-force oracle.
 
 ```bash
