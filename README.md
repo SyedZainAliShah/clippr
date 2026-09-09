@@ -230,9 +230,18 @@ at every size tested. The binding constraint was never the sequence space — it
 assigns per member *independently*, which costs about **75 nt**. Our earlier reading ("~5× short at
 50 members") was wrong, because 20-mer disjointness is far stricter than a short worst tract.
 
-Two consequences: `diversify_library` should coordinate globally, which is the largest improvement
-available here; and the expensive solver is **not** worth building, since minimax beats global
-greedy by at most 3 nt.
+That looked like a clear instruction — coordinate globally, gain ~75 nt — so we wired it in and
+measured it. **It made things worse**: worst shared tract 60 → 65 nt and flagged pairs 1 → 6 of
+15, against plain per-member assignment. The prediction did not transfer because the curve models
+an assignment that controls *every repeat's* encoding, whereas in the real pipeline it controls
+only the 69-nt scaffold of a 906-nt sequence, and changing the locked prefix perturbs DNA Chisel's
+trajectory for the other 837 nt more than the coordination gains.
+
+So the code assigns by member index, the coordinating function is kept only to document the
+negative result, and the honest reading of the curve is that **it bounds what a solver controlling
+the whole sequence could achieve, not what this one can.** The expensive minimax solver is also
+not worth building — it beats global greedy by at most 3 nt even in the model where coordination
+works.
 
 **20-mer disjointness is our engineering criterion, not a biological threshold.** The choice of *k*
 dominates the answer, in the counter-intuitive direction: capacity measured **8 at k=12, 84 at k=20,

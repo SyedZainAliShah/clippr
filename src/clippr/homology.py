@@ -424,6 +424,44 @@ def encoding_capacity(protein_region: str, codon_table, *, k: int = KMER,
     }
 
 
+def _least_conflicting_scaffold(placed: list[str], protein_prefix: str, codon_table, *,
+                                genetic_code: int, enzymes, candidates: int = 16,
+                                k: int = KMER) -> str:
+    """The candidate scaffold encoding sharing fewest k-mers with what is already placed.
+
+    **Not used, and kept only to record a negative result.** The capacity curve
+    (`validation/homology_capacity_curve.py`) showed coordinated assignment beating independent
+    assignment by roughly 75 nt, so wiring this into `diversify_library` looked like the largest
+    improvement available. Measured on the real pipeline over six targets, it made things
+    **worse**: worst shared tract 60 -> 65 nt and flagged pairs 1 -> 6 of 15, against plain
+    index assignment.
+
+    The reason the prediction did not transfer is that the curve modelled a world where the
+    assignment controls every repeat's encoding. Here it controls only the 69-nt scaffold of a
+    906-nt sequence, and changing the locked prefix changes DNA Chisel's whole trajectory for
+    the other 837 nt. Optimising the small part perturbs the large part more than it gains --
+    the same effect that made reactive k-mer banning non-monotone.
+
+    Left in place because "we tried coordinating and it was worse" is worth more to the next
+    person than a silently absent idea. Any future attempt should control the body's encoding
+    too, not just the prefix.
+    """
+    used: set[str] = set()
+    for cds in placed:
+        used |= {cds[i:i + k] for i in range(len(cds) - k + 1)}
+
+    best, fewest = None, None
+    for member in range(candidates):
+        enc = scaffold_encoding(member, protein_prefix, codon_table,
+                                genetic_code=genetic_code, enzymes=enzymes)
+        clash = len({enc[i:i + k] for i in range(len(enc) - k + 1)} & used)
+        if fewest is None or clash < fewest:
+            best, fewest = enc, clash
+        if clash == 0:
+            break                      # nothing shared; no candidate can beat that
+    return best
+
+
 def diversify_library(targets, *, threshold: int = HR_THRESHOLD_NT, codon_table=None,
                       genetic_code: int = 1, retries: int = 3, on_progress=None,
                       **kwargs) -> dict:
@@ -455,6 +493,9 @@ def diversify_library(targets, *, threshold: int = HR_THRESHOLD_NT, codon_table=
     for i, t in enumerate(targets, 1):
         base = design_oneshot(t, codon_table=codon_table, seed=base_seed, **kwargs)
         baseline[t] = base["cds"]
+        # Assignment is by member index, deliberately. Choosing the scaffold that conflicts
+        # least with the placed library sounds strictly better and was measured to be worse --
+        # see `_least_conflicting_scaffold`, which is kept only to document that result.
         prefix = scaffold_encoding(
             i - 1, N_TERMINAL, base["codon_table"], genetic_code=base["genetic_code"],
             enzymes=base["enzyme_profile_effective"])
