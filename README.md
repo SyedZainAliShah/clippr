@@ -348,7 +348,7 @@ Checked against a fixed 200-design reference corpus:
 | Codon constraints, independently verified | **200/200** |
 | End-to-end pipeline | **200/200, zero exceptions, seed-reproducible** |
 
-Plus 439 unit tests, including an exhaustive comparison of the overhang feasibility filter
+Plus 458 unit tests, including an exhaustive comparison of the overhang feasibility filter
 against an independently written brute-force oracle.
 
 ```bash
