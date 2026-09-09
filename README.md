@@ -274,6 +274,57 @@ members acquired substantial unintended DNA identity through a shared scaffold, 
 redesign reduced the longest shared tract from 84 to 47 nt.** Everything beyond that needs the
 bench.
 
+## Two realisation routes — synthesise, or use parts you already own
+
+Everything above designs DNA to be **synthesised**. But the GRASP authors deposited a
+42-plasmid kit, and a lab that holds it can assemble many PPRs from parts it already has.
+
+```python
+from clippr import parts_report, select_parts
+
+print(parts_report(select_parts("AAAAUGUGG")))
+```
+
+```
+GRASP kit route for AAAAUGUGG — 10 modules in 2 sub-assemblies
+
+no new PPR DNA needs synthesising; every module below is a deposited plasmid
+
+  sub-assembly 1  (AATG -> CTTC)
+    pPR-1_1A_5T_AATG    plate  C1  AATG..ACTC  5th/last T/-
+    pPR-1_B_LN5T        plate  B5  ACTC..AAGA  5th/last T/N
+    ...
+plate positions: C1, B5, F5, B6, G1, B2, G4, D5, H5, E2
+```
+
+**The kit is sized exactly for its job**, which falls out of the overhangs alone. Modules chain
+through a graph with a single branch point; one run of `B C D` plus a linker pair contributes
+five modules; an *n*-base target needs *n+1* modules. So 9, 14 and 19 bases need two, three and
+four sub-assemblies — and since Golden Gate needs unique overhangs within a reaction, each
+internal join consumes its own linker pair. 19S needs three, and the kit contains exactly three.
+It builds nothing longer, and `select_parts` says so rather than returning a partial answer.
+
+**Validated against the paper, not against the reference implementation.** Module identity,
+overhangs and plate positions are derived from **Supplementary Table S1** by
+`tools/derive_parts.py`, and `validation/compare_parts.py` checks our selections reproduce the
+module lists published in **Table S2** — **28 of 28** internally consistent variants.
+
+Three published rows disagree, and each is demonstrably an error in Table S2 rather than in this
+mapping. The clearest is **p8**, which lists a module `C_DD`: that names a 5th residue of `D`,
+and no such plasmid exists — every module in the kit has a 5th residue of `N` or `T`. That one
+needs no trust in our decoding at all, since the published token names a plasmid absent from the
+published inventory.
+
+> **Provenance.** The *idea* of compiling a target into an ordered part list is the reference
+> implementation's, and we found it by reading that implementation. The *data* is not: it comes
+> from the paper's published tables, and no reference source is incorporated. Describe this as a
+> GRASP-compatible route informed by the published implementation — never as independently
+> invented.
+
+This selects the PPR modules only. Acceptor plasmids, the non-PPR elements of the
+transcriptional unit and the assembly protocol are not modelled: it is a *GRASP-compatible PPR
+module realisation*, not a complete construct.
+
 ## Is the chosen design good relative to the alternatives?
 
 `design_oneshot` ranks assembly plans by predicted fidelity and keeps the first that works,
@@ -348,7 +399,7 @@ Checked against a fixed 200-design reference corpus:
 | Codon constraints, independently verified | **200/200** |
 | End-to-end pipeline | **200/200, zero exceptions, seed-reproducible** |
 
-Plus 458 unit tests, including an exhaustive comparison of the overhang feasibility filter
+Plus 497 unit tests, including an exhaustive comparison of the overhang feasibility filter
 against an independently written brute-force oracle.
 
 ```bash

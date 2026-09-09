@@ -37,7 +37,7 @@ include = ["clippr*"]
 [tool.setuptools.package-data]
 # The ligation matrices must travel with the package: without them `set_fidelity` cannot
 # score anything, and an install that omits them fails at design time rather than at import.
-clippr = ["scaffold.json", "data/matrices/*.xlsx"]
+clippr = ["scaffold.json", "parts.json", "data/matrices/*.xlsx"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

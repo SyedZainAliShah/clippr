@@ -45,6 +45,14 @@ from .crosstalk import (
     predicted_affinity,
 )
 from .design import ORGANISMS, design_oneshot, plan_candidates
+from .parts import (
+    Module,
+    PartsPlan,
+    block_chain,
+    inventory,
+)
+from .parts import report as parts_report
+from .parts import select as select_parts
 from .homology import (
     HR_THRESHOLD_NT,
     SharedStretch,
@@ -144,6 +152,7 @@ __all__ = [
     "HR_THRESHOLD_NT", "SharedStretch", "block_profile", "diversify_library",
     "encoding_capacity", "longest_shared", "repeat_blocks", "scaffold_encoding",
     "shared_kmers",
+    "Module", "PartsPlan", "block_chain", "inventory", "parts_report", "select_parts",
     "architecture_of", "code_to_protein", "code_to_rna", "describe",
     "normalize_target", "rna_to_code",
     "__version__",

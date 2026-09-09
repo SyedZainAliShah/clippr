@@ -138,6 +138,17 @@ def _rc(seq: str) -> str:
     return seq.upper().translate(str.maketrans("ACGT", "TGCA"))[::-1]
 
 
+def _parts_plan(target_rna: str):
+    """Can the deposited GRASP kit realise this target? Never raises.
+
+    A design should still be produced when the kit cannot help, so a failure here is recorded
+    as an unavailable route rather than allowed to stop the de novo pipeline.
+    """
+    from .parts import select
+
+    return select(target_rna)
+
+
 def plan_candidates(protein: str, n_fragments: int, destination, matrix: str,
                     enzyme_profile=C.DEFAULT_ENZYME_PROFILE, want: int | None = None):
     """Every assembly plan this design would consider, best predicted fidelity first.
@@ -390,6 +401,10 @@ def design_oneshot(
         # so a caller cannot reconstruct either from its own arguments. Reported so a design
         # can be reproduced exactly, and so `search.py` can re-optimise under identical
         # settings rather than re-deriving them.
+        # Whether the deposited GRASP kit could build this target without synthesising
+        # anything. Always reported, because "you already own these parts" is an answer the
+        # de novo route cannot give and a lab holding the kit would want first.
+        "parts_plan": _parts_plan(d["target_rna"]),
         "codon_table": table,
         "genetic_code": genetic_code,
         "enzyme_profile_effective": tuple(C.enzymes_for(enzyme_profile)),

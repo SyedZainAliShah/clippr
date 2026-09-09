@@ -47,6 +47,17 @@ and `src/clippr/scaffold.json` are derived from:
 supplementary tables, following the published recipe. Re-run that script rather than
 editing the values by hand.
 
+**The GRASP module inventory** in `src/clippr/parts.json` is derived from Supplementary Table S1
+of the same paper by `tools/derive_parts.py`: plasmid identity, Golden Gate overhangs, plate
+positions and insert *lengths*. **Insert sequences are deliberately not included** — selecting
+modules does not need them, since the point of the route is that the user already holds the
+physical plasmids, and omitting them keeps this a derived index rather than a republication of
+the table. Anyone needing the sequences has the paper and the Addgene kit entry.
+
+The *approach* of compiling a target RNA into an ordered part list was taken from the reference
+implementation, which we read. Our implementation shares no source with it and takes its data
+from the published table, but the idea is credited here rather than presented as our own.
+
 **The iGEM RFC[1000] requirement** encoded in `policy.ENZYME_PROFILES` — that BsaI and
 SapI recognition sites be absent from participating parts — comes from iGEM's Type IIS
 assembly documentation.

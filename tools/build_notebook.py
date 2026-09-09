@@ -491,6 +491,42 @@ print(report([scan(target_rna, genome, transcripts)]))
 cells.append(md("""
 ---
 
+## Do you already own the parts?
+
+Everything above designs DNA to be **synthesised**. But the GRASP authors deposited a
+42-plasmid kit, and a lab that holds it can assemble many PPRs from parts it already has. For
+such a lab, "order 906 nt of new DNA" is the wrong answer to a question with a cheaper one.
+
+So a target gets two realisation routes, judged by the same audit:
+
+| route | what it costs | what it constrains |
+|---|---|---|
+| **de novo synthesis** | new DNA | nothing — full synonymous freedom |
+| **GRASP module kit** | nothing, if you hold the kit | fixed to the deposited parts |
+
+The kit turns out to be sized exactly for its job. Modules chain by their Golden Gate
+overhangs through a graph with a single branch point, one run of `B C D` plus a linker
+contributes five modules, and an *n*-base target needs *n+1* modules — so 9, 14 and 19 bases
+need two, three and four sub-assemblies. Each internal join consumes one linker pair, 19S needs
+three, and the kit contains exactly three. It cannot build anything longer, and the cell below
+says so plainly when asked.
+
+> Module identity, overhangs and plate positions are derived from **Farley et al. 2025
+> Supplementary Table S1**, and the selection reproduces the module lists published in Table S2
+> for 28 of 28 internally consistent variants. This selects the PPR modules only — not the
+> acceptor plasmids or the rest of the transcriptional unit.
+"""))
+
+cells.append(code('''
+from clippr import parts_report, select_parts
+
+plan = select_parts(target_rna)
+print(parts_report(plan))
+''', title="GRASP kit route — can you build this from parts you own?"))
+
+cells.append(md("""
+---
+
 ## Is this design good, relative to the alternatives?
 
 The design above ranks assembly plans by predicted ligation fidelity and keeps the first one
