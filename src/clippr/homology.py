@@ -50,31 +50,57 @@ five of six survive, and they decode to the *repeat template* (`GAGCTGTTCGACAAGA
 ELFDKMP..., `CAGAACGGCCGCATTGACGA` is QNGRID...).
 
 **Whether that residue is avoidable was measured rather than assumed, and an earlier version of
-this docstring got it wrong.** It claimed the reuse was "unavoidable" without establishing a
-bound, which is the kind of rationalisation this package is supposed to refuse. `encoding_capacity`
-answers it: the 31-residue repeat template admits **84** mutually 20-mer-disjoint encodings under
-the codon table, GC band, enzyme set and homopolymer limit. Both an unbiased random search and a
-greedy search that steers away from used windows converge on exactly 84, and the random search
-finds its last new encoding after 25,000 draws and nothing in the following 775,000 -- so 84 is a
-ceiling, not a search artefact.
+this docstring got it wrong.** It claimed the reuse was "unavoidable" without establishing
+anything, which is the kind of rationalisation this package is supposed to refuse.
+`encoding_capacity` measures the supply instead: **84 mutually 20-mer-disjoint encodings of the
+31-residue repeat template were obtained** under the codon table, GC band, enzyme set and
+homopolymer limit. An unbiased random search and a greedy search that steers away from used
+windows both reach 84, and the random search finds its last new encoding after 25,000 draws and
+nothing in the following 775,000.
 
-Demand is roughly *repeats x members*, and that turns one number into two opposite conclusions:
+**That is a saturation point of these searches, not a proven maximum.** The exact maximum is a
+set-packing problem and has not been solved. Write "84 encodings were obtained under the stated
+constraints", never "the capacity is 84".
 
-    a 6-member 9S library needs about  54 encodings -> 84 is SUFFICIENT
-    a 50-member 9S library needs about 450          -> 84 falls short about 5-fold
+**A second measurement then overturned the conclusion drawn from the first, and this is the one
+to quote.** Counting *disjoint* encodings asks the wrong question, because members do not need
+disjoint encodings -- they need a short worst shared tract.
+`validation/homology_capacity_curve.py` measures that directly: for N members, the smallest
+achievable maximum exact shared tract, under three assignment strategies.
 
-So at six members the residual sharing is **an encoder limitation, not a bound** -- capacity
-exists and `diversify_library` is not reaching it. At the real library size the bound genuinely
-binds: **repeat-body homology cannot be engineered away in a 50-member library**, because roughly
-nine members' worth of disjoint encodings exist in total. That is a design constraint on PPR
-libraries rather than a defect in any tool.
+    members   A independent   B global greedy   C minimax
+          6             101                26          26
+         10             101                26          26
+         20             102                29          26
+         30             102                29          29
+         50             113                36          35
 
-The figure is empirical, not a proof of the exact maximum (that is a set-packing problem), and it
-moves with `k`, the GC band, the enzyme profile and the codon table. Note too that 20-mer
-disjointness is stricter than recombination risk requires, so the practical ceiling is higher than
-84. Finally, these six-member numbers move with library size -- the run leaves one pair at 60 nt
-where the five-member run cleared all of them -- so measure the real library rather than quoting
-from here.
+**There is no wall at 50.** Coordinated assignment holds the worst shared tract to 26-36 nt at
+every size tested, and the curve rises gently rather than breaking. The binding constraint was
+never the sequence space: it is that assignment is made **per member, independently**, which
+costs about 75 nt. So the earlier reading of the 84 figure -- "about 5-fold short, the criterion
+cannot be satisfied at 50 members" -- was wrong, and it was wrong because 20-mer *disjointness* is
+a far stricter requirement than a short worst tract.
+
+Two consequences. `diversify_library` should coordinate assignment globally rather than
+per-member; that is the single largest available improvement here. And the expensive solver is
+**not** worth building: C beats B by at most 3 nt, so global greedy is enough.
+
+One trap this exposed: the first run used a 400-encoding pool for a library needing 450, which
+forced whole-encoding reuse and made the coordinated strategy score *worse* than the blind one
+(194 nt against 186). The script now raises the pool above demand automatically. A capacity
+experiment whose pool is smaller than its demand measures the pool.
+
+**20-mer disjointness is our engineering criterion, not a biological threshold**, and the choice
+of *k* dominates the answer: capacity measured 8 at k=12, 84 at k=20 and 2578 at k=40, because a
+longer window is a *weaker* requirement -- sharing some 12-mer is near-inevitable, sharing a 40-mer
+needs 40 consecutive identical bases. Since nothing calibrates any *k* to recombination
+probability in this host, no single value should be treated as a safety threshold, and that
+sensitivity is itself the argument against pretending one exists.
+
+Finally, these six-member numbers move with library size -- the run leaves one pair at 60 nt where
+the five-member run cleared all of them -- so measure the real library rather than quoting from
+here.
 
 **Two approaches that did not work, recorded so they are not retried.** Reacting to observed
 sharing is unreliable. Forbidding a whole 59-nt stretch only obliges the optimiser to change
@@ -323,12 +349,15 @@ def encoding_capacity(protein_region: str, codon_table, *, k: int = KMER,
 
     Searched two ways, because a plain random draw is a weak search whose acceptance curve
     flattens for efficiency reasons as much as for exhaustion: unbiased sampling, and a greedy
-    pass that refuses codons which would recreate an already-used k-mer. Both converging on the
-    same number is the evidence that it is a real ceiling rather than a search artefact.
+    pass that refuses codons which would recreate an already-used k-mer.
 
-    **Not a proof of the exact maximum** -- that is a set-packing problem -- but a well-supported
-    empirical ceiling under the stated constraints. It depends on `k`, the GC band, the enzyme
-    set and the codon table; change any of those and it changes.
+    **What the number is and is not.** Two searches agreeing is evidence that both have
+    saturated, not a certificate that no larger set exists -- the exact maximum is a set-packing
+    problem this does not solve. Report it as "N encodings were obtained under these
+    constraints", never as "the capacity is N". It also depends heavily on `k`, and in the
+    counter-intuitive direction: a longer window is a *weaker* disjointness requirement, so
+    capacity rises with `k` (measured 8 at k=12, 84 at k=20, 2578 at k=40). Since no `k` here is
+    calibrated to any biological process, none of these is a safety threshold.
     """
     import random
 

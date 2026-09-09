@@ -22,9 +22,13 @@ data/grasp_supp/
 # corpus is absent.
 results/
 
-# Notebook and scratch output
+# Notebook and scratch output. `clippr_library/` is what the notebook's library cell writes
+# when run from the repository root, which is exactly what happens when the notebook is
+# executed as a test.
 notebooks/clippr_output/
 clippr_output/
+clippr_library/
+out/
 our_cds.json
 *.ipynb_checkpoints/
 CLAUDE.md

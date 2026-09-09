@@ -348,13 +348,21 @@ cols = {"fragment_id": "fragment", "assembly_order": "order", "aa_length": "resi
         "oh3_coding_site_5to3": "oh3"}
 table = result["oligos"][list(cols)].rename(columns=cols)
 
-table.style.hide(axis="index").set_properties(
-    subset=["oh5", "oh3"], **{"font-family": "ui-monospace, monospace"}).set_table_styles([
-        {"selector": "th", "props": [("text-align", "left"), ("font-size", "11px"),
-                                     ("letter-spacing", ".07em"), ("text-transform", "uppercase"),
-                                     ("opacity", ".65"), ("padding", ".4em .9em")]},
-        {"selector": "td", "props": [("padding", ".4em .9em"),
-                                     ("font-variant-numeric", "tabular-nums")]}])
+# pandas' .style needs jinja2, which Colab has but a bare local environment may not.
+# Test that directly rather than catching the AttributeError pandas raises, which would also
+# swallow real errors. Falls back to the plain frame: cosmetics should never break a cell.
+try:
+    import jinja2  # noqa: F401
+    display(table.style.hide(axis="index").set_properties(
+        subset=["oh5", "oh3"], **{"font-family": "ui-monospace, monospace"}).set_table_styles([
+            {"selector": "th", "props": [("text-align", "left"), ("font-size", "11px"),
+                                         ("letter-spacing", ".07em"),
+                                         ("text-transform", "uppercase"),
+                                         ("opacity", ".65"), ("padding", ".4em .9em")]},
+            {"selector": "td", "props": [("padding", ".4em .9em"),
+                                         ("font-variant-numeric", "tabular-nums")]}]))
+except ImportError:
+    display(table)
 ''', title="Fragment table"))
 
 # ---------------------------------------------------------------- audit

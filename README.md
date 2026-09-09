@@ -203,25 +203,47 @@ The scaffold blocks are eliminated. Blocks in five of six members survive, and t
 **repeat template** (`GAGCTGTTCGACAAGATGCC` is ELFDKMP…).
 
 **Whether that residue is avoidable was measured, and it corrected an earlier claim of ours.** We
-had called it "unavoidable" without establishing a bound. `encoding_capacity` settles it: the
-31-residue repeat template admits **84** mutually 20-mer-disjoint encodings under the codon table,
-GC band, enzyme set and homopolymer limit. An unbiased random search and a greedy search that
-steers away from used windows both converge on exactly 84, and the random search finds its last
-new encoding after 25,000 draws then nothing in the following 775,000 — a ceiling, not a search
-artefact.
+had called it "unavoidable" without establishing anything. `encoding_capacity` measures the supply:
+**84 mutually 20-mer-disjoint encodings** of the 31-residue repeat template were obtained under the
+codon table, GC band, enzyme set and homopolymer limit. An unbiased random search and a greedy
+search that steers away from used windows both reach 84, with the random search finding nothing new
+in its last 775,000 draws.
 
-Demand is roughly *repeats × members*, which turns that one number into two opposite conclusions:
+That is where **these searches saturate, not a proven maximum** — the exact maximum is a set-packing
+problem we have not solved.
 
-| library | disjoint encodings needed | verdict |
-|---|---|---|
-| 6 members, 9S | ~54 | **84 is sufficient** — the residual sharing is an encoder limitation, not a bound |
-| 50 members, 9S | ~450 | **84 falls ~5× short** — repeat-body homology cannot be engineered away |
+**A second measurement then overturned the conclusion we drew from it, and this is the number to
+quote.** Counting *disjoint* encodings asks the wrong question: members don't need disjoint
+encodings, they need a short worst shared tract. Measuring that directly, for N members under three
+assignment strategies:
 
-So at the real library size this is a **design constraint on PPR libraries**, not a defect in any
-tool: roughly nine members' worth of disjoint repeat encodings exist in total. The figure is
-empirical rather than a proof of the exact maximum, and it moves with *k*, the GC band, the enzyme
-profile and the codon table — and since 20-mer disjointness is stricter than recombination risk
-requires, the practical ceiling is higher than 84.
+| members | A independent | B global greedy | C minimax |
+|---|---|---|---|
+| 6 | 101 | 26 | 26 |
+| 10 | 101 | 26 | 26 |
+| 20 | 102 | 29 | 26 |
+| 30 | 102 | 29 | 29 |
+| **50** | 113 | **36** | 35 |
+
+**There is no wall at 50 members.** Coordinated assignment holds the worst shared tract to 26–36 nt
+at every size tested. The binding constraint was never the sequence space — it is that our encoder
+assigns per member *independently*, which costs about **75 nt**. Our earlier reading ("~5× short at
+50 members") was wrong, because 20-mer disjointness is far stricter than a short worst tract.
+
+Two consequences: `diversify_library` should coordinate globally, which is the largest improvement
+available here; and the expensive solver is **not** worth building, since minimax beats global
+greedy by at most 3 nt.
+
+**20-mer disjointness is our engineering criterion, not a biological threshold.** The choice of *k*
+dominates the answer, in the counter-intuitive direction: capacity measured **8 at k=12, 84 at k=20,
+2578 at k=40**, because a longer window is a *weaker* requirement — sharing some 12-mer is
+near-inevitable, sharing a 40-mer needs 40 consecutive identical bases. Nothing calibrates any *k*
+to recombination probability in this host, so no value is a safety threshold, and that sensitivity
+is itself the argument against pretending one exists.
+
+The 84 also covers **one repeat template under one criterion** — not the library's total DNA
+diversity, which additionally involves the scaffold, assembly arms, regulatory elements and
+backbone.
 
 These six-member numbers also move with library size — the run leaves one pair at 60 nt where the
 five-member run cleared all of them — so re-measure for the real library rather than quoting them.
