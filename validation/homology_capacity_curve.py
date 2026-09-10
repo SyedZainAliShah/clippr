@@ -44,6 +44,10 @@ from clippr.homology import longest_shared          # noqa: E402
 K = 20
 REPEATS_PER_MEMBER = 9
 
+#: The pool is always sized for this many members, whatever sizes are actually requested, so a
+#: row is reproducible on its own rather than only within the run that produced it.
+REFERENCE_MAX_MEMBERS = 50
+
 
 def encoding_pool(size, seed=0):
     """Valid synonymous encodings of the repeat template, distinct but not disjoint."""
@@ -193,11 +197,18 @@ def main() -> None:
     # measures the pool rather than the sequence space. A 400-encoding pool against 50 members
     # (450 copies needed) produced exactly that artefact: the coordinated strategy scored
     # *worse* than the blind one, because reusing a whole 93-nt encoding creates a 93-nt tract.
-    demand = max(args.sizes) * REPEATS_PER_MEMBER
+    #
+    # Sizing it from `max(args.sizes)` made every row depend on what else was asked for in the
+    # same run: n=6 scored 110 nt alone and 101 nt alongside n=50, because the second run
+    # silently drew from a larger pool. Rows in one table were comparable to each other and to
+    # nothing else. The pool is therefore sized from a fixed reference, so a given library size
+    # returns the same figure whichever sizes accompany it.
+    demand = REFERENCE_MAX_MEMBERS * REPEATS_PER_MEMBER
     need = max(args.pool, int(demand * 1.5))
     if need > args.pool:
-        print(f"raising pool {args.pool} -> {need}: {max(args.sizes)} members need {demand} "
-              f"encodings, and a pool below that forces reuse")
+        print(f"raising pool {args.pool} -> {need}: the fixed reference of "
+              f"{REFERENCE_MAX_MEMBERS} members needs {demand} encodings, and a pool below "
+              f"that forces reuse")
     print(f"building a pool of {need} valid repeat-template encodings...", flush=True)
     pool = encoding_pool(need)
     print(f"pool ready: {len(pool)} encodings of {len(pool[0])} nt, "
