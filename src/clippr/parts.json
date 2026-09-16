@@ -1,0 +1,521 @@
+{
+ "provenance": "Derived from Farley et al. 2025 Supplementary Table S1 by tools/derive_parts.py. Module identity, overhangs and plate positions only; insert sequences are deliberately omitted -- see the paper or Addgene for those. No part of the reference implementation was used.",
+ "source": "Farley KV et al. (2025) Nucleic Acids Research, 10.1093/nar/gkaf1169",
+ "kit": "GRASP Cloning Kit, 42 plasmids in pAGM1311",
+ "code_to_base": {
+  "TN": "A",
+  "NN": "C",
+  "TD": "G",
+  "ND": "U"
+ },
+ "code_note": "A module named L<last>5<fifth> contributes the 5th residue for its own base and the last residue for the preceding one; the base at position k is read by (fifth of module k, last of module k+1). Derived from Table S2 and validated on 28 of its 31 published variants.",
+ "blocks": [
+  "14A",
+  "14E",
+  "19A",
+  "19E",
+  "1A",
+  "1E",
+  "2A",
+  "2E",
+  "B",
+  "C",
+  "D"
+ ],
+ "overhang_graph": {
+  "AATG": [
+   "ACTC"
+  ],
+  "AGGT": [
+   "ACTC"
+  ],
+  "TGAA": [
+   "CTTC",
+   "TTCG",
+   "GTGA",
+   "CACG"
+  ],
+  "CTTC": [
+   "ACTC"
+  ],
+  "GTGA": [
+   "ACTC"
+  ],
+  "CACG": [
+   "ACTC"
+  ],
+  "ACTC": [
+   "AAGA"
+  ],
+  "AAGA": [
+   "GCAC"
+  ],
+  "GCAC": [
+   "TGAA"
+  ]
+ },
+ "modules": [
+  {
+   "plasmid_id": "pPR-1_1A_5N_AATG",
+   "vector": "pAGM1311",
+   "plate": "A1",
+   "five_overhang": "AATG",
+   "three_overhang": "ACTC",
+   "insert_length": 124,
+   "block": "1A",
+   "last": null,
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_1A_5N_AGGT",
+   "vector": "pAGM1311",
+   "plate": "B1",
+   "five_overhang": "AGGT",
+   "three_overhang": "ACTC",
+   "insert_length": 124,
+   "block": "1A",
+   "last": null,
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_1A_5T_AATG",
+   "vector": "pAGM1311",
+   "plate": "C1",
+   "five_overhang": "AATG",
+   "three_overhang": "ACTC",
+   "insert_length": 124,
+   "block": "1A",
+   "last": null,
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_1A_5T_AGGT",
+   "vector": "pAGM1311",
+   "plate": "D1",
+   "five_overhang": "AGGT",
+   "three_overhang": "ACTC",
+   "insert_length": 124,
+   "block": "1A",
+   "last": null,
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_1E_LD5N",
+   "vector": "pAGM1311",
+   "plate": "E1",
+   "five_overhang": "TGAA",
+   "three_overhang": "CTTC",
+   "insert_length": 103,
+   "block": "1E",
+   "last": "D",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_1E_LD5T",
+   "vector": "pAGM1311",
+   "plate": "F1",
+   "five_overhang": "TGAA",
+   "three_overhang": "CTTC",
+   "insert_length": 103,
+   "block": "1E",
+   "last": "D",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_1E_LN5N",
+   "vector": "pAGM1311",
+   "plate": "G1",
+   "five_overhang": "TGAA",
+   "three_overhang": "CTTC",
+   "insert_length": 103,
+   "block": "1E",
+   "last": "N",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_1E_LN5T",
+   "vector": "pAGM1311",
+   "plate": "H1",
+   "five_overhang": "TGAA",
+   "three_overhang": "CTTC",
+   "insert_length": 103,
+   "block": "1E",
+   "last": "N",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_2A_LD5N",
+   "vector": "pAGM1311",
+   "plate": "A2",
+   "five_overhang": "CTTC",
+   "three_overhang": "ACTC",
+   "insert_length": 94,
+   "block": "2A",
+   "last": "D",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_2A_LD5T",
+   "vector": "pAGM1311",
+   "plate": "B2",
+   "five_overhang": "CTTC",
+   "three_overhang": "ACTC",
+   "insert_length": 94,
+   "block": "2A",
+   "last": "D",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_2A_LN5N",
+   "vector": "pAGM1311",
+   "plate": "C2",
+   "five_overhang": "CTTC",
+   "three_overhang": "ACTC",
+   "insert_length": 94,
+   "block": "2A",
+   "last": "N",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_2A_LN5T",
+   "vector": "pAGM1311",
+   "plate": "D2",
+   "five_overhang": "CTTC",
+   "three_overhang": "ACTC",
+   "insert_length": 94,
+   "block": "2A",
+   "last": "N",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_2E_LD",
+   "vector": "pAGM1311",
+   "plate": "E2",
+   "five_overhang": "TGAA",
+   "three_overhang": "TTCG",
+   "insert_length": 40,
+   "block": "2E",
+   "last": "D",
+   "fifth": null
+  },
+  {
+   "plasmid_id": "pPR-1_2E_LN",
+   "vector": "pAGM1311",
+   "plate": "F2",
+   "five_overhang": "TGAA",
+   "three_overhang": "TTCG",
+   "insert_length": 40,
+   "block": "2E",
+   "last": "N",
+   "fifth": null
+  },
+  {
+   "plasmid_id": "pPR-1_14A_LD5N",
+   "vector": "pAGM1311",
+   "plate": "G2",
+   "five_overhang": "GTGA",
+   "three_overhang": "ACTC",
+   "insert_length": 101,
+   "block": "14A",
+   "last": "D",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_14A_LD5T",
+   "vector": "pAGM1311",
+   "plate": "H2",
+   "five_overhang": "GTGA",
+   "three_overhang": "ACTC",
+   "insert_length": 101,
+   "block": "14A",
+   "last": "D",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_14A_LN5N",
+   "vector": "pAGM1311",
+   "plate": "A3",
+   "five_overhang": "GTGA",
+   "three_overhang": "ACTC",
+   "insert_length": 101,
+   "block": "14A",
+   "last": "N",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_14A_LN5T",
+   "vector": "pAGM1311",
+   "plate": "B3",
+   "five_overhang": "GTGA",
+   "three_overhang": "ACTC",
+   "insert_length": 101,
+   "block": "14A",
+   "last": "N",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_14E_LD5N",
+   "vector": "pAGM1311",
+   "plate": "C3",
+   "five_overhang": "TGAA",
+   "three_overhang": "GTGA",
+   "insert_length": 96,
+   "block": "14E",
+   "last": "D",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_14E_LD5T",
+   "vector": "pAGM1311",
+   "plate": "D3",
+   "five_overhang": "TGAA",
+   "three_overhang": "GTGA",
+   "insert_length": 96,
+   "block": "14E",
+   "last": "D",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_14E_LN5N",
+   "vector": "pAGM1311",
+   "plate": "E3",
+   "five_overhang": "TGAA",
+   "three_overhang": "GTGA",
+   "insert_length": 96,
+   "block": "14E",
+   "last": "N",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_14E_LN5T",
+   "vector": "pAGM1311",
+   "plate": "F3",
+   "five_overhang": "TGAA",
+   "three_overhang": "GTGA",
+   "insert_length": 96,
+   "block": "14E",
+   "last": "N",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_19A_LD5N",
+   "vector": "pAGM1311",
+   "plate": "G3",
+   "five_overhang": "CACG",
+   "three_overhang": "ACTC",
+   "insert_length": 104,
+   "block": "19A",
+   "last": "D",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_19A_LD5T",
+   "vector": "pAGM1311",
+   "plate": "H3",
+   "five_overhang": "CACG",
+   "three_overhang": "ACTC",
+   "insert_length": 104,
+   "block": "19A",
+   "last": "D",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_19A_LN5N",
+   "vector": "pAGM1311",
+   "plate": "A4",
+   "five_overhang": "CACG",
+   "three_overhang": "ACTC",
+   "insert_length": 104,
+   "block": "19A",
+   "last": "N",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_19A_LN5T",
+   "vector": "pAGM1311",
+   "plate": "B4",
+   "five_overhang": "CACG",
+   "three_overhang": "ACTC",
+   "insert_length": 104,
+   "block": "19A",
+   "last": "N",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_19E_LD5N",
+   "vector": "pAGM1311",
+   "plate": "C4",
+   "five_overhang": "TGAA",
+   "three_overhang": "CACG",
+   "insert_length": 93,
+   "block": "19E",
+   "last": "D",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_19E_LD5T",
+   "vector": "pAGM1311",
+   "plate": "D4",
+   "five_overhang": "TGAA",
+   "three_overhang": "CACG",
+   "insert_length": 93,
+   "block": "19E",
+   "last": "D",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_19E_LN5N",
+   "vector": "pAGM1311",
+   "plate": "E4",
+   "five_overhang": "TGAA",
+   "three_overhang": "CACG",
+   "insert_length": 93,
+   "block": "19E",
+   "last": "N",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_19E_LN5T",
+   "vector": "pAGM1311",
+   "plate": "F4",
+   "five_overhang": "TGAA",
+   "three_overhang": "CACG",
+   "insert_length": 93,
+   "block": "19E",
+   "last": "N",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_B_LD5N",
+   "vector": "pAGM1311",
+   "plate": "G4",
+   "five_overhang": "ACTC",
+   "three_overhang": "AAGA",
+   "insert_length": 91,
+   "block": "B",
+   "last": "D",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_B_LD5T",
+   "vector": "pAGM1311",
+   "plate": "H4",
+   "five_overhang": "ACTC",
+   "three_overhang": "AAGA",
+   "insert_length": 91,
+   "block": "B",
+   "last": "D",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_B_LN5N",
+   "vector": "pAGM1311",
+   "plate": "A5",
+   "five_overhang": "ACTC",
+   "three_overhang": "AAGA",
+   "insert_length": 91,
+   "block": "B",
+   "last": "N",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_B_LN5T",
+   "vector": "pAGM1311",
+   "plate": "B5",
+   "five_overhang": "ACTC",
+   "three_overhang": "AAGA",
+   "insert_length": 91,
+   "block": "B",
+   "last": "N",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_C_LD5N",
+   "vector": "pAGM1311",
+   "plate": "C5",
+   "five_overhang": "AAGA",
+   "three_overhang": "GCAC",
+   "insert_length": 95,
+   "block": "C",
+   "last": "D",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_C_LD5T",
+   "vector": "pAGM1311",
+   "plate": "D5",
+   "five_overhang": "AAGA",
+   "three_overhang": "GCAC",
+   "insert_length": 95,
+   "block": "C",
+   "last": "D",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_C_LN5N",
+   "vector": "pAGM1311",
+   "plate": "E5",
+   "five_overhang": "AAGA",
+   "three_overhang": "GCAC",
+   "insert_length": 95,
+   "block": "C",
+   "last": "N",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_C_LN5T",
+   "vector": "pAGM1311",
+   "plate": "F5",
+   "five_overhang": "AAGA",
+   "three_overhang": "GCAC",
+   "insert_length": 95,
+   "block": "C",
+   "last": "N",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_D_LD5N",
+   "vector": "pAGM1311",
+   "plate": "G5",
+   "five_overhang": "GCAC",
+   "three_overhang": "TGAA",
+   "insert_length": 102,
+   "block": "D",
+   "last": "D",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_D_LD5T",
+   "vector": "pAGM1311",
+   "plate": "H5",
+   "five_overhang": "GCAC",
+   "three_overhang": "TGAA",
+   "insert_length": 102,
+   "block": "D",
+   "last": "D",
+   "fifth": "T"
+  },
+  {
+   "plasmid_id": "pPR-1_D_LN5N",
+   "vector": "pAGM1311",
+   "plate": "A6",
+   "five_overhang": "GCAC",
+   "three_overhang": "TGAA",
+   "insert_length": 102,
+   "block": "D",
+   "last": "N",
+   "fifth": "N"
+  },
+  {
+   "plasmid_id": "pPR-1_D_LN5T",
+   "vector": "pAGM1311",
+   "plate": "B6",
+   "five_overhang": "GCAC",
+   "three_overhang": "TGAA",
+   "insert_length": 102,
+   "block": "D",
+   "last": "N",
+   "fifth": "T"
+  }
+ ]
+}

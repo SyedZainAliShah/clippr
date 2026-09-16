@@ -348,13 +348,21 @@ cols = {"fragment_id": "fragment", "assembly_order": "order", "aa_length": "resi
         "oh3_coding_site_5to3": "oh3"}
 table = result["oligos"][list(cols)].rename(columns=cols)
 
-table.style.hide(axis="index").set_properties(
-    subset=["oh5", "oh3"], **{"font-family": "ui-monospace, monospace"}).set_table_styles([
-        {"selector": "th", "props": [("text-align", "left"), ("font-size", "11px"),
-                                     ("letter-spacing", ".07em"), ("text-transform", "uppercase"),
-                                     ("opacity", ".65"), ("padding", ".4em .9em")]},
-        {"selector": "td", "props": [("padding", ".4em .9em"),
-                                     ("font-variant-numeric", "tabular-nums")]}])
+# pandas' .style needs jinja2, which Colab has but a bare local environment may not.
+# Test that directly rather than catching the AttributeError pandas raises, which would also
+# swallow real errors. Falls back to the plain frame: cosmetics should never break a cell.
+try:
+    import jinja2  # noqa: F401
+    display(table.style.hide(axis="index").set_properties(
+        subset=["oh5", "oh3"], **{"font-family": "ui-monospace, monospace"}).set_table_styles([
+            {"selector": "th", "props": [("text-align", "left"), ("font-size", "11px"),
+                                         ("letter-spacing", ".07em"),
+                                         ("text-transform", "uppercase"),
+                                         ("opacity", ".65"), ("padding", ".4em .9em")]},
+            {"selector": "td", "props": [("padding", ".4em .9em"),
+                                         ("font-variant-numeric", "tabular-nums")]}]))
+except ImportError:
+    display(table)
 ''', title="Fragment table"))
 
 # ---------------------------------------------------------------- audit
@@ -483,6 +491,83 @@ print(report([scan(target_rna, genome, transcripts)]))
 cells.append(md("""
 ---
 
+## Do you already own the parts?
+
+Everything above designs DNA to be **synthesised**. But the GRASP authors deposited a
+42-plasmid kit, and a lab that holds it can assemble many PPRs from parts it already has. For
+such a lab, "order 906 nt of new DNA" is the wrong answer to a question with a cheaper one.
+
+So a target gets two realisation routes, judged by the same audit:
+
+| route | what it costs | what it constrains |
+|---|---|---|
+| **de novo synthesis** | new DNA | nothing — full synonymous freedom |
+| **GRASP module kit** | nothing, if you hold the kit | fixed to the deposited parts |
+
+The kit turns out to be sized exactly for its job. Modules chain by their Golden Gate
+overhangs through a graph with a single branch point, one run of `B C D` plus a linker
+contributes five modules, and an *n*-base target needs *n+1* modules — so 9, 14 and 19 bases
+need two, three and four sub-assemblies. Each internal join consumes one linker pair, 19S needs
+three, and the kit contains exactly three. It cannot build anything longer, and the cell below
+says so plainly when asked.
+
+> Module identity, overhangs and plate positions are derived from **Dennis et al. 2025
+> Supplementary Table S1**, and the selection reproduces the module lists published in Table S2
+> for 28 of 28 internally consistent variants. This selects the PPR modules only — not the
+> acceptor plasmids or the rest of the transcriptional unit.
+"""))
+
+cells.append(code('''
+from clippr import parts_report, select_parts
+
+plan = select_parts(target_rna)
+print(parts_report(plan))
+''', title="GRASP kit route — can you build this from parts you own?"))
+
+cells.append(md("""
+---
+
+## Is this design good, relative to the alternatives?
+
+The design above ranks assembly plans by predicted ligation fidelity and keeps the first one
+whose coding sequence satisfies every constraint. The rest are discarded unexamined — so it
+cannot tell you whether the answer was a good one.
+
+The cell below carries several plans **all the way through** codon optimisation and QC, then
+picks between finished designs using a stated priority order rather than hidden weights:
+
+1. every constraint satisfied and QC not FAIL
+2. predicted fidelity within a tolerance of the best feasible value
+3. prefer QC PASS, then the higher optimiser score
+4. tie-break on fidelity
+
+You get one answer plus the alternatives and what each would cost — not a trade-off plot to
+arbitrate.
+
+> **Measured caveat.** Across 9S, 14S and 19S, predicted fidelity came out *identical for every
+> candidate* and QC passed for every candidate: fidelity is capped by the destination overhang
+> pair, and the infeasible overhangs were already removed earlier. So in this configuration the
+> ranking is effectively decided by sequence quality alone. It still improves on the
+> first-feasible plan for all three architectures — but this is not a multi-objective optimiser,
+> and calling it one would be wrong.
+"""))
+
+cells.append(code('''
+search_budget = 6  #@param {type:"slider", min:2, max:12, step:1}
+
+from clippr import design_searched
+
+searched = design_searched(target_rna, organism=organism, codon_table=None,
+                           enzyme_profile=enzyme_profile, seed=seed,
+                           check_offtarget=False, budget=search_budget)
+print(f"exploring changed the chosen design: {searched['differs_from_oneshot']}")
+print()
+print(searched["certificate"])
+''', title="Explore the alternatives, then justify one"))
+
+cells.append(md("""
+---
+
 ## Designing a whole library
 
 For a set of regulators, what matters is **orthogonality**: PPRᵢ must bind UTRᵢ and not
@@ -515,6 +600,84 @@ print(lib.crosstalk())
 cells.append(code('''
 lib.qc_table()
 ''', title="Library QC table"))
+
+cells.append(md("""
+### DNA shared between members
+
+Cross-talk asks whether two PPRs could bind each other's **target**. This asks whether two
+**genes** share enough identical DNA to recombine — a different question with a different
+answer. Every member of a PPR library carries the same scaffold, so it is never trivially no.
+
+Measured on five 9S designs, every pair shared at least **59 nt**, and every one of those
+stretches began at position 0 in both members: the fixed 23-residue N-terminal scaffold, which is
+protein-identical by construction and gets the same codons every time. Most, but not all — two
+pairs of a six-member library share 62 nt inside the repeat body, at positions 663/663 and
+597/318, with no scaffold involved.
+
+`diversify_library` gives each member its own synonymous encoding of that scaffold, locked in
+place. On those five designs: longest shared stretch **107 → 47 nt**, pairs over the 50 nt
+threshold **10 → 0**. It is deterministic in the member index, so the library stays reproducible,
+and a diversified member is accepted only when it is no worse than the one it replaces. **At six
+members it reaches only 77 nt and leaves 2 of 15 pairs above the threshold** — part of the
+residue lives in the repeat body rather than the scaffold, and this retry schedule did not
+reach it.
+
+A shared stretch is a *necessary* substrate for recombination, never a prediction that it will
+happen, and 50 nt is a rule of thumb rather than a measured constant for this host.
+"""))
+
+cells.append(code('''
+print(lib.homology())
+''', title="Homology — DNA shared between library members"))
+
+cells.append(md("""
+### Cross-talk, in two tiers
+
+Sequence separation is one question; *predicted binding* is a different one, and mixing
+them would smuggle an unvalidated model into a hard criterion. So they stay apart:
+
+| tier | what it is | status |
+|---|---|---|
+| **A — Hamming distance** | two targets differ in *k* of *n* positions | **the hard criterion, and the only thing that gates** |
+| **B — predicted affinity** | the PPR designed for A, scored against B | an annotation; gates nothing |
+
+Tier A makes no biological claim — it says two sequences differ in *k* places, which is
+geometry, and stays true whatever anyone later learns about PPR binding.
+
+Tier B needs a PPR specificity table. **CLIPPR does not ship one**: the available table
+(Yan *et al.*, distributed with [PPRmatcher](https://github.com/ian-small/PPRmatcher))
+carries no licence, so redistributing it would be a rights problem however useful it is.
+It also comes from **P-type** PPR experiments, while this scaffold is **S-type** — all four
+codes GRASP uses do score their cognate base highest in it, which is reassuring, but a
+P-type model has not been shown to apply here. A high score means *look*, never *fail*.
+
+Leave the path blank and you get tier A alone, which is the criterion that gates anyway.
+"""))
+
+cells.append(code('''
+ppr_score_table = ""  #@param {type:"string"}
+
+from clippr import compare_tiers, load_ppr_scores
+
+scores = load_ppr_scores(ppr_score_table) if ppr_score_table.strip() else None
+print(lib.crosstalk(scores=scores))
+
+if scores:
+    cmp = compare_tiers(lib.targets, scores)
+    print()
+    print(f"pairs flagged by separation:      {len(cmp['hamming_flagged'])}")
+    print(f"pairs flagged by predicted affinity: {len(cmp['affinity_flagged'])}")
+    print(f"the model points somewhere separation does not: {cmp['tiers_disagree']}")
+    print()
+    print("A disagreement is a reading recommendation, not a failed design —")
+    print("tier A alone decides what this library accepts.")
+''', title="Two-tier cross-talk — separation gates, affinity annotates"))
+
+# ------------------------------------------------ reusable inventory route
+# Kept in its own module: a second complete workflow appended here would bury both.
+from notebook_inventory_cells import cells as inventory_cells   # noqa: E402
+
+cells += inventory_cells(md, code)
 
 nb = {
     "cells": cells,

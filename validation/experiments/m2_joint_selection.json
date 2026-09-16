@@ -1,0 +1,80 @@
+{
+  "experiment": "M2 joint full-CDS library selection",
+  "version": 1,
+  "frozen_utc": "2026-09-15",
+  "status": "pre-registered; no selection result had been computed when this was written",
+  "question": "Does choosing jointly among several valid CDS candidates per target reduce the worst exact DNA tract shared between library members, compared with the cheaper methods already in the package, under a matched budget?",
+
+  "panels": {
+    "9S": ["AAAAUGUGG", "GCUAAAGAC", "UUACACGUG", "CGUACGUAC", "AUCGAUCGA", "GGCCAAUUG"],
+    "14S": ["AUCUGAGCAACCAG", "CUGAAGCAGGCACG", "ACAGUGCGACAUUA", "UAUCACUGUGGUAG", "GUUAGCUUCAUCUA", "AUGUCCAACUAGCC"],
+    "19S": ["CUAUCACAUCACAUAAGCG", "GGCUAGAUAUAAUUUAAUC", "UUAAUCCAUAAAACACUAG", "CUCAGCAGUUGAAAAAAUG", "GCUAGGUUCCAGCUUUUGG", "GGAGACGUCUUUCUGAGGG"]
+  },
+  "panel_selection_rule": "9S is the original six-target panel used throughout this project. 14S and 19S are the first six targets of their length in validation/integration.corpus() order, taken before any result was computed. Recorded verbatim so the choice cannot be revised after seeing outcomes.",
+
+  "candidates": {
+    "seeds": [42, 43, 44, 45],
+    "per_target": 4,
+    "note": "Four to start. Expansion to eight happens only if four shows value, and gets its own finite budget."
+  },
+
+  "shared_settings": {
+    "codon_table": "data/codon_tables/kazusa_3055.json",
+    "taxid": 3055,
+    "compartment": "nuclear",
+    "compartment_note": "A labelled benchmark fixture for continuity, not a decision about the intended expression system. The wet lab has not settled nuclear versus chloroplast.",
+    "genetic_code": 1,
+    "enzyme_profile": "igem_rfc1000",
+    "matrix": "BsaI-HFv2",
+    "destination": "level0",
+    "check_offtarget": false,
+    "check_offtarget_note": "Screening is irrelevant to a DNA-sharing objective and would add a network dependency. Reported as not assessed."
+  },
+
+  "primary_objective": {
+    "metric": "worst_shared_tract_nt",
+    "definition": "max over all distinct member pairs of homology.longest_shared(a, b)[0], computed on the full CDS",
+    "direction": "minimise"
+  },
+
+  "tie_breaking": [
+    "fewer pairs at or above the flag threshold",
+    "lower total count of 20-mers shared between any pair",
+    "lexicographically smallest tuple of candidate seed indices"
+  ],
+  "tie_breaking_note": "Declared before any result was seen. The last rule is arbitrary but deterministic, so a tie cannot be resolved by whichever answer looks better.",
+
+  "flag_threshold_nt": 50,
+  "flag_threshold_note": "homology.HR_THRESHOLD_NT, unchanged. It must not be redefined to make a result pass. A shared tract is a necessary substrate for recombination, never a prediction of it.",
+
+  "methods": [
+    {"id": "independent", "description": "design_oneshot per target at the base seed; the current default"},
+    {"id": "scaffold_diversified", "description": "homology.diversify_library with the corrected encoding re-roll"},
+    {"id": "joint_selected", "description": "deterministic greedy selection over the per-target candidate banks"}
+  ],
+  "incumbent_rule": "The best complete baseline library is retained as incumbent. The joint route must fall back to it if its choice is worse on the primary objective. Per-target improvement does not imply whole-library improvement and will not be claimed as such.",
+
+  "secondary_reports": [
+    "pairs at or above the flag threshold",
+    "shared 20-mer counts per pair",
+    "CAI excluding Met and Trp",
+    "GC fraction",
+    "duplicated 20-mers within each CDS",
+    "constraint failures and QC status",
+    "wall seconds per stage",
+    "candidates requested, generated, valid and distinct"
+  ],
+
+  "budget": {
+    "wall_seconds_total": 7200,
+    "kind": "wall",
+    "kind_note": "Wall, not CPU. experiment.run checks it before starting each item, so one overrunning item still finishes; the budget bounds how long new work is started, not the longest possible run.",
+    "on_exhaustion": "Report status 'timed out' with partial results. A timeout is never reported as completion."
+  },
+
+  "decision_gate": {
+    "keep_the_feature_if": "it improves the primary metric on at least two of the three panels, retains the incumbent when it cannot improve, and its runtime and secondary-metric costs are reported",
+    "otherwise": "retain the cheaper workflow and publish the negative result",
+    "explicitly_not_claimed": "Nothing here measures recombination frequency, expression, or biological performance. The objective is a sequence measurement."
+  }
+}

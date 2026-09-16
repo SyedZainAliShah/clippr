@@ -30,9 +30,10 @@ from __future__ import annotations
 import io
 import urllib.request
 from dataclasses import dataclass
-from pathlib import Path
 
-CACHE = Path(__file__).resolve().parents[2] / "data" / "genomes"
+from .paths import cache_dir
+
+CACHE = cache_dir("genomes")
 
 #: Chlamydomonas reinhardtii chloroplast, RefSeq complete genome.
 CHLOROPLAST = "NC_005353.1"
@@ -186,6 +187,10 @@ def scan(target: str, genome: str | None = None,
     """
     g = load_genome() if genome is None else genome
     trs = load_transcripts() if transcripts is None else transcripts
+    # Which reference this verdict is about. A result that does not name what it was
+    # screened against cannot be recorded as provenance, and a caller may supply its own
+    # sequence, in which case there is no accession to name.
+    reference = CHLOROPLAST if genome is None else "supplied"
     t = _normalise(target)
 
     in_rna = find_in_transcripts(t, trs)
@@ -208,6 +213,7 @@ def scan(target: str, genome: str | None = None,
         "n_genomic": len(in_dna),
         "genes": sorted({h.where for h in in_rna}),
         "expected_by_chance": expected_by_chance(t, g),
+        "reference": reference,
         "genome_length": len(g),
         "transcribed_nt": sum(len(x.sequence) for x in trs),
     }

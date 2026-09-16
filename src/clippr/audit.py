@@ -53,6 +53,10 @@ class DesignAudit:
     fidelity_ceiling: float | None = None
     constraints_satisfied: bool = True
     qc_status: str = ""
+    #: Whether host off-target screening actually ran. A skipped check must say so: an
+    #: absent line reads as a clean screen, which is the same silent no-op the broad
+    #: `except` around the scan in `design.py` once produced.
+    offtarget_status: str = ""
     findings: tuple[str, ...] = field(default_factory=tuple)
 
     @property
@@ -114,6 +118,8 @@ class DesignAudit:
             lines.append(line)
         lines.append(f"  constraints    {'satisfied' if self.constraints_satisfied else 'NOT satisfied'}")
         lines.append(f"  QC             {self.qc_status}")
+        if self.offtarget_status:
+            lines.append(f"  off-target     {self.offtarget_status}")
 
         if self.selected:
             lines.append("\n  selected overhangs")

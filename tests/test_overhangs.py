@@ -43,19 +43,43 @@ class TestMatrix:
 
 class TestSetFidelity:
     @pytest.mark.parametrize("ohs,matrix,want", [
-        (["ACAT", "ACAA"], "BsaI-HFv2", 0.938296),   # level -1 destination pair
+        (["ACAT", "ACAA"], "BsaI-HFv2", 0.936447),   # level -1 destination pair
         (["CTCA", "CTCG"], "BbsI-HF", 0.794433),     # level 0 destination pair
         (["GGAG", "AGCG"], "BsaI-HFv2", 1.000000),   # level 1, MoClo standard sites
     ])
-    def test_published_pairs(self, ohs, matrix, want):
+    def test_known_sets_do_not_drift(self, ohs, matrix, want):
+        """Regression values computed by this module, not quoted from a paper.
+
+        They pin the scorer against silent change; they are not independent evidence
+        that the scorer is right. The definition it implements is Pryor's, and the
+        property that pins the implementation to that definition is invariance below.
+        """
         assert set_fidelity(ohs, matrix) == pytest.approx(want, abs=1e-6)
 
     def test_orientation_invariant(self):
-        s = ["ACAT", "CTCA", "GGAG"]
-        flipped = [reverse_complement(o) for o in s]
-        assert set_fidelity(s) == pytest.approx(set_fidelity(flipped), abs=1e-12)
-        one = [reverse_complement(s[0])] + s[1:]
-        assert set_fidelity(s) == pytest.approx(set_fidelity(one), abs=1e-12)
+        """Naming a junction by its other strand cannot move the score.
+
+        Both strands of a junction are in the tube, so the two spellings describe one
+        reaction. The earlier example for this test scored 1.000 in every orientation,
+        which no formula can fail; these sets sit away from the ceiling.
+        """
+        for s in (["ACAT", "ACAA", "CTCG"], ["CACT", "AGCG", "GAAC", "CGCA"]):
+            assert 0.0 < set_fidelity(s) < 1.0, "a saturated set cannot test invariance"
+            flipped = [reverse_complement(o) for o in s]
+            assert set_fidelity(s) == pytest.approx(set_fidelity(flipped), abs=1e-12)
+            for i in range(len(s)):
+                one = s[:i] + [reverse_complement(s[i])] + s[i + 1:]
+                assert set_fidelity(s) == pytest.approx(set_fidelity(one), abs=1e-12), (
+                    f"flipping {s[i]} in {s} moved the score")
+
+    def test_orientation_regression_ctca(self):
+        """The counterexample that exposed the pooled-competitor bug.
+
+        TGAG is the reverse complement of CTCA and both sets pass `valid_set`, yet the
+        scorer read them 0.170 apart while claiming to be orientation-invariant.
+        """
+        assert set_fidelity(["CTCA", "CTCG"]) == pytest.approx(
+            set_fidelity(["TGAG", "CTCG"]), abs=1e-12)
 
     def test_bounded_in_unit_interval(self):
         for s in (["GGAG"], ["GGAG", "AGCG"], ["ACAT", "ACAA", "CTCA", "GGAG"]):
@@ -112,12 +136,20 @@ class TestReactionOverhangs:
         """The stored level 0 pair is ("CTCA","CGAG"); the strands present are CTCA/CTCG."""
         assert reaction_overhangs([], "level0") == ["CTCA", "CTCG"]
 
-    def test_the_flip_changes_the_verdict(self):
-        """Guards the specific false all-clear this helper exists to prevent."""
+    def test_both_spellings_of_level0_agree(self):
+        """Replaces a test that asserted the opposite, and was asserting a bug.
+
+        It required the stored coding-site pair to score 1.000 while the present strands
+        scored 0.794. CGAG is the reverse complement of CTCG, so those are one reaction
+        written two ways; the 0.206 gap came from `set_fidelity` not pooling competitors
+        across both strands. What survives is the measurement: level 0 sits below 0.8.
+        """
         from clippr import constants as C
         stored = list(C.DESTINATION_OVERHANGS["level0"])
-        assert set_fidelity(stored, "BbsI-HF") == pytest.approx(1.0, abs=1e-9)
-        assert set_fidelity(reaction_overhangs([], "level0"), "BbsI-HF") < 0.8
+        present = reaction_overhangs([], "level0")
+        assert set_fidelity(stored, "BbsI-HF") == pytest.approx(
+            set_fidelity(present, "BbsI-HF"), abs=1e-12)
+        assert set_fidelity(present, "BbsI-HF") < 0.8
 
     def test_junctions_are_kept_in_order(self):
         got = reaction_overhangs(["CGCT", "AATG", "TGTT"], "level0")

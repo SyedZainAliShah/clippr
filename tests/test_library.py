@@ -78,6 +78,26 @@ class TestCrosstalk:
                                codon_table=TOY_TABLE, check_offtarget=False)
         assert mixed.closest_pairs() == []
 
+    def test_two_tier_report_when_scores_are_supplied(self, lib, tmp_path):
+        from clippr.crosstalk import load_ppr_scores
+
+        p = tmp_path / "scores.tsv"
+        p.write_text("For motif types: P\n5th/last\tA\tC\tG\tU\n"
+                     "TN\t0.70\t-0.51\t0.53\t-0.22\nNN\t-0.44\t0.77\t-0.07\t0.62\n"
+                     "TD\t0.01\t-1.0\t0.84\t-0.02\nND\t-0.53\t0.66\t0.55\t0.83\n",
+                     encoding="utf-8")
+        text = lib.crosstalk(scores=load_ppr_scores(p))
+        assert "hamming" in text and "gates nothing" in text
+
+    def test_a_weighted_metric_with_scores_is_refused_not_ignored(self, lib):
+        """The two-tier report counts positions unweighted.
+
+        Accepting both and honouring one is the silent-lie failure mode: the caller would
+        believe a weighting had been applied that never was.
+        """
+        with pytest.raises(ValueError, match="would be ignored"):
+            lib.crosstalk(metric="weighted", scores={"TN": {"A": 1.0}})
+
 
 class TestWrite:
     def test_writes_the_order_sheet_and_qc(self, lib, tmp_path):
@@ -96,6 +116,33 @@ class TestWrite:
         from pathlib import Path
         paths = write_library(lib, tmp_path)
         assert len(list(Path(paths["genbank_dir"]).glob("*.gb"))) == len(TARGETS)
+
+    def test_the_package_carries_its_own_manifest(self, lib, tmp_path):
+        """A directory of CSVs with no record of what produced them is not reproducible."""
+        import json
+        from pathlib import Path
+
+        paths = write_library(lib, tmp_path)
+        record = json.loads(Path(paths["manifest"]).read_text(encoding="utf-8"))
+        assert record["completion"] == "complete"
+        assert record["configuration"]["n_designs"] == len(TARGETS)
+        assert record["software"]["dependencies"]
+        assert {d["target"] for d in record["designs"]} == set(TARGETS)
+
+    def test_a_run_that_designed_nothing_still_records_what_ran(self, tmp_path):
+        """Every target failed, so there is no codon table to report -- but a package with
+        failures and no provenance statement is exactly what the manifest exists to prevent.
+        """
+        import json
+        from pathlib import Path
+
+        lib = design_library(["NOTATARGET"], codon_table=TOY_TABLE, check_offtarget=False)
+        assert not lib.designs and lib.failed
+        paths = write_library(lib, tmp_path)
+        record = json.loads(Path(paths["manifest"]).read_text(encoding="utf-8"))
+        assert record["completion"] == "failed"
+        assert [f["target"] for f in record["failures"]] == ["NOTATARGET"]
+        assert record["software"]["dependencies"]
 
 
 class TestAuditExport:

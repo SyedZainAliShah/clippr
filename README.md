@@ -6,8 +6,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-1a7f5a.svg)](LICENSE)
 
 
-Give it a target RNA sequence and it returns a PPR protein that binds that sequence, a
-synthesisable coding sequence, a Golden Gate assembly plan, and the DNA fragments to order.
+Give it a target RNA sequence and it returns a PPR protein **designed to recognise that
+sequence under the PPR code**, a synthesisable coding sequence, a Golden Gate assembly plan,
+and the DNA fragments to order. No binding was measured; the recognition claim is what the
+code predicts, not an experimental result.
 
 PPR proteins are built from tandem ~31-residue repeats, and each repeat reads exactly one
 RNA base through two specificity residues — the **PPR code** (`TN`→A, `NN`→C, `TD`→G,
@@ -30,12 +32,41 @@ Python 3.10+. Or skip the install entirely and **[open the notebook in Colab](ht
 ## A worked example
 
 ```python
+import json
 from clippr import design_oneshot
 
-r = design_oneshot("AAAAUGUGG", outdir="out")
+codon_table = json.load(open("kazusa_3055.json", encoding="utf-8"))   # see "Inputs" below
+r = design_oneshot("AAAAUGUGG", codon_table=codon_table, genetic_code=1,
+                   check_offtarget=False, outdir="out")
 print(r["summary"])
-# AAAAUGUGG (9S) -> 302 aa, 906 nt, 4 fragments. Fidelity 0.830. QC PASS. 109.00 EUR.
+# AAAAUGUGG (9S) -> 302 aa, 906 nt, 4 fragments. Fidelity 0.828. QC PASS. 109.00 EUR (list price).
 ```
+
+This example passes its codon table explicitly and turns host screening off, so it needs no
+network and downloads nothing. Screening stays on by default in the full workflow — the
+design above simply reports `off-target  not assessed — screening disabled` rather than
+implying a clean screen.
+
+### Inputs, and what the first run needs
+
+Two inputs are fetched rather than packaged, so a first run with neither supplied nor cached
+needs network:
+
+| Input | Where it comes from | Needed when |
+|---|---|---|
+| *Chlamydomonas* nuclear codon table | Kazusa, via `table_from_kazusa()` | unless you pass `codon_table=` yourself |
+| Chloroplast genome `NC_005353.1` | NCBI, via `offtarget.scan()` | only when host screening runs |
+
+`python_codon_tables` bundles nine organisms offline and *Chlamydomonas is not among them*,
+so `table_from_kazusa()` downloads on first use and caches the result. After that the same
+design runs offline. To be explicit and reproducible, fetch the table once, keep the JSON,
+and pass it as `codon_table=` — as the example does — recording its hash alongside your
+results.
+
+Cached downloads live in your user cache directory (`%LOCALAPPDATA%\clippr` on Windows,
+`~/.cache/clippr` otherwise), or in `data/` when you are working from a source checkout.
+`CLIPPR_CACHE_DIR` overrides both — **set it before importing `clippr`**, because the cache
+location is resolved at import time.
 
 The target's length picks the architecture: 9, 14 or 19 bases give 9S, 14S or 19S. Four
 files land in `out/` — an order CSV, the oligos as FASTA, the assembled gene, and an
@@ -51,15 +82,16 @@ print(r["audit"].report())
 design audit — AAAAUGUGG (9S)
   host           c_reinhardtii_nuclear, genetic code 1
   enzyme profile igem_rfc1000 (BsaI, BbsI, SapI)
-  cuts           76, 151, 226
-  fidelity       0.830 predicted  (ceiling 0.830, set by the destination pair)
+  cuts           75, 151, 226
+  fidelity       0.828 predicted  (ceiling 0.828, set by the destination pair)
   constraints    satisfied
   QC             PASS
+  off-target     not assessed — screening disabled
 
   selected overhangs
-    CGAC  selected   cut   76  highest predicted fidelity among feasible  [2 local realizations]
-    AATG  selected   cut  151  highest predicted fidelity among feasible  [3 local realizations]
-    AGCA  selected   cut  226  highest predicted fidelity among feasible  [6 local realizations]
+    ATTC  selected   cut   75  highest predicted fidelity among feasible candidates  [4 local realizations]
+    AATG  selected   cut  151  highest predicted fidelity among feasible candidates  [3 local realizations]
+    AGCG  selected   cut  226  highest predicted fidelity among feasible candidates  [6 local realizations]
 ```
 
 Rejected candidates appear there too, each with the reason it was ruled out. A surprising
@@ -134,6 +166,262 @@ library as one pool rather than fifty is the single largest cost decision in the
 `write_library` emits a combined order sheet, a vendor-ready oPool CSV, a QC table, one
 GenBank per design, and the cross-talk matrix.
 
+### Cross-talk: two tiers, one gate
+
+Cross-talk is a property of the set, not of any member: a design that is perfect alone is
+useless if another target in the library sits one base away. `crosstalk.py` reports it in
+two tiers that are deliberately not mixed.
+
+| tier | what it is | status |
+|---|---|---|
+| **A — Hamming distance** | two targets differ in *k* of *n* positions | **the hard criterion, and the only thing that gates** |
+| **B — predicted affinity** | score the PPR designed for A against B, relative to its own target | an annotation; gates nothing |
+
+Tier A makes no biological claim. It says two sequences differ in *k* places, which is
+geometry, and stays true whatever anyone later learns about PPR binding.
+
+Tier B needs a PPR specificity table, and comes with a caveat that cannot be argued away:
+the available table (Yan et al., as distributed with PPRmatcher) was derived from **P-type**
+PPR motifs, while the GRASP scaffold here is **S-type**. All four code pairs GRASP uses do
+score their cognate base highest in that table, which is reassuring, but a P-type model has
+not been shown to apply to an S-type scaffold. So a high score means *look*, never *fail*.
+
+**The table is not distributed with CLIPPR.** PPRmatcher carries no licence, so vendoring
+it would be a rights problem however useful it is. Supply your own path; with no table the
+module reports tier A alone and says so.
+
+```python
+from clippr import compare_tiers, load_ppr_scores
+
+scores = load_ppr_scores("Yan.tsv")          # obtained separately
+print(lib.crosstalk(scores=scores))
+compare_tiers(lib.targets, scores)["tiers_disagree"]
+```
+
+The useful question about a model whose applicability is unproven is not "is it right" but
+**"does it point anywhere Hamming does not"** — which is what `compare_tiers` answers. Its
+`tiers_disagree` flag never means the gate moved; it means a pair is worth a human look.
+
+### DNA shared between members — the other library risk
+
+Cross-talk asks whether two PPRs could bind each other's target. **Homology asks whether two
+*genes* share enough identical DNA to recombine**, which is a different question with a
+different answer. Every member of a PPR library carries the same scaffold, so it is never
+trivially no. Measured on five 9S designs:
+
+| | before | after |
+|---|---|---|
+| longest shared stretch | 107 nt | **47 nt** |
+| pairs sharing ≥ 50 nt | 10 of 10 | **0 of 10** |
+
+**Re-measured 2026-09-11**, after the ligation-fidelity correction changed which junction
+overhangs each design selects and therefore changed every design. The earlier figure for the
+"before" column was 84 nt.
+
+Most of the sharing is the fixed 23-residue N-terminal scaffold (69 nt), which is
+protein-identical by construction and receives the same codons every time: 10 of the 15 pairs
+in a six-member library share exactly 59–65 nt starting at position 0 in both members. **It is
+not only the scaffold, though**, and an earlier version of this section said it was. Three
+pairs start at 0 and run *past* the scaffold end (77, 77 and 107 nt), and two pairs share 62 nt
+with no scaffold involvement at all — at positions 663/663 and 597/318, deep in the repeat
+body. Scaffold diversification does not clear the threshold once a library reaches six members,
+and this is where the residue sits — but the two facts are not the same claim. Locking a
+different prefix re-optimises the whole design, so the scaffold knob *can* change the body:
+five encodings at a fixed seed give three distinct sequences after nucleotide 69. What is
+measured is that this retry schedule did not improve these outputs.
+
+**The pairwise view alone would overstate that fix**, because reducing the worst *pair* says
+nothing about blocks carried by most of the library — the risk that grows with library size. So
+the library is also assessed as a whole. On six designs:
+
+| | before | after |
+|---|---|---|
+| 20-mers present in **every** member | 56 | **0** |
+| present in half or more | 480 | 272 |
+| widest block spans | 6 of 6 | 5 of 6 |
+| members in no flagged pair | 0 | 4 |
+
+The scaffold blocks are eliminated. Blocks in five of six members survive, and they decode to the
+**repeat template** (`GAGCTGTTCGACAAGATGCC` is ELFDKMP…).
+
+**Whether that residue is avoidable was measured, and it corrected an earlier claim of ours.** We
+had called it "unavoidable" without establishing anything. `encoding_capacity` measures the supply:
+**84 mutually 20-mer-disjoint encodings** of the 31-residue repeat template were obtained under the
+codon table, GC band, enzyme set and homopolymer limit. An unbiased random search and a greedy
+search that steers away from used windows both reach 84, with the random search finding nothing new
+in its last 775,000 draws.
+
+That is where **these searches saturate, not a proven maximum** — the exact maximum is a set-packing
+problem we have not solved.
+
+**A second measurement then overturned the conclusion we drew from it, and this is the number to
+quote.** Counting *disjoint* encodings asks the wrong question: members don't need disjoint
+encodings, they need a short worst shared tract. Measuring that directly, for N members under three
+assignment strategies:
+
+| members | A independent | B global greedy | C minimax |
+|---|---|---|---|
+| 6 | 101 | 26 | 26 |
+| 10 | 101 | 26 | 26 |
+| 20 | 102 | 29 | 26 |
+| 30 | 102 | 29 | 29 |
+| **50** | 113 | **36** | 35 |
+
+**There is no wall at 50 members.** Coordinated assignment holds the worst shared tract to 26–36 nt
+at every size tested. The binding constraint was never the sequence space — it is that our encoder
+assigns per member *independently*, which costs about **75 nt**. Our earlier reading ("~5× short at
+50 members") was wrong, because 20-mer disjointness is far stricter than a short worst tract.
+
+That looked like a clear instruction — coordinate globally, gain ~75 nt — so we wired it in and
+measured it. **It made things worse**: worst shared tract 60 → 65 nt and flagged pairs 1 → 6 of
+15, against plain per-member assignment. The prediction did not transfer because the curve models
+an assignment that controls *every repeat's* encoding, whereas in the real pipeline it controls
+only the 69-nt scaffold of a 906-nt sequence, and changing the locked prefix perturbs DNA Chisel's
+trajectory for the other 837 nt more than the coordination gains.
+
+So the code assigns by member index, the coordinating function is kept only to document the
+negative result, and the honest reading of the curve is that **it bounds what a solver controlling
+the whole sequence could achieve, not what this one can.** The expensive minimax solver is also
+not worth building — it beats global greedy by at most 3 nt even in the model where coordination
+works.
+
+**20-mer disjointness is our engineering criterion, not a biological threshold.** The choice of *k*
+dominates the answer, in the counter-intuitive direction: capacity measured **8 at k=12, 84 at k=20,
+2578 at k=40**, because a longer window is a *weaker* requirement — sharing some 12-mer is
+near-inevitable, sharing a 40-mer needs 40 consecutive identical bases. Nothing calibrates any *k*
+to recombination probability in this host, so no value is a safety threshold, and that sensitivity
+is itself the argument against pretending one exists.
+
+The 84 also covers **one repeat template under one criterion** — not the library's total DNA
+diversity, which additionally involves the scaffold, assembly arms, regulatory elements and
+backbone.
+
+These six-member numbers also move with library size — the run leaves one pair at 60 nt where the
+five-member run cleared all of them — so re-measure for the real library rather than quoting them.
+
+The fix is constructive. Each member gets its own synonymous encoding of the scaffold, locked in
+place — deterministic in the member index, so a library stays reproducible.
+
+```python
+from clippr import diversify_library
+
+res = diversify_library(my_targets)
+print(res["max_before"], "->", res["max_after"])   # 84 -> 47
+```
+
+Two simpler approaches were tried first and are documented in `homology.py` so they are not
+retried: forbidding the shared stretch outright only forces a one-base change, and forbidding
+every k-mer inside it is **not monotone** — at one ban width the worst stretch went from 84 nt
+to 86. A diversified member is now accepted only when it is no worse than the baseline it
+replaces.
+
+**What this does not claim.** There is no evidence here for a 50 nt danger threshold in
+*Chlamydomonas* — that default is a rule of thumb from general practice and nothing in this
+repository derives one. A shared stretch is a *necessary substrate* for homologous recombination,
+never a prediction that it will occur, and the risk depends on the physical library architecture:
+one construct per strain is a different situation from many constructs entering the same nuclear
+genome, or from a pooled DNA mixture. The defensible sentence is that **independently designed
+members acquired substantial unintended DNA identity through a shared scaffold, and synonymous
+redesign reduced the longest shared tract from 107 to 47 nt across five members.** At six
+members the same procedure reaches only 77 nt and leaves two pairs above 50 nt, because the
+residual identity is in the repeat body rather than the scaffold. Everything beyond that needs
+the bench.
+
+## Two realisation routes — synthesise, or use parts you already own
+
+Everything above designs DNA to be **synthesised**. But the GRASP authors deposited a
+42-plasmid kit, and a lab that holds it can assemble many PPRs from parts it already has.
+
+```python
+from clippr import parts_report, select_parts
+
+print(parts_report(select_parts("AAAAUGUGG")))
+```
+
+```
+GRASP kit route for AAAAUGUGG — 10 modules in 2 sub-assemblies
+
+no new PPR DNA needs synthesising; every module below is a deposited plasmid
+
+  sub-assembly 1  (AATG -> CTTC)
+    pPR-1_1A_5T_AATG    plate  C1  AATG..ACTC  5th/last T/-
+    pPR-1_B_LN5T        plate  B5  ACTC..AAGA  5th/last T/N
+    ...
+plate positions: C1, B5, F5, B6, G1, B2, G4, D5, H5, E2
+```
+
+**The kit is sized exactly for its job**, which falls out of the overhangs alone. Modules chain
+through a graph with a single branch point; one run of `B C D` plus a linker pair contributes
+five modules; an *n*-base target needs *n+1* modules. So 9, 14 and 19 bases need two, three and
+four sub-assemblies — and since Golden Gate needs unique overhangs within a reaction, each
+internal join consumes its own linker pair. 19S needs three, and the kit contains exactly three.
+It builds nothing longer, and `select_parts` says so rather than returning a partial answer.
+
+**Validated against the paper, not against the reference implementation.** Module identity,
+overhangs and plate positions are derived from **Supplementary Table S1** by
+`tools/derive_parts.py`, and `validation/compare_parts.py` checks our selections reproduce the
+module lists published in **Table S2** — **28 of 28** internally consistent variants.
+
+Three published rows disagree, and each is demonstrably an error in Table S2 rather than in this
+mapping. The clearest is **p8**, which lists a module `C_DD`: that names a 5th residue of `D`,
+and no such plasmid exists — every module in the kit has a 5th residue of `N` or `T`. That one
+needs no trust in our decoding at all, since the published token names a plasmid absent from the
+published inventory.
+
+> **Provenance.** The *idea* of compiling a target into an ordered part list is the reference
+> implementation's, and we found it by reading that implementation. The *data* is not: it comes
+> from the paper's published tables, and no reference source is incorporated. Describe this as a
+> GRASP-compatible route informed by the published implementation — never as independently
+> invented.
+
+This selects the PPR modules only. Acceptor plasmids, the non-PPR elements of the
+transcriptional unit and the assembly protocol are not modelled: it is a *GRASP-compatible PPR
+module realisation*, not a complete construct.
+
+## Is the chosen design good relative to the alternatives?
+
+`design_oneshot` ranks assembly plans by predicted fidelity and keeps the first that works,
+discarding the rest unexamined — so it could not answer that question. `search.py` carries
+several plans all the way through codon optimisation and QC, then applies a **declared priority
+hierarchy** rather than arbitrary weights:
+
+1. every constraint satisfied and QC not FAIL
+2. predicted fidelity within a tolerance of the best feasible value
+3. prefer QC PASS, then the higher optimiser score
+4. tie-break on fidelity
+
+```python
+from clippr import design_searched
+
+r = design_searched("AAAAUGUGG", budget=8)
+print(r["certificate"])
+```
+
+It returns **one answer with the alternatives shown** — what was considered, how far the choice
+sits from the best available value on each objective, whether anything dominates it, and what
+the nearest alternatives would cost. Not a Pareto front: arbitrating a trade-off surface is not
+work a wet lab asked for.
+
+**Measured caveat, stated because it matters.** Across all three architectures, predicted
+fidelity was **identical for every candidate** and QC passed for every candidate — fidelity is
+capped by the destination overhang pair, and `safe_overhangs` has already removed the designs
+that would have failed QC. So the hierarchy is currently *single-objective in practice*, and this
+is not a multi-objective optimiser.
+
+`validation/benchmark_search.py` measures what exploring is worth against cheaper strategies over
+12 targets. Taking the first feasible plan leaves **5.99 DNA Chisel objective units** behind on
+average and finds the best candidate in the pool for only 1 of 12 targets, against 2 of 12 for a
+random feasible plan and 3 of 12 for the better of the top two. This module's own 12 of 12 is
+definitional — with the other objectives degenerate, selection reduces to the argmax of the score
+being measured — so read the *other* rows.
+
+**That is algorithmic optimisation of the DNA Chisel objective, not improved biological
+performance**, since the score optimised is the score measured. The honest description is a
+candidate-search layer that stops the first-feasible heuristic from becoming an irreversible
+design choice. The optimiser score is never traded against fidelity: hard constraints and the
+declared priority levels decide selection, and the score only ranks within the sequence-quality
+level.
+
 ## Constraints are declared, not assumed
 
 Which Type IIS sites are excluded is a *policy*, and the reasons differ in kind:
@@ -164,7 +452,7 @@ Checked against a fixed 200-design reference corpus:
 | Codon constraints, independently verified | **200/200** |
 | End-to-end pipeline | **200/200, zero exceptions, seed-reproducible** |
 
-Plus 283 unit tests, including an exhaustive comparison of the overhang feasibility filter
+Plus 497 unit tests, including an exhaustive comparison of the overhang feasibility filter
 against an independently written brute-force oracle.
 
 ```bash
@@ -180,7 +468,7 @@ architecture and added constraints rather than a silently changed construct defi
 
 Every constant traces to a primary published source, not to any other implementation:
 
-- scaffold sequences and the PPR code are derived from Farley et al. (2025) and its
+- scaffold sequences and the PPR code are derived from Dennis et al. (2025) and its
   supplementary tables by `tools/derive_scaffold.py`, which assembles the deposited
   modules per the published recipe;
 - ligation matrices come from the Pryor et al. (2020) supplement directly, and ship with
@@ -198,6 +486,9 @@ Every constant traces to a primary published source, not to any other implementa
   range — it cannot rank designs.
 - **`orthogonal.py` is a capability, not a validated result.** Every other module is checked
   against a 200-design oracle; this one has unit tests only, because no ground truth exists.
+- **Predicted PPR affinity is an unvalidated annotation**, from a P-type table applied to an
+  S-type scaffold. It is reported beside sequence separation and never allowed to override
+  it — see [Cross-talk: two tiers, one gate](#cross-talk-two-tiers-one-gate).
 - **Nothing here has been validated at the bench.**
 
 ### Computable properties versus model-based annotations
