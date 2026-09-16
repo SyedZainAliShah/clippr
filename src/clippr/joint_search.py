@@ -155,7 +155,7 @@ def apply_assignment(inv: Inventory, classes, assignment: dict[str, str],
 
 def evaluate(inv: Inventory, classes, assignment: dict[str, str], targets, table, *,
              k: int = 20, matrix: str = "BsaI-HFv2",
-             destination: str = "level0") -> Candidate:
+             destination: str = "level0", profile=None) -> Candidate:
     """Score one assignment on completed sequences, or say why it is infeasible."""
     from Bio.Seq import Seq
 
@@ -192,8 +192,8 @@ def evaluate(inv: Inventory, classes, assignment: dict[str, str], targets, table
         # Judged on the substrate that would be ordered, through the one shared validator.
         # Comparing insert-level problems accepted a candidate whose delivered substrate had
         # a 0.660 GC window.
-        inherited = set(substrate_problems(original.dna, original.block))
-        introduced = [p for p in substrate_problems(record.dna, record.block)
+        inherited = set(substrate_problems(original.dna, original.block, profile))
+        introduced = [p for p in substrate_problems(record.dna, record.block, profile)
                       if p not in inherited]
         if introduced:
             return Candidate(assignment, False, f"{module_id}: {introduced[0]}")

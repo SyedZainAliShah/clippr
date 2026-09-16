@@ -633,20 +633,24 @@ Same solver, same seeds, same 12 modules, only the synthesis band changed:
 | ours — 0.35–0.65 per 50 nt, homopolymer ≤ 4 | 0.692434 |
 | reference — 0.15–0.85 per 50 nt, homopolymer ≤ 3 | **0.854766** |
 
-The band is worth about **0.16 CAI**. The observed gap is 0.037. The reference's lead is not a
-better optimiser — both use the same objective — it is a looser constraint, and the same
-constraint is why **36 of 42** of their ordered sequences fall outside our GC window (§12b).
+That first table changed **two** variables. Separated into a 2×2 over all 42 modules, the GC
+effect survives — holding the cap at 4, first-12 reproduces 0.692434 → 0.854766 and all-42 with
+full-substrate filtering goes **0.618830 → 0.819921**. Both systems share a codon component,
+not a complete objective, so **no optimiser ranking follows.**
 
-**`GC_BAND = (0.35, 0.65)` in `recoding.py` has no recorded source.** The IDT oPools profile it
-presumably serves constrains oligo length and pool size and states no GC rule at all, deferring
-"secondary-structure and synthesis-difficulty judgements" to the vendor.
+**`GC_BAND = (0.35, 0.65)` has no recorded source here** — but it is **not** tighter than
+published guidance, as an earlier version of this section claimed. Twist publishes exactly
+35–65% over 50 bp for codon optimisation. What is ours to answer for: we enforce the local half
+and not the global 25–65% it is paired with, we enforce as hard what Twist frames as advisory,
+and we order from IDT, whose oPools page states no GC rule at all.
 
-This is a decision, not a defect, and it is recorded here as one: **widening the band is a
-one-line change that would put CLIPPR past the reference on this metric.** It should therefore
-be a sourced, published decision rather than a quiet edit — either cite a manufacturability
-constraint, or declare it a CLIPPR engineering choice and state the codon adaptation it costs.
+**It is also not a one-line change.** `recoding.GC_BAND` is the validator's band; the solver's
+`optimize_cds` keeps its own `gc_bounds` default. Patching one gives 0.657195, not 0.819921.
+The real finding is that the same threshold lives in two places and neither knows about the
+other.
 
-Not changed in this pass. **The full case, with the vendor-profile comparison, the soft-versus-
+Not changed in this pass. The full case, the vendor-source table and a six-step proposal are in
+`docs/gc_band_and_constraint_model.md`. **The full case, with the vendor-profile comparison, the soft-versus-
 hard constraint analysis and a five-step proposal, is `docs/gc_band_and_constraint_model.md`.**
 
 ## 15. Remaining limits

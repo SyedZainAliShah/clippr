@@ -30,8 +30,20 @@ A **codon optimiser with synthesis QC, Golden Gate junction search, and an oligo
 driven by a config dictionary and a Colab control panel. It takes amino-acid sequences plus a
 per-codon coding mask and returns synthesis-ready oligos with a QC verdict. **[A][R]**
 
-Its scope overlaps CLIPPR's design and recoding routes. It has no concept of a *reusable
-versioned inventory*: it redesigns all 42 modules from amino acids on every run.
+Its scope overlaps CLIPPR's design and recoding routes.
+
+**Correction, 2026-09-16.** An earlier version of this line said it "has no concept of a
+reusable versioned inventory: it redesigns all 42 modules from amino acids on every run." That
+is **false**. `workflows.export_optimized_library` writes CSV, FASTA, Excel and annotated
+GenBank, and `workflows.compile_and_assemble_target` takes an already-optimised library and
+compiles a target against it without re-running optimisation. I inferred the absence from
+running one entry point — the same error as §5.1, made twice in one document.
+
+What a narrower comparison would still have to establish: whether their exported library carries
+anything equivalent to CLIPPR's content-hashed inventory version, its reload-reproduction
+guarantee, or its refusal to compile against a mismatched interface assignment. That comparison
+has not been done, and the absence of such a contract **cannot** be inferred from the presence
+or absence of an export function.
 
 ## 2. Where it independently agrees with us
 
@@ -83,6 +95,11 @@ Five named profiles, each with a product URL:
 | Generic · conservative (default) | 0.30–… | 0.25–0.75 / 50 nt | 3 | — |
 | **CLIPPR** | **none** | **0.35–0.65 / 50 nt** | 4 | — |
 
+**That table is their transcription, not the vendors' pages**, and trusting it produced a false
+claim in `docs/gc_band_and_constraint_model.md`. Twist's own guidance gives **35–65% over 50 bp**
+for codon optimisation — exactly CLIPPR's band, and matching no row above. Read the primary
+pages before adopting any number here.
+
 And three distinct categories where we have one:
 
 - `synthesis` — design targets, optimised against softly
@@ -90,8 +107,10 @@ And three distinct categories where we have one:
   < 14, not ≤ 3)
 - `manual_review_rules` — vendor or human judgement, e.g. "no CcdB"
 
-Our single band is tighter than every row above, including both "conservative" profiles, and we
-enforce **no global band at all** — the opposite emphasis to every vendor document cited.
+Our single band matches Twist's published codon-optimisation guidance, which no row above
+reproduces. What is genuinely ours to answer for: we enforce the local half of Twist's pair and
+**no global band at all**, and we enforce as hard what that page frames as optimisation
+guidance.
 
 ### 3.3 A pruned codon alphabet, with a scoped escape hatch **[R]**
 
@@ -162,8 +181,11 @@ worth making explicitly rather than by default.
 - **Determinism.** Ours is deterministic by construction. Across five preserved runs at their
   declared seed 42, **41 of 42** modules received more than one CDS **[A]**; two further fresh
   runs reproduced the same 41/42 **[A]**. A user cannot reproduce their own result.
-- **Versioned inventories.** Content-hashed, reload-reproducing, recompilable. They redesign
-  from amino acids every run; there is no artefact to carry forward.
+- **Versioned inventories.** Content-hashed, reload-reproducing, and refusing to compile against
+  a mismatched interface assignment. They *do* export a reusable library and can compile a
+  target against it (§1) — what is unverified is whether those exports carry an equivalent
+  identity-and-mismatch contract. Claiming an advantage here needs that comparison; it is not
+  established.
 - **One shared feasibility validator.** Every acceptance path in CLIPPR calls
   `substrates.substrate_problems`. Their constraint logic is distributed across the objective,
   the QC pass and the vendor profile.
@@ -227,16 +249,15 @@ are all homopolymer runs of 4 against their limit of 3; theirs are all GC window
 against our ceiling of 0.65. Neither system breaches the other's rules in a way the rule sets
 do not already predict.
 
-**The CAI difference is a constraint difference, not an optimiser difference. [E]** Same
-solver, same seeds, same 12 modules, only the band changed:
+**The CAI difference is dominated by a constraint difference. [E]** My first experiment changed
+the band *and* the homopolymer cap while reporting only the band; separated into a 2×2 over all
+42 modules, the GC effect survives — holding the cap at 4, the first-12 figures are 0.692434 →
+0.854766, and over all 42 with full-substrate filtering, 0.618830 → 0.819921.
 
-| band | mean CAI |
-|---|---:|
-| CLIPPR — 0.35–0.65 / 50 nt, homopolymer ≤ 4 | 0.692434 |
-| reference — 0.15–0.85 / 50 nt, homopolymer ≤ 3 | **0.854766** |
-
-The band is worth ≈ 0.16 CAI; the observed gap is 0.037. Both systems maximise the same
-quantity and neither is cleverer at it. Full argument: `docs/gc_band_and_constraint_model.md`.
+Both systems share a mean-log-relative-adaptiveness *component*; theirs also carries weighted
+GC, homopolymer, repeat and similarity penalties in the same scalar. That is not a shared
+objective, and no optimiser ranking follows from any of this. Full argument and its limits:
+`docs/gc_band_and_constraint_model.md`.
 
 ## 7. What is worth adopting, ranked
 

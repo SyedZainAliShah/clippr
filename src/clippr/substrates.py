@@ -151,11 +151,11 @@ def build(insert: str, block: str, module_id: str = "", version: str = "") -> Su
                      synthesis_problems=tuple(synthesis_problems(sequence)))
 
 
-def substrate_problems(insert: str, block: str) -> list[str]:
+def substrate_problems(insert: str, block: str, profile=None) -> list[str]:
     """**The** feasibility test for a module. Every caller must use this one.
 
     Takes an insert, builds the substrate that would actually be ordered, and returns every
-    contract breach on it. Recoding, collection acceptance, junction feasibility and export
+    **hard** breach on it. Recoding, collection acceptance, junction feasibility and export
     all go through here, so a candidate cannot be feasible for one of them and invalid for
     another.
 
@@ -163,30 +163,74 @@ def substrate_problems(insert: str, block: str) -> list[str]:
     export, but the collection optimiser still judged candidates on the bare insert and so
     reintroduced an out-of-band substrate in 16 of 18 matched runs.
 
+    `profile` selects the synthesis policy; the default reproduces the shipped behaviour
+    exactly. Under a profile that declares a rule a *target* rather than *hard*, a breach of
+    that rule is **not** returned here -- it is a warning, from `substrate_warnings`.
+    Feasibility and quality are different questions and this answers only the first.
+
     Returns `[]` for a usable module. A block with no release rule reports that rather than
     being waved through.
     """
+    return substrate_findings(insert, block, profile)["hard"]
+
+
+def substrate_warnings(insert: str, block: str, profile=None) -> list[str]:
+    """Breaches of rules this profile declares *targets* rather than hard limits.
+
+    Separate from `substrate_problems` on purpose. A soft warning must never silently become
+    "vendor approved", and a target breach must never silently block a strict export -- so the
+    two never share a return value.
+    """
+    return substrate_findings(insert, block, profile)["target"]
+
+
+def substrate_findings(insert: str, block: str, profile=None) -> dict[str, list[str]]:
+    """Every breach on the ordered substrate, split by how the profile enforces each rule."""
+    from .synthesis_profile import resolve
+
+    policy = resolve(profile)
     try:
         fragment = released_fragment(insert, block)
     except SubstrateError as exc:
-        return [str(exc)]
+        return {"hard": [str(exc)], "target": []}
     spacer = "A" * BBSI_SPACER
     sequence = PAD + BBSI_SITE + spacer + fragment + spacer + rc(BBSI_SITE) + PAD
-    return synthesis_problems(sequence)
+    return synthesis_findings(sequence, policy)
 
 
-def synthesis_problems(sequence: str) -> list[str]:
-    """Synthesis-contract breaches on a wrapped substrate, judged on what is ordered.
+def synthesis_problems(sequence: str, profile=None) -> list[str]:
+    """Hard synthesis-contract breaches on a wrapped substrate, judged on what is ordered."""
+    return synthesis_findings(sequence, profile)["hard"]
+
+
+def synthesis_findings(sequence: str, profile=None) -> dict[str, list[str]]:
+    """Every breach on a wrapped substrate, split by how this profile enforces the rule.
 
     The two intended BbsI sites are part of the construction and are excluded **by position**
     -- they are why the fragment can be released at all. A BbsI site anywhere else, and any
     site of another active enzyme anywhere, is a breach: it would be cut when it should not be.
     Checking GC and homopolymers alone let an internal BsaI site pass as `synthesis_ok`.
+
+    Returns `{"hard": [...], "target": [...]}`. Forbidden sites are always hard: no profile may
+    declare an enzyme cutting where it should not a matter of preference.
+
+    **GC reporting.** The scan names the first offending window *and* the worst one, because
+    "0.660 at offset 34" identifies a violation without saying how bad the sequence is, and a
+    reader will take the first number for the worst.
     """
     from . import constants as C
-    from .recoding import GC_BAND, GC_WINDOW, MAX_HOMOPOLYMER
+    from .synthesis_profile import resolve
 
-    problems = []
+    policy = resolve(profile)
+    findings: dict[str, list[str]] = {"hard": [], "target": []}
+
+    def record(rule: str, message: str) -> None:
+        findings["hard" if policy.is_hard(rule) else "target"].append(message)
+
+    GC_BAND = policy.local_gc
+    GC_WINDOW = policy.window
+    MAX_HOMOPOLYMER = policy.max_homopolymer
+    problems = findings["hard"]
 
     # Recognition sites, by role. The wrapper's own two BbsI sites sit at known positions;
     # everything else is unintended.
@@ -201,23 +245,42 @@ def synthesis_problems(sequence: str) -> list[str]:
                     continue            # the wrapper's own site, by role
                 problems.append(f"unintended {name} site on the {strand} strand at {at}")
 
+    if policy.global_gc is not None:
+        overall = (sequence.count("G") + sequence.count("C")) / max(1, len(sequence))
+        if not policy.global_gc[0] <= overall <= policy.global_gc[1]:
+            record("global_gc", f"global GC {overall:.3f} outside {policy.global_gc}")
+
+    first = None
+    worst_at = None
+    worst = None
     for start in range(0, max(1, len(sequence) - GC_WINDOW + 1)):
         window = sequence[start:start + GC_WINDOW]
         if len(window) < GC_WINDOW:
             break
         gc = (window.count("G") + window.count("C")) / len(window)
-        if not GC_BAND[0] <= gc <= GC_BAND[1]:
-            problems.append(f"GC {gc:.3f} outside {GC_BAND} in the window at {start}")
-            break
+        if GC_BAND[0] <= gc <= GC_BAND[1]:
+            continue
+        if first is None:
+            first = (start, gc)
+        # The extreme is measured by distance outside the band, so a low-GC breach is not
+        # masked by a high-GC one elsewhere in the same sequence.
+        excess = max(GC_BAND[0] - gc, gc - GC_BAND[1])
+        if worst is None or excess > worst[0]:
+            worst, worst_at = (excess, gc), start
+    if first is not None:
+        message = f"GC {first[1]:.3f} outside {GC_BAND} in the window at {first[0]}"
+        if worst_at != first[0]:
+            message += f" (worst {worst[1]:.3f} at {worst_at})"
+        record("local_gc", message)
 
-    run, prev = 1, ""
+    run, prev, longest = 1, "", 1
     for base in sequence:
         run = run + 1 if base == prev else 1
         prev = base
-        if run > MAX_HOMOPOLYMER:
-            problems.append(f"homopolymer run longer than {MAX_HOMOPOLYMER}")
-            break
-    return problems
+        longest = max(longest, run)
+    if longest > MAX_HOMOPOLYMER:
+        record("homopolymer", f"homopolymer run of {longest}, longer than {MAX_HOMOPOLYMER}")
+    return findings
 
 
 def digest(sequence: str) -> tuple[str, str, str]:

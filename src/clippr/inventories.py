@@ -234,7 +234,7 @@ def load_deposited(table_path: str | Path, context: dict | None = None) -> Inven
                     "index_modules": len(index)})
 
 
-def synthesis_profile_notes(inv: Inventory) -> dict[str, list[str]]:
+def synthesis_profile_notes(inv: Inventory, profile=None) -> dict[str, list[str]]:
     """Modules that do not fit CLIPPR's synthesis profile, whatever their provenance.
 
     Separate from `validate`, which is about structural integrity. This is about fit to a
@@ -249,11 +249,18 @@ def synthesis_profile_notes(inv: Inventory) -> dict[str, list[str]]:
     Warning a user about the bare insert while the order step refuses the substrate would put
     this function one layer inside the thing it exists to warn about.
     """
-    from .substrates import substrate_problems
+    from .substrates import substrate_findings
 
-    return {module_id: substrate_problems(record.dna, record.block)
-            for module_id, record in sorted(inv.modules.items())
-            if substrate_problems(record.dna, record.block)}
+    out: dict[str, list[str]] = {}
+    for module_id, record in sorted(inv.modules.items()):
+        found = substrate_findings(record.dna, record.block, profile)
+        # Both kinds are reported, and a target breach says so. A user deciding whether to
+        # order needs to see an advisory breach; conflating it with a hard one would be the
+        # same mistake in the other direction.
+        notes = list(found["hard"]) + [f"(target) {m}" for m in found["target"]]
+        if notes:
+            out[module_id] = notes
+    return out
 
 
 def validate(inv: Inventory) -> list[str]:

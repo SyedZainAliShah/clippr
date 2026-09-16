@@ -127,7 +127,8 @@ def collection_objectives(records: dict[str, str], frames: dict[str, int], table
             "scalar": round(scalar, 6), "k": k, "modules": len(records)}
 
 
-def _propose(module_id: str, record, table, rng: random.Random, genetic_code: int) -> Proposal:
+def _propose(module_id: str, record, table, rng: random.Random,
+             genetic_code: int, profile=None) -> Proposal:
     """One synonymous replacement for one module, already checked against the contract."""
     from Bio.Seq import Seq
 
@@ -161,7 +162,7 @@ def _propose(module_id: str, record, table, rng: random.Random, genetic_code: in
     # The substrate that would actually be ordered, not the bare insert. Judging candidates
     # on the insert let this optimiser reintroduce an out-of-band substrate in 16 of 18
     # matched runs, on an inventory the recoder had already cleaned.
-    problems = substrate_problems(candidate, record.block)
+    problems = substrate_problems(candidate, record.block, profile)
     if problems:
         return Proposal(module_id, candidate, False, problems[0])
     return Proposal(module_id, candidate, True)

@@ -1,25 +1,46 @@
 # The GC band, and the constraint model behind it
 
 *Written 2026-09-16, after the matched oracle benchmark showed the reference implementation
-ahead on mean codon adaptation. Nothing in this document has been implemented. It is the case
-for a change, with the measurements that support it and the ones that do not.*
+ahead on mean codon adaptation. The case for a change, with the measurements that support it
+and the ones that do not.*
+
+**Implemented 2026-09-16:** the profile mechanism this document argues for now exists — see
+`docs/synthesis_policy.md`. The **default is unchanged**, so every number here still holds.
+What the implementation settles is that the policy is one object reaching both the solver and
+the validator; what it deliberately does **not** settle is which profile should be the default.
 
 ---
 
 ## 0. The short version
 
 CLIPPR enforces `GC_BAND = (0.35, 0.65)` over every 50-nt window of a synthesised sequence.
-That constant is the **single largest determinant of our headline codon-adaptation figure**, it
-is **tighter than any published vendor guideline we can find**, and it has **no recorded
-source**.
+That constant is the **single largest determinant of our headline codon-adaptation figure** —
+worth about 0.16 CAI — and it has **no recorded source in this repository**.
 
-It is also enforced as a *hard* constraint, where every vendor document that mentions such a
-band describes a *design guideline*. The difference between those two readings is worth about
-0.16 CAI — more than four times the gap that prompted this document.
+**Correction, 2026-09-16.** An earlier version of this document said the band was "tighter than
+any published vendor guideline we can find." That is **false**, and the error was mine. Twist's
+own gene-synthesis guidance states verbatim: *"We avoid fitted sequences that create global GC%
+of less than 25% or more than 65% and local GC windows (50 bp) of less than 35% or more than
+65%."* That is our band and our window, exactly. I had compared against the reference
+implementation's *transcription* of Twist's rules rather than reading Twist's page, having
+written two paragraphs earlier in this same document warning that the transcription should not
+be trusted for exactly this purpose.
 
-This is a decision to be taken deliberately, not a defect to be quietly patched. Widening the
-band is one line and would put CLIPPR ahead of the reference on this metric immediately. That
-is precisely why it should be sourced and published rather than edited.
+What survives the correction, and it is still the point:
+
+- **The band has no recorded source here.** Matching a published guideline after the fact does
+  not tell us where the constant came from, and Twist must not be retro-fitted as its origin.
+- **It is a Twist *codon-optimisation* guideline, and we order from IDT.** A vendor name is not
+  a policy; the product is. Twist's own page separates this guidance from its sequence
+  acceptance and complexity rules.
+- **We enforce the local half and not the global half.** Twist pairs the 50-bp window with a
+  global 25–65% band. CLIPPR has no global band at all — so we are not simply "stricter", we
+  are *differently* scoped, which is harder to defend than either.
+- **We enforce as hard what Twist frames as optimisation guidance.** That reading is worth the
+  0.16 CAI on its own.
+
+This is a decision to take deliberately, not a defect to patch. It is also **not** a one-line
+change — see §7.1.
 
 ---
 
@@ -39,22 +60,43 @@ it is something to copy.
 
 ## 2. The measurement
 
-One controlled experiment. Same solver (DNA Chisel, `CodonOptimize(method="use_best_codon")`),
-same four seeds, same 12 deposited modules, same locked interfaces. **Only the band changes.**
+**My first version of this experiment changed two variables at once** — the GC band *and* the
+homopolymer cap — and reported the result as "only the band changes". It was not a controlled
+experiment. The orchestrator separated them in a 2×2 over all 42 modules, same solver, same
+four seeds, same locked interfaces:
 
-| band | mean CAI |
-|---|---:|
-| CLIPPR — 0.35–0.65 per 50 nt, homopolymer ≤ 4 | 0.692434 |
-| reference — 0.15–0.85 per 50 nt, homopolymer ≤ 3 | **0.854766** |
+| local GC band | homopolymer cap | first 12, best coding CAI | all 42, best coding CAI | best coding choices failing the full-substrate checks |
+|---|---:|---:|---:|---:|
+| 35–65% | 4 | 0.692434 | 0.657195 | 3 / 42 |
+| 35–65% | 3 | 0.688232 | 0.653145 | 11 / 42 |
+| 15–85% | 4 | **0.854766** | **0.819921** | **0 / 42** |
+| 15–85% | 3 | 0.854766 | 0.818415 | 8 / 42 |
 
-The band is worth **≈ 0.16 CAI**. The gap it was invoked to explain is 0.037.
+**The GC effect survives the correction.** Holding the cap at 4, the first-12 figures reproduce
+exactly: 0.692434 → 0.854766. The homopolymer cap contributes almost nothing by comparison.
 
-This is corroborated from the other direction: in the matched benchmark, **36 of 42** of the
-reference's ordered sequences breach our GC window, every one of them at 0.660. They are buying
-codon adaptation with GC we forbid, and the effect size is not marginal.
+Three things the wider experiment shows that mine could not:
 
-**The optimiser is not the difference.** Both systems maximise the same quantity — a mean log
-relative adaptiveness. Neither is cleverer than the other at it.
+- **Coding-span CAI is not a deliverable.** Scoring the best coding candidate is not the same as
+  producing an inventory that satisfies the whole synthesis contract. Under full-substrate
+  filtering the strict cap-4 run returns **0.618830** — reproducing today's shipped recoding
+  result — while the broad cap-4 run returns **0.819921** with all 42 selected substrates
+  passing that experiment's own band, homopolymer and site checks.
+- **The 12-module cohort hid a scope problem.** In the cap-3 columns, eight wide-band coding
+  winners fail the full-substrate homopolymer target. A clean first-12 result would have missed
+  every one.
+- **This varies hard bounds against hard bounds.** It says nothing about soft penalties, and it
+  does not isolate every difference between the two systems.
+
+Corroboration from the other direction: in the matched benchmark, **36 of 42** of the
+reference's ordered sequences breach our GC window. (Each is reported at 0.660 because the
+scanner stops at the first offending window — that is a violation, not that sequence's worst
+window.)
+
+**The optimiser is not the difference** — on this axis. Both maximise a mean log relative
+adaptiveness. But that is a shared *component*, not a shared objective: theirs also carries
+weighted GC, homopolymer, repeat and library-similarity penalties in the same scalar. Calling
+the two optimisers equivalent would go beyond what was measured.
 
 ## 3. Where our band came from
 
@@ -92,13 +134,23 @@ The reference carries **five named vendor profiles**, each with a product URL, a
 | Generic · conservative (default) | 0.30–… | 0.25–0.75 / 50 nt | 3 | — |
 | **CLIPPR** | **none** | **0.35–0.65 / 50 nt** | 4 | — |
 
-Two observations, both actionable:
+**Read that table with care — it is the reference's transcription, not the vendors' pages.**
+Trusting it is how this document originally reached a false conclusion. Twist's own page gives
+**35–65% over 50 bp** for codon optimisation, which no row above reproduces, and which is
+exactly CLIPPR's band.
 
-**Our window is tighter than every profile in that table**, including the two labelled
-*conservative*, and tighter than the tolerant profile by a factor of four in width. Meanwhile we
-enforce **no global band at all** — the opposite emphasis to every vendor document cited, all
-of which lead with a global 25–65% or 25–70% range and treat the window as a local-complexity
-guideline.
+What the primary pages support, product by product:
+
+| primary source | supports | does **not** support |
+|---|---|---|
+| Twist gene resources (read 2026-09-16) | global 25–65%, local 35–65% over 50 bp, as **codon-optimisation** guidance | treating it as an acceptance rule, or as CLIPPR's historical source |
+| Twist Complex Genes | 50-bp GC outside 10–90% among high-complexity criteria | universal acceptance bounds |
+| IDT gBlocks FAQ *(orchestrator's reading; the page redirect-loops for me)* | GC below 25% or above 75% can cause synthesis problems; acceptance is multifactorial | applying gBlocks rules to oPools |
+| IDT oPools product page | length and scale-dependent pool counts; **no numeric GC threshold** | that any sequence will be accepted |
+
+The actionable point is narrower than the one I made, and better: **we enforce the local half of
+Twist's pair and not the global half**, we enforce it as hard where Twist frames it as
+optimisation guidance, and we order from IDT, whose oPools page states no GC rule at all.
 
 **They separate three things we collapse into one:**
 
@@ -146,30 +198,51 @@ itself, and it is invisible in any single number.
   `WARNING`, and their profile notes say final acceptance is ML-scored by the vendor.
 - **That CAI predicts expression.** It does not, and no part of this document should be read as
   saying a higher number is a better protein. `docs/objectives.md` §8 states the limit.
-- **That 0.35–0.65 is wrong.** It may be a perfectly good engineering choice. What is
-  established is that it is *undocumented*, *tighter than every guideline we can cite*, and
-  *expensive* — and that nobody currently knows which of those three facts was intended.
+- **That 0.35–0.65 is wrong.** It matches Twist's published codon-optimisation guidance
+  exactly. What is established is that it is *undocumented here*, *enforced as hard where its
+  matching guideline is advisory*, *applied without the global band that guideline pairs it
+  with*, and *expensive*.
+- **That the two optimisers are equivalent.** They share a codon component, not a complete
+  objective.
+- **That a soft-penalty model would do better.** This experiment varies hard bounds against hard
+  bounds. Hard versus soft at the *same* thresholds is a separate experiment and has not been
+  run.
 
 ## 7. The proposal
 
 In order, smallest defensible change first.
 
-**7.1 — Source the band, or declare it.** Either attach a citation to `GC_BAND`, or relabel it
-as a CLIPPR engineering choice and publish the codon adaptation it costs. The cost is now
-measurable to six decimal places; there is no excuse for it being implicit.
+**7.1 — It is not a one-line change, and I said it was.** `recoding.GC_BAND` is the *validator's*
+band; `codons.optimize_cds` carries its own `gc_bounds=(0.35, 0.65)` default and
+`recode_inventory` never passes one. Patching the constant alone moves the four-seed result to
+**0.657195**, not the fully broadened **0.819921** — it changes which candidates the final check
+accepts while the solver still searches the narrow space.
 
-**7.2 — Add a global band.** Every vendor document leads with global GC. We check only windows,
+That is the real finding under the one I claimed: **the solver and the validator hold the same
+threshold in two places and neither knows about the other.** A band is not a constant to widen;
+it is a policy that has to reach every stage that judges a sequence.
+
+(One further care: in that probe all three previously-unchanged modules improved, which supports
+a constraint-veto reading *for those modules and those attempts*. "Every unchanged module means
+the band vetoed every possible improvement" is a wider claim and was not tested.)
+
+**7.2 — Source the band, or declare it.** Either attach a citation to `GC_BAND`, or relabel it
+as a CLIPPR engineering choice and publish the codon adaptation it costs. Matching Twist's
+published guidance is not the same as having been derived from it, and the repository still
+records no source.
+
+**7.3 — Add a global band.** Every vendor document leads with global GC. We check only windows,
 which is the weaker half of the published guidance.
 
-**7.3 — Separate targets from rejections.** Adopt the three-way split: what we optimise toward,
+**7.4 — Separate targets from rejections.** Adopt the three-way split: what we optimise toward,
 what we refuse to ship, and what only a vendor can judge. A module breaching a *target* should
 be delivered with a recorded warning, not silently returned unchanged.
 
-**7.4 — Make the profile selectable.** IDT and Twist have materially different rules, and we
+**7.5 — Make the profile selectable.** IDT and Twist have materially different rules, and we
 order from IDT. A user ordering elsewhere is currently held to a constant that describes
 neither vendor.
 
-**7.5 — Report the trade, every time.** Whatever band is chosen, the recoding report should
+**7.6 — Report the trade, every time.** Whatever band is chosen, the recoding report should
 state the CAI forgone to satisfy it. That converts an invisible ceiling into a declared
 decision, which is the whole point of this document.
 

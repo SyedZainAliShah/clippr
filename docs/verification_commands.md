@@ -153,6 +153,7 @@ Count from the collection total and the summary line, never from progress dots.
 | F | `python validation/experiments/phasef_gate.py` | `work/phasef/gate_f.json` |
 | oracle | `python validation/experiments/matched_oracle_benchmark.py` | `work/oracle/matched_benchmark.json` |
 | level 1 | `python validation/experiments/level1_geometry.py` | `work/level1/geometry.json` |
+| policy | `python -m pytest tests/test_synthesis_profile.py` | 20 regressions; asserts 0.618830 strict and 0.819921 broad |
 
 Each accepts `--out` so a reviewer can write to their own directory.
 

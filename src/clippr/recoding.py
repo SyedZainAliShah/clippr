@@ -20,19 +20,26 @@ budget is reported as not attempted, never silently folded into "unchanged".
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from . import constants as C
 from .inventories import INTERFACE, Inventory, derive
+from .synthesis_profile import DEFAULT_PROFILE as _DEFAULT_PROFILE
+from .synthesis_profile import resolve as _resolve_profile
 
 #: The synthesis contract, applied to the **whole module** rather than to the sub-span the
 #: optimiser was handed. `optimize_cds` constrains the coding sequence it is given; a module's
 #: frozen flanking bases sit outside that span, so a GC window straddling them can exceed the
 #: band while the optimiser correctly reports its own span clean. The ordered fragment is the
 #: whole module, so the whole module is what has to satisfy the contract.
-GC_BAND = (0.35, 0.65)
-GC_WINDOW = 50
-MAX_HOMOPOLYMER = 4
+#:
+#: **These are now derived, not declared.** They were literals here while `optimize_cds` kept
+#: its own `gc_bounds` default, so the same threshold existed in two places and changing one
+#: moved only which candidates were *accepted*, never which were *searched for*. They are kept
+#: as names because callers import them, but the single source is the profile.
+GC_BAND = _DEFAULT_PROFILE.local_gc
+GC_WINDOW = _DEFAULT_PROFILE.window
+MAX_HOMOPOLYMER = _DEFAULT_PROFILE.max_homopolymer
 _COMPLEMENT = str.maketrans("ACGT", "TGCA")
 
 
@@ -49,6 +56,9 @@ class RecodingReport:
     elapsed_seconds: float
     budget_seconds: float
     budget_exhausted: bool
+    #: The synthesis policy these results were produced under. A CAI figure without it is not
+    #: reproducible: the two shipped profiles differ by 0.20 on identical input.
+    profile: dict = field(default_factory=dict)
 
     def as_dict(self) -> dict:
         return {"inventory_version": self.inventory.version,
@@ -59,6 +69,7 @@ class RecodingReport:
                 "objectives": self.objectives,
                 "elapsed_seconds": round(self.elapsed_seconds, 3),
                 "budget_seconds": self.budget_seconds,
+                "profile": self.profile,
                 "budget_exhausted": self.budget_exhausted,
                 "coverage": (f"{len(self.improved) + len(self.unchanged)}"
                              f"/{len(self.inventory)} realised")}
@@ -124,12 +135,19 @@ def locked_interface_sites(dna: str, frame: int) -> dict[int, str]:
 def recode_inventory(inv: Inventory, codon_table: dict, *, label: str,
                      genetic_code: int = 1, seeds: int = 4,
                      wall_seconds: float = 600.0,
-                     per_module_seconds: float = 10.0) -> RecodingReport:
+                     per_module_seconds: float = 10.0,
+                     profile=None) -> RecodingReport:
     """Recode every module in `inv`, keeping proteins, lengths and interfaces.
 
     `seeds` candidates are tried per module and the best feasible one by codon adaptation is
     kept, provided it beats the incumbent. Every candidate is re-verified here — interfaces,
     length and protein — rather than trusted from the optimiser's own verdict.
+
+    `profile` is one synthesis policy, and it reaches **both** the solver and the validator.
+    Before this existed the two held the band separately: patching the validator's constant
+    moved the four-seed mean to 0.657195 while the solver still searched the narrow space, well
+    short of the 0.819921 a genuinely broadened policy reaches. The default reproduces the
+    shipped result exactly.
     """
     from Bio.Seq import Seq
 
@@ -137,6 +155,11 @@ def recode_inventory(inv: Inventory, codon_table: dict, *, label: str,
     from .objectives import codon_adaptation
     from .substrates import substrate_problems
 
+    policy = _resolve_profile(profile)
+    bounds = policy.solver_bounds()
+    # Recorded on the report: a CAI figure without the policy that produced it is not
+    # reproducible. The two shipped policies differ by 0.20 on identical input.
+    _profile_record = policy.as_dict()
     table = complete_table(codon_table, genetic_code)
     started = time.perf_counter()
     replacements: dict[str, str] = {}
@@ -169,7 +192,7 @@ def recode_inventory(inv: Inventory, codon_table: dict, *, label: str,
                 result = optimize_cds(protein, locked_sites=locked, codon_table=table,
                                       genetic_code=genetic_code, seed=seed,
                                       enzymes=C.DEFAULT_ENZYME_PROFILE,
-                                      unique_kmer_size=None)
+                                      unique_kmer_size=None, **bounds)
             except Exception:                        # noqa: BLE001 - recorded, not hidden
                 continue
             if time.perf_counter() - attempt_started > per_module_seconds:
@@ -193,7 +216,7 @@ def recode_inventory(inv: Inventory, codon_table: dict, *, label: str,
             # the GC-rich `CGAG` overhang, which pushed a window to 0.660 against a 0.65
             # band on an insert that passed at 0.640. The same class of mistake as
             # constraining only the optimiser's sub-span.
-            if substrate_problems(candidate, record.block):
+            if substrate_problems(candidate, record.block, policy):
                 continue
 
             score = codon_adaptation(candidate[start:end], table)["cai"]
@@ -217,4 +240,5 @@ def recode_inventory(inv: Inventory, codon_table: dict, *, label: str,
         improved=improved, unchanged=unchanged, infeasible=infeasible,
         not_attempted=not_attempted, objectives=objectives,
         elapsed_seconds=elapsed, budget_seconds=wall_seconds,
-        budget_exhausted=bool(not_attempted))
+        budget_exhausted=bool(not_attempted),
+        profile=_profile_record)

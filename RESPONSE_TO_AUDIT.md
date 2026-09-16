@@ -461,16 +461,16 @@ benchmark, where **36 of 42** of their ordered sequences breach our GC window, e
 
 **The finding that follows.** `recoding.py:33` declares `GC_BAND = (0.35, 0.65)` with a careful
 comment about *scope* and **no source**. The IDT oPools profile this band presumably serves
-constrains oligo length and pool size and **says nothing about GC**; its unresolved list
-defers "secondary-structure and synthesis-difficulty judgements" to the vendor. So the single
-dominant lever on the headline metric is an unattributed constant enforcing a rule our own
-vendor profile does not state.
+constrains oligo length and pool size and **says nothing about GC**.
 
-Recommended next step, and deliberately not taken in this pass: **source the band or set it
-deliberately.** Either cite a real manufacturability constraint, or declare it a CLIPPR
-engineering choice and publish the CAI it costs — which is now measurable to three decimal
-places. Widening it is a one-line change that would put us past the reference on this metric,
-which is exactly why it should be a documented decision and not a quiet edit.
+**Corrected §12.1:** I also wrote that the band was tighter than any published vendor guideline.
+It is not — Twist publishes exactly 35–65% over 50 bp. And §12.2: widening it is **not** one
+line; the solver and the validator hold the threshold separately.
+
+Recommended next step: **one versioned constraint profile consumed by every stage**, with
+today's strict settings preserved as the named baseline. See §12.2 — the band is not a constant
+to widen but a policy that has to reach the solver, the validator, export and the manifest
+together.
 
 A smaller lever noted in passing: `recode_inventory` calls `optimize_cds(...,
 unique_kmer_size=None)`, disabling the repeat objective inside the solve, after which the
@@ -571,6 +571,59 @@ more developed than theirs. Neither observation is flattering to the other side 
 guide coding." That sentence is now false and must be rewritten before either document
 circulates. The reference repository still declares **no licence**, so nothing is vendored,
 translated or redistributed — derived facts ship, source files do not.
+
+---
+
+## 12. Corrections from the GC-policy audit
+
+Four claims of mine were wrong. All four reproduced; I verified the first two myself rather
+than accepting them.
+
+### 12.1 "Tighter than any published vendor guideline" — **false**
+
+Twist's gene-synthesis guidance states verbatim: *"We avoid fitted sequences that create global
+GC% of less than 25% or more than 65% and local GC windows (50 bp) of less than 35% or more
+than 65%."* That is CLIPPR's band and window **exactly**. Fetched and read directly.
+
+I had compared against the reference implementation's *transcription* of Twist's rules, in a
+document where I had myself written that the transcription should not be trusted for this
+purpose. The narrower points survive: the band has no recorded source here, Twist must not be
+retro-fitted as its origin, it is Twist's **codon-optimisation** guidance while we order from
+IDT, we enforce the local half and not the global 25–65% it is paired with, and we enforce as
+hard what that page frames as advisory.
+
+### 12.2 "Widening the band is one line" — **false**
+
+`recoding.GC_BAND` is the validator's; `codons.optimize_cds` carries its own
+`gc_bounds=(0.35, 0.65)` default and `recode_inventory` never passes one. Patching the constant
+alone gives 0.657195, not the fully broadened 0.819921. The solver keeps searching the narrow
+space while the validator accepts a wider one.
+
+That is a better finding than the one I claimed: **the same threshold lives in two places and
+neither knows about the other.**
+
+### 12.3 The experiment changed two variables
+
+I varied the GC band *and* the homopolymer cap and reported it as "only the band changes". The
+orchestrator's 2×2 over all 42 modules separates them, and the GC effect survives: holding the
+cap at 4, first-12 reproduces 0.692434 → 0.854766, and all-42 with full-substrate filtering goes
+0.618830 → 0.819921. The cap contributes little. Two things my 12-module cohort could not show:
+coding-span CAI is not a deliverable, and in the cap-3 cells eight wide-band winners fail the
+full-substrate homopolymer target — none of them in the first twelve.
+
+### 12.4 "There is no artefact to carry forward" — **false**
+
+`workflows.export_optimized_library` writes CSV, FASTA, Excel and annotated GenBank;
+`workflows.compile_and_assemble_target` compiles a target against an already-optimised library.
+I inferred absence from running one entry point — the same error as §11.1, made twice in the
+same document. Whether their exports carry anything equivalent to our content-hashed version
+and mismatch refusal is **unverified**, and cannot be inferred either way.
+
+### What I am not claiming
+
+No optimiser ranking. No whole-workflow superiority over GRASP. The 10/10 release check is a
+statement about that checklist's scope. Hard-versus-soft at matched thresholds has not been
+tested, and neither has a wider band's vendor acceptance.
 
 ---
 
