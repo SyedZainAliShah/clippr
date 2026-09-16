@@ -130,6 +130,65 @@ LEVEL1_KNOWN_COASSEMBLED_ENDS: tuple[str, ...] = ("TGTG", "CAAC", "GCTT")
 LEVEL1_COASSEMBLED_PARTS_UNMODELLED = True
 
 
+#: The reference implementation's composition rule for a level-1 reaction, recorded because it
+#: is the structure our own derivation was missing -- not because it is complete. Reading
+#: `grasp_level1_reaction_overhangs` shows the set assembled as:
+#:
+#:     [final_cassette_5, ppr_outer_5] + block_joins + [ppr_outer_3, final_cassette_3]
+#:
+#: with both flanking pairs required and no defaults. Their `final_cassette` is the MoClo
+#: level-1 acceptor (`GGAG`/`CGCT`) and their `ppr_outer` is `AGGT`/`TTCG`.
+#:
+#: **They omit the linker and DYW domain too**, and report a `level1_fidelity` from the
+#: incomplete set regardless. The composition rule is worth having; their completeness claim
+#: is not.
+LEVEL1_REFERENCE_COMPOSITION = {
+    "rule": "final_cassette_5, ppr_outer_5, *block_joins, ppr_outer_3, final_cassette_3",
+    "final_cassette": ("GGAG", "CGCT"),
+    "ppr_outer": ("AGGT", "TTCG"),
+    "source": "grasp-library-designer ligation_fidelity.grasp_level1_reaction_overhangs",
+    "omits": ("P2L2S2 linker TGTG->CAAC", "consensus DYW domain CAAC->GCTT",
+              "at least one part bridging TTCG to TGTG"),
+}
+
+
+def level1_participants(block_subset, *, coassembled=(), final_cassette=None,
+                        evidence: str = "") -> dict:
+    """Assemble a level-1 participant list, and say whether it is complete.
+
+    The reaction stays unscored while `coassembled` is empty, because the deposited construct
+    demonstrably contains parts this package does not compile. Supplying them -- with evidence
+    naming where they came from -- makes the reaction scorable and records what it was scored
+    on.
+
+    This exists so the gap is **fillable** rather than permanent. "We cannot score this" and
+    "there is no route to scoring this" are different statements, and only the first is true.
+
+    Returns the set, its completeness, and the evidence, so a number derived from it can never
+    be separated from the basis on which it was claimed.
+    """
+    overhangs = list(block_subset)
+    if final_cassette is not None:
+        five, three = final_cassette
+        overhangs = [five] + overhangs + [three]
+    extra = [str(o).upper().replace("U", "T") for o in coassembled]
+    complete = bool(extra) and bool(evidence)
+    return {
+        "overhangs": overhangs + extra,
+        "block_subset": list(block_subset),
+        "final_cassette": list(final_cassette) if final_cassette else None,
+        "coassembled": extra,
+        "participants_established": complete,
+        "evidence": evidence or None,
+        "why_incomplete": None if complete else (
+            "no co-assembled participants supplied; the deposited BsaI reaction contains a "
+            "P2L2S2 linker and a consensus DYW domain, and at least one further part bridging "
+            "TTCG to TGTG that the supplied records do not contain. Pass `coassembled` with "
+            "`evidence` naming its source to make this reaction scorable."),
+    }
+
+
+
 #: Residue offsets from an ARELF motif at which the corpus designs place cuts.
 #: Measured across all 200 stored designs by `validation/compare_cuts.py`. Recorded as an
 #: observation about the corpus, not, not as a constraint CLIPPR imposes -- cuts

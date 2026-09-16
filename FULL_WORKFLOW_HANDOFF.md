@@ -653,6 +653,93 @@ Not changed in this pass. The full case, the vendor-source table and a six-step 
 `docs/gc_band_and_constraint_model.md`. **The full case, with the vendor-profile comparison, the soft-versus-
 hard constraint analysis and a five-step proposal, is `docs/gc_band_and_constraint_model.md`.**
 
+## 14b. Three gaps closed, 2026-09-17
+
+Worked overnight against a list of three open problems. Two are closed; the third is narrowed
+from "blocked" to "fillable", which is the honest description of what changed.
+
+### The third Pareto axis was degenerate — closed
+
+`repeat_burden` was **identically zero** over both the deposited and recoded inventories, so a
+search reporting three objectives was ranking by two.
+
+The tempting fix is the reference's `repeat_k = 16` against our 20. It does not work:
+
+| k | 20 | 16 | 12 | 10 | 8 |
+|---|---:|---:|---:|---:|---:|
+| modules with any duplicate | 0/42 | 0/42 | 0/42 | 0/42 | 5/42 |
+
+Zero all the way down to k = 10. A repeated 10-mer inside a ~100 nt module is genuinely rare,
+so the **measure** was wrong, not its setting. Shipping the k change would have looked like a
+fix and been none; there is now a test pinning that.
+
+`synthesis_fitness` replaces it: a composite over GC centrality, homopolymer headroom, internal
+repetition and collection sharing, computed on the **ordered substrate**, each term a distance
+rather than a pass/fail so ranking still moves when everything is comfortably feasible.
+
+| | old axis | new axis |
+|---|---:|---:|
+| deposited kit | 0 (degenerate) | mean 0.330694, spread 0.082140 |
+| recoded kit | 0 (degenerate) | mean 0.262544, spread 0.085402 |
+
+**Gate D's front grew from 5 members to 9, with 6 distinct fitness values** — trade-offs the
+old axis could not express. **The recommendation is unchanged** (fidelity 0.788894, adaptation
+0.659599), because the recommendation policy leads on fidelity and only then adaptation.
+
+Two things to note against it. The recoded inventory scores *lower* than the deposited one
+(0.263 against 0.331): recoding pushes GC toward the band edge to buy codon adaptation, which
+costs centrality. That is a real trade the old axis was blind to. And the interface search is
+now about **twice** as slow — 1.9 s against 0.85 s for 100 evaluations — because the axis
+builds 42 substrates per candidate. Both are reported rather than absorbed.
+
+The weights are a declared engineering choice, not a measurement, and travel with every score.
+
+### Runtime is now measured — closed
+
+Section 12 asked for runtime and **neither system had any instrumentation**. Grepping the
+reference's 21 modules for `perf_counter` or equivalent finds nothing; CLIPPR had a single
+figure for the 200-design corpus.
+
+`validation/experiments/runtime_profile.py`, 3 repeats, 4 seeds, medians:
+
+| stage | median |
+|---|---:|
+| load deposited kit | 0.012 s |
+| recode for host (42 modules, 4 seeds) | 1.704 s |
+| compile 3 targets | 0.000 s |
+| optimise collection (greedy, 42) | 0.746 s |
+| build junction classes | 0.001 s |
+| interface search (100 evaluations) | 1.913 s |
+| build 42 order substrates | 0.003 s |
+| check order eligibility | 0.003 s |
+| **sum of stage medians** | **4.384 s** |
+
+Every repeat is recorded, not a best-of, because a user experiences the spread. The sum of
+medians is labelled as what it is: no single run took exactly that. It does **not** time the
+reference — running their optimiser under our budgets would compare different amounts of work
+and call it speed.
+
+### Level-1 participants — narrowed, not closed
+
+The reference does **not** solve this. Its `grasp_level1_reaction_overhangs` composes
+`final_cassette + ppr_outer + block_joins`, and searching its whole package shows the P2L2S2
+linker and DYW domain appear only in bundled GenBank data, never in reaction composition. It
+emits a `level1_fidelity` from that incomplete set regardless. On this point CLIPPR is now
+stricter than the reference, which is worth knowing before anyone treats their number as an
+answer.
+
+What changed here is that the gap is **fillable** rather than permanent.
+`assembly_spec.level1_participants()` takes a block subset, optional cassette ends, and
+optional co-assembled parts **with evidence naming their source**. Without evidence the
+reaction stays unscored and says why. With it, the reaction scores and the number carries the
+basis it was claimed on.
+
+Demonstrated, and reported as a hypothesis rather than a result: the 19S block subset plus the
+reference's cassette ends plus the three known co-assembled ends gives a ten-overhang set
+scoring **0.623247** — *below* level 0's 0.751683. If that participant list is right, level 1
+is the bottleneck. It is not established that it is right, which is exactly why the function
+demands evidence.
+
 ## 15. Remaining limits
 
 - IDT's published rules are now carried in `CURRENT_OPOOL_50PMOL` (§7), unpriced and
@@ -668,10 +755,11 @@ hard constraint analysis and a five-step proposal, is `docs/gc_band_and_constrai
   least one further part is absent from the supplied records entirely. Adding only the known
   omitted ends moves 19S from 0.996046 to 0.742067, so a subset figure cannot stand in for the
   reaction.
-- **The oracle benchmark covers two dimensions of plan §12, not all of them.** Sequence checks
-  under both rule sets, and codon adaptation over aligned spans, are done. Repeat/sharing
-  metrics, stage-specific fidelity, ordering and runtime under comparable conditions are
-  **unperformed** — not passed. A PASS on the dimensions that ran is not parity.
+- **The oracle benchmark covers part of plan §12.** Sequence checks under both rule sets,
+  codon adaptation over aligned spans, and now **runtime** (§14b) are done. Repeat/sharing and
+  stage-specific fidelity **under matched conditions against the reference** remain
+  unperformed — we measure both for ourselves, but no matched comparison has been run. A PASS
+  on the dimensions that ran is not parity.
 - The matched whole-workflow benchmark against the newer reference is **done** — §12b. Its
   scope is the ordered sequence and codon adaptation. It does **not** compare assembly plans,
   because their wrapper is a level-1 cassette and ours a level-0 cassette; those are different

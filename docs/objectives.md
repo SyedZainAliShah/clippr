@@ -98,6 +98,13 @@ only unless `include_reverse_complement` is set, which is reported when it is.
 
 Default `k = 20`, for continuity with the existing QC. Configurable.
 
+**These do not make a usable search objective for this kit, and that was measured rather than
+assumed.** Duplicated k-mers are identically zero over all 42 deposited and recoded modules at
+k = 20, 16, 12 **and** 10, registering only at k = 8. A search declaring three objectives was
+ranking by two. The third axis is now `synthesis_fitness` (§4a); the repetition figures are
+still computed and reported as diagnostics, because a repetitive candidate is a real problem
+even when this kit never produces one.
+
 ---
 
 ## 4. Between-module sharing
@@ -121,6 +128,35 @@ records. Reported independently.
 **Lowering `P` does not necessarily lower the worst tract**, and no result may claim it does.
 `P` aggregates many short coincidences; the worst tract is a single extreme. A search that
 improves one can leave the other unchanged, and that has to be measured rather than inferred.
+
+---
+
+## 4a. Composite synthesis fitness
+
+The third search objective, maximised, in [0, 1], computed on the **ordered substrate**.
+
+Four terms, each a *distance* rather than a pass/fail so that ranking still moves when every
+candidate comfortably satisfies the constraints:
+
+| term | 1.0 means | why it is here |
+|---|---|---|
+| GC centrality | every window at the declared band's midpoint | spans 0.417-0.574 across our substrates |
+| homopolymer headroom | no run longer than 1 | spans 3-4 today |
+| internal repetition | every k-mer unique | degenerate now; fires on a genuinely bad candidate |
+| collection sharing | no k-mer shared with the rest of the inventory | varies with the collection |
+
+**GC centrality is measured against the declared band's centre, not a fixed 0.5.** A policy
+permitting 0.15-0.85 is not asking for the same sequence as one permitting 0.35-0.65, and
+scoring both toward 0.5 would impose a preference no profile declared. The **worst** window
+sets the term, not the mean: one bad window is what a vendor's model reacts to.
+
+**The weights are a declared engineering choice, not a measurement**, and are reported with
+every score together with the components, because an aggregate whose parts cannot be inspected
+is a number nobody can check.
+
+**Degeneracy is reported.** `inventory_fitness` returns the spread and a `degenerate` flag. An
+axis with no spread is not an axis, and the failure that produced this section must announce
+itself rather than be discovered a second time.
 
 ---
 

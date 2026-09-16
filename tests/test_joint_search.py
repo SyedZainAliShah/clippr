@@ -33,8 +33,14 @@ def classes(deposited):
 
 class TestDeclaredContract:
     def test_objective_directions_are_declared_not_inferred(self):
+        """Updated 2026-09-17: the third axis was `repeat_burden` and it never ranked anything.
+
+        It is identically zero over this kit at k = 20, 16, 12 and 10, so a search reporting
+        three objectives was ordering by two. `synthesis_fitness` replaces it;
+        `repeat_burden` is still computed and reported, as a diagnostic.
+        """
         assert js.DIRECTIONS == {"fidelity": "max", "adaptation": "max",
-                                 "repeat_burden": "min"}
+                                 "synthesis_fitness": "max"}
 
 
 @pytest.mark.usefixtures("deposited", "table", "classes")

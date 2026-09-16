@@ -78,9 +78,15 @@ CLIPPR hands the same limits to DNA Chisel as **hard constraints**, with codon a
 the objective. A candidate one window-point over the band is discarded.
 
 **Consequence.** Theirs trades — a hot GC window for a large codon gain — and ships the result
-marked `qc_status: WARNING`. Ours refuses and returns the module *unchanged*, carrying its
-original poorly adapted sequence. Our "unchanged" count is not an absence of opportunity; it is
-the band vetoing every improvement.
+marked `qc_status: WARNING`. Ours refuses and returns the module *unchanged*. Our "unchanged"
+count is not an absence of opportunity; it is the band vetoing every improvement, and the three
+modules concerned are named in `docs/synthesis_policy.md`.
+
+**Measured 2026-09-16, and it deflates this section.** At thresholds that do not bind, hard and
+soft enforcement produce **identical** output — 42 of 42 modules, to twelve decimal places. Soft
+enforcement has no independent value; it is a compensation for a threshold that is too tight.
+Softening our strict band recovers 3 modules for +0.038 CAI, while *widening* it lifts 40 for
++0.201. The architecture is not the advantage it appeared to be here — the threshold is.
 
 ### 3.2 Vendor profiles with a three-way rule split **[R]**
 

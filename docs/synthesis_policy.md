@@ -84,18 +84,81 @@ and no vendor has been shown to accept sequences designed under it.
 
 ---
 
+## The four-arm benchmark — RAN
+
+`validation/experiments/policy_benchmark.py`, all 42 modules, four seeds, matched budgets,
+every arm judged on its full ordered substrate under **its own** policy. Artefact:
+`work/policy/policy_benchmark.json`.
+
+| arm | mean CAI | improved | worse | hard breaches | advisory |
+|---|---:|---:|---:|---:|---:|
+| `strict_hard` (today's default) | 0.618830 | 39 | 0 | 0 | 0 |
+| `broad_hard` | **0.819921** | 42 | 0 | 0 | 0 |
+| `strict_soft` | 0.657195 | 42 | 0 | 0 | 3 |
+| `broad_soft` | 0.819921 | 42 | 0 | 0 | 0 |
+
+### A — hard versus hard, different thresholds
+
+Broad ahead on **40 of 42**, strict ahead on **0**, two tied. Mean **+0.201091**, median gain
++0.165763, largest single gain +0.670973, **largest loss +0.000000**. No module regresses, and
+both arms deliver an inventory their own policy accepts.
+
+The two tied modules are `pPR-1_2E_LD` and `pPR-1_2E_LN` — already at their ceiling under both.
+
+### B — same thresholds, hard versus soft
+
+**This is the experiment nothing had run, and it changes the picture.**
+
+| thresholds | soft ahead | hard ahead | tied | mean difference |
+|---|---:|---:|---:|---:|
+| strict (0.35–0.65) | 3 | 0 | 39 | +0.038365 |
+| broad (0.15–0.85) | 0 | 0 | **42** | **+0.000000** |
+
+At broad thresholds, hard and soft enforcement are **exactly identical** — every module, to
+twelve decimal places. Soft enforcement has no independent value. It matters only when a
+threshold *binds*, and what it does then is recover the candidates that threshold vetoes.
+
+So the soft-penalty architecture is not the advantage it looked like. It is a **compensation
+for a threshold that is too tight**, and the honest comparison is between thresholds, not
+between enforcement models. An earlier draft of the reference findings implied otherwise.
+
+### The three unchanged modules, fully explained
+
+`strict_soft`'s three advisory warnings are **exactly** the three modules `strict_hard` leaves
+unchanged:
+
+    pPR-1_14A_LD5T   GC 0.660 outside (0.35, 0.65) at window 14
+    pPR-1_14E_LN5N   GC 0.660 outside (0.35, 0.65) at window 55
+    pPR-1_19E_LN5N   GC 0.660 outside (0.35, 0.65) at window 55
+
+All three at **0.660** — the same figure that has run through this entire investigation, from
+the first substrate-scope defect onward. Those modules are not unimprovable; every candidate
+that improves them lands 0.010 over the band.
+
+Note the scale difference: softening recovers three modules for +0.038, while widening lifts
+**forty** for +0.201. The band does not merely veto three modules outright — it constrains the
+search for nearly all of them.
+
+### An independent arrival at the same number
+
+`strict_soft` scores **0.657195**, which is exactly what the orchestrator's audit obtained by
+patching `recoding.GC_BAND` alone. That is not a coincidence: both configurations are a narrow
+solver with a permissive validator. Two different routes to the same value, which corroborates
+both — and identifies precisely what the "one-line" patch was doing.
+
 ## What this does not settle
 
-- **Which profile should be the default.** The measured case supports making the policy
-  explicit, not widening it. Changing the default changes published results and needs its own
-  benchmark: all 42 modules, fixed seeds and budgets, the same full-substrate checks, and
-  per-module differences — not a mean alone.
+- **Which profile should be the default.** The benchmark above is now that input, and it is
+  favourable: +0.201 mean, 40 of 42 improved, nothing worse, and every arm delivering an
+  inventory its own policy accepts. It still does **not** decide the question, because none of
+  it is evidence of vendor acceptance — which is the only thing that matters for an order.
+  The decision needs a human who is willing to own that risk.
 - **Whether a wider band manufactures.** Twist and IDT both score submissions with proprietary
   models. A published guideline is not an acceptance guarantee and a looser one is not a
   licence.
-- **Hard versus soft at matched thresholds.** Every experiment so far varies hard bounds
-  against hard bounds. Whether soft penalties beat hard constraints *at the same numbers* is a
-  separate question and has not been tested.
+- ~~Hard versus soft at matched thresholds.~~ **Now tested** — see the benchmark above. At
+  non-binding thresholds the two are identical to twelve decimal places; soft only recovers
+  what a binding threshold vetoes. That question is closed.
 - **That CAI predicts expression.** It does not. `docs/objectives.md` §8 holds.
 - **IDT's rules.** We order from IDT, whose oPools page states no numeric GC threshold at all.
   The gBlocks FAQ is a different product. No profile here is an IDT acceptance model.

@@ -12,7 +12,8 @@ context at the same offset, so they are one physical interface and move together
 
   ``fidelity``       predicted ligation fidelity -- **maximise**
   ``adaptation``     mean codon adaptation over the inventory -- **maximise**
-  ``repeat_burden``  duplicated k-mers in the order sequences -- **minimise**
+  ``synthesis_fitness``  composite synthesis quality of the ordered substrates -- **maximise**
+                   (replaced ``repeat_burden``, which was identically zero across this kit)
 
 For a multi-reaction compilation, **every reaction's fidelity is reported and the minimum is
 the search summary**. Not a product across reactions: a product reads as a predicted overall
@@ -38,7 +39,15 @@ from .inventories import INTERFACE, Inventory, compile_target, derive
 from .junctions import permitted_overhangs, sites_in, valid_assignment
 
 #: Objective directions, declared before searching. `docs/objectives.md` §6.
-DIRECTIONS = {"fidelity": "max", "adaptation": "max", "repeat_burden": "min"}
+#: The three objectives, and their directions, declared before any search runs.
+#:
+#: `synthesis_fitness` replaced `repeat_burden` on 2026-09-17. The old axis was identically
+#: zero over both the deposited and recoded inventories -- and not because of its k: it is
+#: zero at k = 20, 16, 12 and 10, registering only at k = 8. A search reporting three
+#: objectives was ordering by two. `repeat_burden` is still computed and reported as a
+#: diagnostic, because a repetitive candidate is a real problem; it simply cannot rank the
+#: candidates this kit produces.
+DIRECTIONS = {"fidelity": "max", "adaptation": "max", "synthesis_fitness": "max"}
 
 #: How far below the best observed feasible fidelity a candidate may sit and still be
 #: considered for the default recommendation. A CLIPPR engineering choice, stated so the
@@ -276,16 +285,27 @@ def evaluate(inv: Inventory, classes, assignment: dict[str, str], targets, table
         return Candidate(assignment, False,
                          "no reaction in this compilation can be scored with the context "
                          "supplied")
+    # The third axis, measured on the ordered substrates rather than the inserts. Its spread
+    # is what makes it an axis: `repeat_burden` was identically zero across this kit, so
+    # dominance was being decided by two objectives while three were reported.
+    from .synthesis_fitness import inventory_fitness
+
+    fitness = inventory_fitness(rebuilt, k=k)
     objectives = {
         # The minimum across *scorable* reactions, labelled. Never a product: a product reads
         # as a predicted overall yield and is not one.
         "fidelity": round(min(scored), 6),
         "adaptation": round(sum(cais) / len(cais), 6),
-        # Scope is in the name. The earlier `repeat_burden` was documented as an
-        # order-sequence measure and computed over assembled products.
-        "repeat_burden": burden,
+        "synthesis_fitness": fitness["mean"],
     }
+    # Diagnostics: reported, never part of the dominance test. `repeat_burden` is retained
+    # because it is the term that fires on a genuinely repetitive candidate.
+    objectives["repeat_burden"] = burden
     objectives["product_repeat_burden_diagnostic"] = product_burden
+    objectives["synthesis_fitness_spread"] = fitness["spread"]
+    if fitness["degenerate"]:
+        # Said out loud rather than discovered later. An axis with no spread is not an axis.
+        objectives["synthesis_fitness_degenerate"] = True
     return Candidate(assignment, True, None, objectives, per_reaction,
                      sorted(set(unscorable)), rebuilt.version)
 
@@ -358,7 +378,7 @@ def search(inv: Inventory, targets, table, *, beam_width: int = 8,
         # every evaluated candidate, so beam ranking never decides what is reported.
         fresh.sort(key=lambda a: (-score(a).objectives["fidelity"],
                                   -score(a).objectives["adaptation"],
-                                  score(a).objectives["repeat_burden"]))
+                                  -score(a).objectives["synthesis_fitness"]))
         beam = fresh[:beam_width]
 
     candidates = list(evaluated.values())
@@ -400,7 +420,8 @@ def search(inv: Inventory, targets, table, *, beam_width: int = 8,
         "recommended": recommended.as_dict() if recommended else None,
         "recommendation_policy": (
             "feasible only; within {tol} of the best observed feasible fidelity; then "
-            "highest adaptation; then lowest repeat burden; then lexicographic assignment"
+            "highest adaptation; then highest synthesis fitness; then lexicographic "
+            "assignment"
         ).format(tol=FIDELITY_TOLERANCE),
         "fidelity_degenerate": len(fidelities) <= 1,
         "elapsed_seconds": round(time.perf_counter() - started, 3),
@@ -465,6 +486,6 @@ def recommend(front: list[Candidate]) -> Candidate | None:
     best = max(c.objectives["fidelity"] for c in feasible)
     near = [c for c in feasible
             if c.objectives["fidelity"] >= best - FIDELITY_TOLERANCE]
-    near.sort(key=lambda c: (-c.objectives["adaptation"], c.objectives["repeat_burden"],
+    near.sort(key=lambda c: (-c.objectives["adaptation"], -c.objectives["synthesis_fitness"],
                              tuple(sorted(c.assignment.items()))))
     return near[0]
