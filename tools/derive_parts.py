@@ -1,6 +1,6 @@
 """Derive the GRASP module inventory from the published supplementary tables.
 
-PRIMARY SOURCE ONLY. Reads Farley et al. (2025) Supplementary Table S1 and emits
+PRIMARY SOURCE ONLY. Reads Dennis et al. (2025) Supplementary Table S1 and emits
 `src/clippr/parts.json`. Nothing is taken from the reference implementation, which ships the
 same modules as its own Geneious plasmid exports; this reads the paper's published table
 instead, and `validation/compare_parts.py` checks the two agree.
@@ -83,12 +83,12 @@ def main() -> None:
 
     data = {
         "provenance": (
-            "Derived from Farley et al. 2025 Supplementary Table S1 by tools/derive_parts.py. "
+            "Derived from Dennis et al. 2025 Supplementary Table S1 by tools/derive_parts.py. "
             "Module identity, overhangs and plate positions only; insert sequences are "
             "deliberately omitted -- see the paper or Addgene for those. No part of the "
             "reference implementation was used."
         ),
-        "source": "Farley KV et al. (2025) Nucleic Acids Research, 10.1093/nar/gkaf1169",
+        "source": "Dennis et al. (2025) Nucleic Acids Research, 10.1093/nar/gkaf1169",
         "kit": "GRASP Cloning Kit, 42 plasmids in pAGM1311",
         "code_to_base": CODE_TO_BASE,
         "code_note": ("A module named L<last>5<fifth> contributes the 5th residue for its own "

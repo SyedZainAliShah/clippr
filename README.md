@@ -6,8 +6,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-1a7f5a.svg)](LICENSE)
 
 
-Give it a target RNA sequence and it returns a PPR protein that binds that sequence, a
-synthesisable coding sequence, a Golden Gate assembly plan, and the DNA fragments to order.
+Give it a target RNA sequence and it returns a PPR protein **designed to recognise that
+sequence under the PPR code**, a synthesisable coding sequence, a Golden Gate assembly plan,
+and the DNA fragments to order. No binding was measured; the recognition claim is what the
+code predicts, not an experimental result.
 
 PPR proteins are built from tandem ~31-residue repeats, and each repeat reads exactly one
 RNA base through two specificity residues — the **PPR code** (`TN`→A, `NN`→C, `TD`→G,
@@ -30,12 +32,41 @@ Python 3.10+. Or skip the install entirely and **[open the notebook in Colab](ht
 ## A worked example
 
 ```python
+import json
 from clippr import design_oneshot
 
-r = design_oneshot("AAAAUGUGG", outdir="out")
+codon_table = json.load(open("kazusa_3055.json", encoding="utf-8"))   # see "Inputs" below
+r = design_oneshot("AAAAUGUGG", codon_table=codon_table, genetic_code=1,
+                   check_offtarget=False, outdir="out")
 print(r["summary"])
-# AAAAUGUGG (9S) -> 302 aa, 906 nt, 4 fragments. Fidelity 0.830. QC PASS. 109.00 EUR.
+# AAAAUGUGG (9S) -> 302 aa, 906 nt, 4 fragments. Fidelity 0.828. QC PASS. 109.00 EUR (list price).
 ```
+
+This example passes its codon table explicitly and turns host screening off, so it needs no
+network and downloads nothing. Screening stays on by default in the full workflow — the
+design above simply reports `off-target  not assessed — screening disabled` rather than
+implying a clean screen.
+
+### Inputs, and what the first run needs
+
+Two inputs are fetched rather than packaged, so a first run with neither supplied nor cached
+needs network:
+
+| Input | Where it comes from | Needed when |
+|---|---|---|
+| *Chlamydomonas* nuclear codon table | Kazusa, via `table_from_kazusa()` | unless you pass `codon_table=` yourself |
+| Chloroplast genome `NC_005353.1` | NCBI, via `offtarget.scan()` | only when host screening runs |
+
+`python_codon_tables` bundles nine organisms offline and *Chlamydomonas is not among them*,
+so `table_from_kazusa()` downloads on first use and caches the result. After that the same
+design runs offline. To be explicit and reproducible, fetch the table once, keep the JSON,
+and pass it as `codon_table=` — as the example does — recording its hash alongside your
+results.
+
+Cached downloads live in your user cache directory (`%LOCALAPPDATA%\clippr` on Windows,
+`~/.cache/clippr` otherwise), or in `data/` when you are working from a source checkout.
+`CLIPPR_CACHE_DIR` overrides both — **set it before importing `clippr`**, because the cache
+location is resolved at import time.
 
 The target's length picks the architecture: 9, 14 or 19 bases give 9S, 14S or 19S. Four
 files land in `out/` — an order CSV, the oligos as FASTA, the assembled gene, and an
@@ -51,15 +82,16 @@ print(r["audit"].report())
 design audit — AAAAUGUGG (9S)
   host           c_reinhardtii_nuclear, genetic code 1
   enzyme profile igem_rfc1000 (BsaI, BbsI, SapI)
-  cuts           76, 151, 226
-  fidelity       0.830 predicted  (ceiling 0.830, set by the destination pair)
+  cuts           75, 151, 226
+  fidelity       0.828 predicted  (ceiling 0.828, set by the destination pair)
   constraints    satisfied
   QC             PASS
+  off-target     not assessed — screening disabled
 
   selected overhangs
-    CGAC  selected   cut   76  highest predicted fidelity among feasible  [2 local realizations]
-    AATG  selected   cut  151  highest predicted fidelity among feasible  [3 local realizations]
-    AGCA  selected   cut  226  highest predicted fidelity among feasible  [6 local realizations]
+    ATTC  selected   cut   75  highest predicted fidelity among feasible candidates  [4 local realizations]
+    AATG  selected   cut  151  highest predicted fidelity among feasible candidates  [3 local realizations]
+    AGCG  selected   cut  226  highest predicted fidelity among feasible candidates  [6 local realizations]
 ```
 
 Rejected candidates appear there too, each with the reason it was ruled out. A surprising
@@ -179,14 +211,24 @@ trivially no. Measured on five 9S designs:
 
 | | before | after |
 |---|---|---|
-| longest shared stretch | 84 nt | **47 nt** |
+| longest shared stretch | 107 nt | **47 nt** |
 | pairs sharing ≥ 50 nt | 10 of 10 | **0 of 10** |
 
-Every shared stretch began at position 0 in both members and decoded to `MQGGNSEEPRKSFDERPER…`
-— the fixed 23-residue N-terminal scaffold. It is not a codon-diversification failure: across
-369 nt of *identical protein* the longest shared DNA run was only 59 nt, so the repeat body is
-already well separated. The scaffold is simply protein-identical by construction and receives
-the same codons every time.
+**Re-measured 2026-09-11**, after the ligation-fidelity correction changed which junction
+overhangs each design selects and therefore changed every design. The earlier figure for the
+"before" column was 84 nt.
+
+Most of the sharing is the fixed 23-residue N-terminal scaffold (69 nt), which is
+protein-identical by construction and receives the same codons every time: 10 of the 15 pairs
+in a six-member library share exactly 59–65 nt starting at position 0 in both members. **It is
+not only the scaffold, though**, and an earlier version of this section said it was. Three
+pairs start at 0 and run *past* the scaffold end (77, 77 and 107 nt), and two pairs share 62 nt
+with no scaffold involvement at all — at positions 663/663 and 597/318, deep in the repeat
+body. Scaffold diversification does not clear the threshold once a library reaches six members,
+and this is where the residue sits — but the two facts are not the same claim. Locking a
+different prefix re-optimises the whole design, so the scaffold knob *can* change the body:
+five encodings at a fixed seed give three distinct sequences after nucleotide 69. What is
+measured is that this retry schedule did not improve these outputs.
 
 **The pairwise view alone would overstate that fix**, because reducing the worst *pair* says
 nothing about blocks carried by most of the library — the risk that grows with library size. So
@@ -280,8 +322,10 @@ never a prediction that it will occur, and the risk depends on the physical libr
 one construct per strain is a different situation from many constructs entering the same nuclear
 genome, or from a pooled DNA mixture. The defensible sentence is that **independently designed
 members acquired substantial unintended DNA identity through a shared scaffold, and synonymous
-redesign reduced the longest shared tract from 84 to 47 nt.** Everything beyond that needs the
-bench.
+redesign reduced the longest shared tract from 107 to 47 nt across five members.** At six
+members the same procedure reaches only 77 nt and leaves two pairs above 50 nt, because the
+residual identity is in the repeat body rather than the scaffold. Everything beyond that needs
+the bench.
 
 ## Two realisation routes — synthesise, or use parts you already own
 
@@ -424,7 +468,7 @@ architecture and added constraints rather than a silently changed construct defi
 
 Every constant traces to a primary published source, not to any other implementation:
 
-- scaffold sequences and the PPR code are derived from Farley et al. (2025) and its
+- scaffold sequences and the PPR code are derived from Dennis et al. (2025) and its
   supplementary tables by `tools/derive_scaffold.py`, which assembles the deposited
   modules per the published recipe;
 - ligation matrices come from the Pryor et al. (2020) supplement directly, and ship with

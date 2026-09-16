@@ -5,16 +5,44 @@ Source data: Pryor et al. (2020) PLoS ONE 15(9):e0238592, supplementary tables S
 columns are the 256 four-base overhangs in alphabetical order and rows are their reverse
 complements.
 
-Fidelity follows the published definition: for a set of overhangs, p(O) is the fraction
-of O's ligations that pair it with its Watson-Crick partner rather than with any other
-member of the set, and the set fidelity is the product of p(O) over the set. The score
-reported here is the orientation-invariant geometric mean of the two directional
-products, so it does not depend on which strand you call "top".
+Fidelity follows the published definition (Pryor et al., Materials and Methods): p(O) is
+the fraction of O's ligations that pair it with its Watson-Crick partner rather than with
+any other strand present, where N_total counts O's ligations "to any overhangs in the set
+and its WC pair". Both strands of every junction are in the tube, so that competitor pool
+is the set *together with* its reverse complements. The set fidelity is the product of
+p(O), reported as the geometric mean of the two directional products so that it does not
+depend on which strand you call "top".
 
 Note this is a predicted surrogate, not a measured assembly efficiency.
+
+**The aggregation convention, and how far it matters (settled 2026-09-14).**
+Pryor's definition fixes the *denominator* -- competitors are the set together with its WC
+pairs -- but not how the per-overhang probabilities are combined into one number. Two
+combinations are equally faithful to it and equally orientation-invariant:
+
+    A  geometric mean of the two per-strand directional products        <- implemented here
+    B  one product of per-junction ratios, numerator and denominator
+       each summed over both strands of the junction
+
+They are not interchangeable in principle. On random valid four-member sets (seed 0) they
+differ by at most 0.0038 (BsaI-HFv2) and 0.0034 (BbsI-HF), and they can *reverse a ranking*:
+A scores ['GCAC','GTGA','TTGA','CATA'] above ['GGTT','AAAC','AGGA','ATCC'] (0.8341118 vs
+0.8340968) while B scores it below (0.8315602 vs 0.8339764). A scalar gap that small is
+therefore not an argument that the choice is safe, and an earlier draft of this module made
+exactly that argument.
+
+What licenses A is a direct measurement on the pools a design actually chooses from: running
+`_plan_fragments` under both formulas across all 200 corpus targets, spanning 9S, 14S and 19S,
+the plans `design_oneshot` consumes are **identical in 200 of 200 cases** -- same cuts, same
+overhangs, same order. The reversals exist among arbitrary four-member sets; they do not reach
+the reachable candidate space. So the defensible claim is "this choice changes no design CLIPPR
+produces on this corpus", never "the choice is immaterial". If the candidate space changes --
+a new destination, a different enzyme profile, another architecture -- that measurement is the
+one to repeat.
 """
 from __future__ import annotations
 
+import hashlib
 import itertools
 import math
 from collections.abc import Sequence
@@ -90,17 +118,21 @@ def _index(matrix: str) -> tuple[np.ndarray, dict[str, int]]:
 def _directional(overhangs: list[str], counts, idx) -> float:
     """Product over the set of p(O) = N_correct / N_total, each O read as top strand.
 
-    Every top strand in the reaction can anneal to any bottom strand present, so the
-    competitors for O are the reverse complements of all set members, O's own included.
+    A junction puts *both* of its strands in the tube, so the strands competing for O are
+    the set members and their reverse complements together -- Pryor's "any overhangs in
+    the set and its WC pair". Summing over the reverse complements alone made the score
+    depend on which strand each junction happened to be named by: reverse-complementing
+    one member of ["CTCA", "CTCG"] moved it from 0.830 to 1.000.
 
-    Row i of the table is labelled `reverse_complement(labels[i])`, so the row carrying
-    bottom strand `reverse_complement(P)` is row `idx[P]`, and the correct pairing of O
-    with its own complement sits on the diagonal.
+    Row i of the table is labelled `reverse_complement(labels[i])`, so bottom strand
+    `reverse_complement(P)` is row `idx[P]`, bottom strand `P` is row
+    `idx[reverse_complement(P)]`, and O's correct pairing sits on the diagonal.
     """
     product = 1.0
     for o in overhangs:
         correct = counts[idx[o], idx[o]]
-        total = sum(counts[idx[p], idx[o]] for p in overhangs)
+        total = sum(counts[idx[p], idx[o]] + counts[idx[reverse_complement(p)], idx[o]]
+                    for p in overhangs)
         if total == 0:
             return 0.0
         product *= correct / total
@@ -110,9 +142,11 @@ def _directional(overhangs: list[str], counts, idx) -> float:
 def fidelity_components(overhangs, matrix: str = "BsaI-HFv2") -> tuple[float, float]:
     """The forward and reverse directional products, before pooling.
 
-    The assay's count table is not exactly symmetric, so these are two noisy estimates
-    of the same quantity. Exposed so a result can be cross-checked against tools that
-    report a single direction, such as the NEBridge Ligase Fidelity Viewer.
+    The count table is exactly symmetric, but these two still differ: p(O) and
+    p(reverse_complement(O)) share a numerator and not a denominator, because the two
+    strands of a junction have different affinities for the rest of the pool. Exposed so
+    a result can be cross-checked against tools that report a single direction, such as
+    the NEBridge Ligase Fidelity Viewer.
     """
     ohs = _clean(overhangs)
     counts, idx = _index(matrix)
@@ -142,6 +176,46 @@ def set_fidelity(overhangs, matrix: str = "BsaI-HFv2") -> float:
     return math.sqrt(fwd * rev)
 
 
+#: Bump whenever the *formula* in `_directional`, `fidelity_components` or `set_fidelity`
+#: changes. It is part of the planning cache key, so a stale entry cannot outlive a scorer
+#: change and resurrect the overhang selection the old formula preferred. Version 2 is the
+#: pooled-competitor denominator adopted 2026-09-11; version 1 summed competitors over the
+#: reverse complements of the set alone and chose different junctions on 5 of 5 targets.
+SCORER_VERSION = 2
+
+
+@lru_cache(maxsize=8)
+def matrix_fingerprint(matrix: str = "BsaI-HFv2") -> str:
+    """Digest of the ligation table's contents, for cache keys that must notice a data swap.
+
+    Hashes the counts and their labels rather than the file, so a re-exported workbook with
+    identical numbers is correctly treated as the same input.
+    """
+    counts, labels = load_matrix(matrix)
+    h = hashlib.sha256(np.ascontiguousarray(counts).tobytes())
+    h.update("".join(labels).encode())
+    return h.hexdigest()[:16]
+
+
+#: Results of `best_set`, keyed by everything that can change them. Per-process and
+#: deliberately unbounded: the reachable key space is small -- 200 corpus proteins collapse
+#: to a handful of distinct candidate pools -- and an eviction policy would be complexity
+#: bought for no measured need.
+_BEST_SET_CACHE: dict[tuple, tuple[tuple[str, ...], float]] = {}
+_CACHE_STATS = {"hits": 0, "misses": 0}
+
+
+def cache_stats() -> dict:
+    """Hits, misses and size for the `best_set` cache, for reporting reuse."""
+    return {**_CACHE_STATS, "entries": len(_BEST_SET_CACHE)}
+
+
+def clear_cache() -> None:
+    """Empty the `best_set` cache. Used to measure cold cost and to prove equivalence."""
+    _BEST_SET_CACHE.clear()
+    _CACHE_STATS.update(hits=0, misses=0)
+
+
 def palindromic(overhang: str) -> bool:
     """A palindromic overhang ligates to itself and cannot be used."""
     o = overhang.upper().replace("U", "T")
@@ -166,13 +240,18 @@ def valid_set(overhangs) -> bool:
 def reaction_overhangs(junctions: Sequence[str], level: str = "level0") -> list[str]:
     """The physical single-strand overhangs competing in one assembly reaction.
 
-    Use this rather than assembling the set by hand. `DESTINATION_OVERHANGS` stores each
-    destination as a pair of *coding sites*, and the 3' coding site is the reverse
-    complement of the overhang the enzyme actually leaves. Scoring the stored pair
-    verbatim compares two sequences that never meet in the tube: level 0's ("CTCA",
-    "CGAG") scores a clean 1.000 that way, while the strands really present -- CTCA and
-    CTCG -- score 0.794. The false reading is the more reassuring one, which is what
-    makes it worth removing from the caller's hands.
+    `DESTINATION_OVERHANGS` stores each destination as a pair of *coding sites*, and the
+    3' coding site is the reverse complement of the overhang the enzyme actually leaves.
+    This is the one place that knows that, so callers get the strands that are really in
+    the tube instead of rederiving the flip at each site.
+
+    Retracted 2026-09-11: this helper was previously documented as guarding a "false
+    all-clear", on the grounds that scoring level 0's stored ("CTCA", "CGAG") verbatim
+    gave 1.000 while the present strands CTCA/CTCG gave 0.794. That gap was a defect in
+    `set_fidelity`, not a hazard in the convention -- CGAG is the reverse complement of
+    CTCG, so the two spellings name the same two junctions and an orientation-invariant
+    scorer must and now does return 0.794 for both. The level 0 measurement itself is
+    unaffected.
     """
     from . import constants as C
 
@@ -221,6 +300,20 @@ def best_set(
     silently degrading to a heuristic.
     """
     fixed = list(fixed or [])
+    # Exhaustive enumeration over the candidate product is the whole cost here: measured at
+    # 19S, three splits took 12.0 s against 0.005 s to build the pools they search. The key
+    # covers every input that can change the answer -- the ordered pools, the fixed
+    # destination overhangs, the table's contents and the scoring formula's version.
+    key = (tuple(tuple(c) for c in candidates), tuple(fixed), matrix, max_combinations,
+           SCORER_VERSION, matrix_fingerprint(matrix))
+    cached = _BEST_SET_CACHE.get(key)
+    if cached is not None:
+        _CACHE_STATS["hits"] += 1
+        # A fresh list every time: the caller owns what it gets back and may sort or mutate
+        # it, and a shared list would let one caller corrupt every later hit.
+        return list(cached[0]), cached[1]
+    _CACHE_STATS["misses"] += 1
+
     total = 1
     for c in candidates:
         total *= max(len(c), 1)
@@ -244,4 +337,5 @@ def best_set(
                 break
     if best is None:
         raise ValueError("no valid overhang combination; all candidates conflict")
+    _BEST_SET_CACHE[key] = (tuple(best), best_score)
     return best, best_score

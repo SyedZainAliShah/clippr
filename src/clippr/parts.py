@@ -145,13 +145,30 @@ def block_chain(n_bases: int) -> list[str]:
     return chain
 
 
-def _find(block: str, fifth: str | None, last: str | None) -> Module | None:
+#: The two 5' fusion sites the deposited start modules offer. `AATG` carries the initiating
+#: methionine itself; `AGGT` continues an N-terminal fusion from the backbone. Both exist for
+#: every 1A variant, and the choice belongs to the design context.
+FUSION_SITES = ("AATG", "AGGT")
+DEFAULT_FUSION_SITE = "AATG"
+
+
+def _find(block: str, fifth: str | None, last: str | None,
+          fusion_site: str | None = None) -> Module | None:
+    """The deposited module for this block and specificity pair.
+
+    `fusion_site` disambiguates the start block, whose `AATG` and `AGGT` variants are
+    identical in block, specificity residues and length and differ only in their 5' overhang.
+    Without it the first listed variant always won, which is why the two `AGGT` modules were
+    unreachable and went unexercised by all 200 corpus targets.
+    """
     for m in inventory():
         if m.block != block:
             continue
         if fifth is not None and m.fifth != fifth:
             continue
         if last is not None and m.last != last:
+            continue
+        if fusion_site is not None and m.five_overhang in FUSION_SITES                 and m.five_overhang != fusion_site:
             continue
         return m
     return None
@@ -180,7 +197,7 @@ class PartsPlan:
         return tuple(m.plate for m in self.modules)
 
 
-def select(target_rna: str) -> PartsPlan:
+def select(target_rna: str, fusion_site: str = DEFAULT_FUSION_SITE) -> PartsPlan:
     """Compile a target RNA into deposited modules, or say why the kit cannot build it.
 
     Returns a plan rather than raising, because "this target needs synthesis" is an answer the
@@ -201,7 +218,7 @@ def select(target_rna: str) -> PartsPlan:
         # module i carries the 5th residue for base i, and the last residue for base i-1
         fifth = codes[i][0] if i < len(codes) else None
         last = codes[i - 1][1] if i > 0 else None
-        module = _find(block, fifth, last)
+        module = _find(block, fifth, last, fusion_site)
         if module is None:
             return PartsPlan(
                 target=target,
@@ -248,6 +265,6 @@ def report(plan: PartsPlan) -> str:
         "This selects the PPR modules only. The acceptor plasmids, the non-PPR elements of "
         "the transcriptional unit and the assembly protocol are not modelled here — this is a "
         "GRASP-compatible PPR module realisation, not a complete construct.",
-        "Module identity and overhangs derive from Farley et al. 2025 Supplementary Table S1.",
+        "Module identity and overhangs derive from Dennis et al. 2025 Supplementary Table S1.",
     ]
     return "\n".join(lines)

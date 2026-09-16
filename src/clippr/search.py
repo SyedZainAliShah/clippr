@@ -44,13 +44,13 @@ it would have discarded. The two entry points can legitimately disagree: that di
 the point, and `certificate()` says so when it happens.
 
 **Measured: the trade-off surface is degenerate here, and that is a finding.** Running this
-over all three architectures with `budget=8`, predicted fidelity was **0.8297 for every single
+over all three architectures with `budget=8`, predicted fidelity was **0.8282 for every single
 candidate** and QC was PASS for every single candidate. Only the optimiser score varied:
 
     architecture   candidates   fidelity spread   QC        optimiser score spread
-    9S                      8   none (0.8297)     all PASS  -150.5 to -139.7
-    14S                     8   none (0.8297)     all PASS  -247.7 to -227.1
-    19S                     8   none (0.8297)     all PASS  -333.2 to -322.0
+    9S                      8   none (0.8282)     all PASS  -150.5 to -139.7
+    14S                     8   none (0.8282)     all PASS  -247.7 to -227.1
+    19S                     8   none (0.8282)     all PASS  -333.2 to -322.0
 
 There are two reasons and both are structural. Predicted fidelity is capped by the destination
 overhang pair, and every junction set this pipeline proposes reaches that cap, so the L2 band

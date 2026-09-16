@@ -28,6 +28,13 @@ sys.path.insert(0, str(ROOT / "src"))
 
 NOTEBOOK = ROOT / "notebooks" / "CLIPPR_designer.ipynb"
 
+#: The inventory cells short-circuit when this file is absent, and the absent branch is the
+#: cheap one. Running only that branch is what let the inventory half of the notebook ship
+#: having never executed: `table` was passed as a codon table and is a display DataFrame, so
+#: three cells raised the moment a real input reached them, while every test stayed green.
+#: The harness now stages the file itself, so the path a user takes is the path that runs.
+SUPPLIED_TABLE_S1 = ROOT / "data" / "grasp_supp" / "Table S1.xlsx"
+
 
 def main() -> None:
     try:
@@ -39,6 +46,27 @@ def main() -> None:
         print("\nSKIP")
         raise SystemExit(0)
 
+    # The notebook looks for the workbook by bare filename, as a Colab user would after
+    # uploading it. Stage it in the working directory and take it away afterwards.
+    staged = Path.cwd() / SUPPLIED_TABLE_S1.name
+    staged_by_us = False
+    if SUPPLIED_TABLE_S1.is_file() and not staged.exists():
+        staged.write_bytes(SUPPLIED_TABLE_S1.read_bytes())
+        staged_by_us = True
+        print(f"staged {staged.name} so the inventory cells run for real")
+    elif not SUPPLIED_TABLE_S1.is_file():
+        print("Supplementary Table S1 is not present, so the inventory cells will only")
+        print("exercise their absent-input branch. That is a weaker check, and it is the")
+        print("one that previously hid a crash on the real path.")
+
+    try:
+        _run(staged)
+    finally:
+        if staged_by_us:
+            staged.unlink(missing_ok=True)
+
+
+def _run(staged: Path) -> None:
     nb = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
     cells = [c for c in nb["cells"] if c["cell_type"] == "code"]
     print(f"{len(cells)} code cells in {NOTEBOOK.name}\n")

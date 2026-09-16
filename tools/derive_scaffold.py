@@ -1,6 +1,6 @@
 """Derive GRASP scaffold constants from the published supplementary tables.
 
-PRIMARY SOURCE ONLY. Reads Farley et al. (2025) Supplementary Tables S1 and S2 and
+PRIMARY SOURCE ONLY. Reads Dennis et al. (2025) Supplementary Tables S1 and S2 and
 reconstructs the wild-type protein by assembling the deposited modules per the published
 recipe. Nothing here is copied from any third-party implementation.
 
@@ -125,12 +125,12 @@ def main() -> None:
 
     data = {
         "provenance": (
-            "Derived from Farley et al. 2025 Supplementary Tables S1 and S2 by assembling "
+            "Derived from Dennis et al. 2025 Supplementary Tables S1 and S2 by assembling "
             "the deposited modules per the published recipe for variant p0. No third-party "
             "implementation was consulted."
         ),
         "code_to_base": {"TN": "A", "NN": "C", "TD": "G", "ND": "T"},
-        "code_to_base_source": "Farley et al. 2025, Fig 1B: Thr/Asn->A, Asn/Asn->C, Thr/Asp->G, Asn/Asp->U",
+        "code_to_base_source": "Dennis et al. 2025, Fig 1B: Thr/Asn->A, Asn/Asn->C, Thr/Asp->G, Asn/Asp->U",
         "cds1_protein": prot["CDS1"],
         "cds2_protein": prot["CDS2"],
         "repeat_period_aa": period,

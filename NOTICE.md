@@ -40,7 +40,7 @@ criterion.
 **Scaffold sequences, the PPR code and the repeat template** in `src/clippr/biology.py`
 and `src/clippr/scaffold.json` are derived from:
 
-> Farley KV, et al. (2025). Nucleic Acids Research.
+> Dennis M, Low SY, Viljoen A, Pullakhandam A, Colas des Francs-Small C, Campbell-Clause L, Bond CS, Small I, Kwok van der Giezen FM (2025). GRASP: a modular toolkit for building synthetic pentatricopeptide repeat RNA-binding proteins. Nucleic Acids Research.
 > https://doi.org/10.1093/nar/gkaf1169
 
 `tools/derive_scaffold.py` assembles them from the deposited modules in the paper's

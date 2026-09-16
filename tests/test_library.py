@@ -117,6 +117,33 @@ class TestWrite:
         paths = write_library(lib, tmp_path)
         assert len(list(Path(paths["genbank_dir"]).glob("*.gb"))) == len(TARGETS)
 
+    def test_the_package_carries_its_own_manifest(self, lib, tmp_path):
+        """A directory of CSVs with no record of what produced them is not reproducible."""
+        import json
+        from pathlib import Path
+
+        paths = write_library(lib, tmp_path)
+        record = json.loads(Path(paths["manifest"]).read_text(encoding="utf-8"))
+        assert record["completion"] == "complete"
+        assert record["configuration"]["n_designs"] == len(TARGETS)
+        assert record["software"]["dependencies"]
+        assert {d["target"] for d in record["designs"]} == set(TARGETS)
+
+    def test_a_run_that_designed_nothing_still_records_what_ran(self, tmp_path):
+        """Every target failed, so there is no codon table to report -- but a package with
+        failures and no provenance statement is exactly what the manifest exists to prevent.
+        """
+        import json
+        from pathlib import Path
+
+        lib = design_library(["NOTATARGET"], codon_table=TOY_TABLE, check_offtarget=False)
+        assert not lib.designs and lib.failed
+        paths = write_library(lib, tmp_path)
+        record = json.loads(Path(paths["manifest"]).read_text(encoding="utf-8"))
+        assert record["completion"] == "failed"
+        assert [f["target"] for f in record["failures"]] == ["NOTATARGET"]
+        assert record["software"]["dependencies"]
+
 
 class TestAuditExport:
     def test_audit_exports_to_csv(self, lib, tmp_path):

@@ -236,3 +236,46 @@ class TestDiversify:
                                 retries=1)
         for t in targets:
             assert str(Seq(res["cds"][t]).translate()) == describe(t)["aa_sequence"]
+
+    def test_a_retry_actually_varies_the_design(self):
+        """The retry loop was inert for the whole of its first life.
+
+        It re-rolled `seed`, but under a locked prefix DNA Chisel returns the same
+        sequence for every seed, so all `retries + 1` attempts were one design and the
+        "keep re-rolling until it stops clashing" guarantee was decoration. These two
+        assertions are the fact the loop now depends on: the seed does nothing once a
+        prefix is locked, and the encoding index does. If the first ever starts to fail,
+        the loop can go back to varying the seed; if the second fails, the loop is inert
+        again and `diversify_library` is not doing what its docstring claims.
+        """
+        from clippr.biology import N_TERMINAL
+        from clippr.design import design_oneshot
+        from clippr.homology import scaffold_encoding
+
+        base = design_oneshot("AAAAUGUGG", codon_table=TOY_TABLE, check_offtarget=False)
+        prefixes = [scaffold_encoding(i, N_TERMINAL, base["codon_table"],
+                                      genetic_code=base["genetic_code"],
+                                      enzymes=base["enzyme_profile_effective"])
+                    for i in (0, 1)]
+        assert prefixes[0] != prefixes[1], "two encoding indices must differ to begin with"
+
+        locked = {design_oneshot("AAAAUGUGG", codon_table=TOY_TABLE, check_offtarget=False,
+                                 lock_prefix=prefixes[0], seed=s)["cds"] for s in (1, 2, 3)}
+        assert len(locked) == 1, (
+            "the seed now varies a locked design, so re-rolling it would be a valid retry "
+            "again — but diversify_library re-rolls the encoding, so update it deliberately")
+
+        by_encoding = {design_oneshot("AAAAUGUGG", codon_table=TOY_TABLE,
+                                      check_offtarget=False, lock_prefix=p, seed=42)["cds"]
+                       for p in prefixes}
+        assert len(by_encoding) == 2, "re-rolling the encoding must change the design"
+
+    def test_a_rejected_member_records_no_encoding(self):
+        """A member that falls back to its baseline locked no scaffold, so it has none."""
+        from clippr.homology import diversify_library
+        res = diversify_library(["AAAAUGUGG", "GCUAAAGAC", "UUACACGUG"],
+                                codon_table=TOY_TABLE, check_offtarget=False, retries=1)
+        for t, cds in res["cds"].items():
+            if cds == res["baseline_cds"][t] and res["scaffold_encodings"][t] is not None:
+                assert res["cds"][t].startswith(res["scaffold_encodings"][t]), (
+                    f"{t} reports an encoding its CDS does not start with")

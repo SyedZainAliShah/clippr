@@ -237,4 +237,26 @@ def write_library(lib: LibraryResult, outdir: str | Path) -> dict[str, str]:
     p.write_text(lib.summary() + "\n\n" + lib.crosstalk() + "\n\n"
                  + lib.homology() + "\n", encoding="utf-8")
     paths["summary"] = str(p)
+
+    # The manifest ships with the package rather than being a separate step a caller can
+    # forget. Without it the CSVs and GenBank files carry no record of the source, codon
+    # table, dependencies or screening state that produced them, and a result package whose
+    # provenance has to be reconstructed from memory is not reproducible.
+    from . import manifest as _manifest
+
+    failures = [{"target": t, "reason": why} for t, why in sorted(lib.failed.items())]
+    if lib.designs:
+        record = _manifest.build(list(lib.designs.values()),
+                                 completion="complete" if not failures else "partial",
+                                 failures=failures)
+    else:
+        # Every target failed, so there is no codon table or enzyme profile that ran and
+        # nothing to describe in `inputs`. The run still needs a provenance record: a
+        # directory of failures with no statement of what produced them is the case the
+        # manifest exists to prevent.
+        record = {"schema_version": _manifest.SCHEMA_VERSION,
+                  "route": "synthesis", "completion": "failed",
+                  "software": _manifest._software(), "designs": [],
+                  "failures": failures}
+    paths["manifest"] = str(_manifest.write(record, out / "manifest.json"))
     return paths

@@ -115,7 +115,18 @@ class TestNamesResolve:
             if module != "clippr":
                 mod = __import__(module, fromlist=["_"])
             for name in (n.strip() for n in names.split(",")):
-                if name and not hasattr(mod, name):
+                # `from clippr import inventories as inv` imports `inventories`; the alias
+                # is a local name and is not an attribute to look for. Matching the whole
+                # "inventories as inv" string reported a missing name that exists.
+                name = name.split(" as ")[0].strip()
+                if not name or hasattr(mod, name):
+                    continue
+                # A submodule is not an attribute of its package until something imports
+                # it, but `from clippr import inventories` is valid Python either way.
+                # `hasattr` alone reported the notebook's submodule imports as missing.
+                try:
+                    __import__(f"{module}.{name}", fromlist=["_"])
+                except ImportError:
                     missing.append(f"{module}.{name}")
         assert not missing, f"the notebook imports names that no longer exist: {missing}"
 

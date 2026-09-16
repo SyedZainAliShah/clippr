@@ -511,7 +511,7 @@ need two, three and four sub-assemblies. Each internal join consumes one linker 
 three, and the kit contains exactly three. It cannot build anything longer, and the cell below
 says so plainly when asked.
 
-> Module identity, overhangs and plate positions are derived from **Farley et al. 2025
+> Module identity, overhangs and plate positions are derived from **Dennis et al. 2025
 > Supplementary Table S1**, and the selection reproduces the module lists published in Table S2
 > for 28 of 28 internally consistent variants. This selects the PPR modules only — not the
 > acceptor plasmids or the rest of the transcriptional unit.
@@ -609,15 +609,18 @@ Cross-talk asks whether two PPRs could bind each other's **target**. This asks w
 answer. Every member of a PPR library carries the same scaffold, so it is never trivially no.
 
 Measured on five 9S designs, every pair shared at least **59 nt**, and every one of those
-stretches began at position 0 in both members: the fixed 23-residue N-terminal scaffold. That is
-not a codon-diversification failure — across 369 nt of *identical protein* the longest shared run
-was only 59 nt, so the repeat body is already well separated. The scaffold is protein-identical
-by construction and gets the same codons every time.
+stretches began at position 0 in both members: the fixed 23-residue N-terminal scaffold, which is
+protein-identical by construction and gets the same codons every time. Most, but not all — two
+pairs of a six-member library share 62 nt inside the repeat body, at positions 663/663 and
+597/318, with no scaffold involved.
 
 `diversify_library` gives each member its own synonymous encoding of that scaffold, locked in
-place. On those five designs: longest shared stretch **84 → 47 nt**, pairs over the 50 nt
+place. On those five designs: longest shared stretch **107 → 47 nt**, pairs over the 50 nt
 threshold **10 → 0**. It is deterministic in the member index, so the library stays reproducible,
-and a diversified member is accepted only when it is no worse than the one it replaces.
+and a diversified member is accepted only when it is no worse than the one it replaces. **At six
+members it reaches only 77 nt and leaves 2 of 15 pairs above the threshold** — part of the
+residue lives in the repeat body rather than the scaffold, and this retry schedule did not
+reach it.
 
 A shared stretch is a *necessary* substrate for recombination, never a prediction that it will
 happen, and 50 nt is a rule of thumb rather than a measured constant for this host.
@@ -669,6 +672,12 @@ if scores:
     print("A disagreement is a reading recommendation, not a failed design —")
     print("tier A alone decides what this library accepts.")
 ''', title="Two-tier cross-talk — separation gates, affinity annotates"))
+
+# ------------------------------------------------ reusable inventory route
+# Kept in its own module: a second complete workflow appended here would bury both.
+from notebook_inventory_cells import cells as inventory_cells   # noqa: E402
+
+cells += inventory_cells(md, code)
 
 nb = {
     "cells": cells,

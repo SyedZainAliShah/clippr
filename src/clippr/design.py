@@ -14,6 +14,7 @@ the longest fragment, not the average.
 """
 from __future__ import annotations
 
+
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from .audit import DesignAudit, OverhangDecision
 from .assembly import build_oligos, split_cds
 from .codons import (optimize_cds, table_from_cds_fasta, table_from_csv,
                      table_from_genome, table_from_kazusa)
+from .experiment import stage as _stage
 from .export import (opool_quote, write_fasta, write_gene_fasta, write_genbank,
                      write_oligo_csv)
 from .overhangs import (best_set, enumerate_candidates, fidelity_components,
@@ -247,8 +249,10 @@ def design_oneshot(
                  if isinstance(extra_blacklist, str) else tuple(extra_blacklist))
         enzyme_profile = tuple(dict.fromkeys(C.enzymes_for(enzyme_profile) + extra))
 
-    plans, _ceiling = _plan_fragments(protein, n_fragments, destination, matrix,
-                                      enzyme_profile)
+    timings: dict[str, float] = {}
+    with _stage(timings, "planning"):
+        plans, _ceiling = _plan_fragments(protein, n_fragments, destination, matrix,
+                                          enzyme_profile)
 
     # A locked overhang can create a blacklisted enzyme site that no synonymous change
     # can remove, because EnforceSequence has frozen those bases -- DNA Chisel then
@@ -256,40 +260,43 @@ def design_oneshot(
     # the corpus, this hits 13 of 50 19S targets. The cure is a different split, so try
     # the next one rather than hand back a coding sequence that failed its constraints.
     attempt = fallback = None
-    for cuts, overhangs, fidelity in plans[:OPTIMISE_ATTEMPTS]:
-        locked = {3 * c - 4: o for c, o in zip(cuts, overhangs)}
-        if lock_prefix:
-            prefix = str(lock_prefix).upper().replace("U", "T")
-            # Overlapping a junction overhang would give DNA Chisel two EnforceSequence
-            # constraints on the same bases; if they disagreed the design would fail with a
-            # message about neither of them. Refuse up front instead.
-            clash = [s for s in locked if s < len(prefix)]
-            if clash:
-                raise ValueError(
-                    f"lock_prefix covers {len(prefix)} nt but a junction overhang is locked "
-                    f"at {min(clash)}; they would conflict")
-            locked[0] = prefix
-        opt = optimize_cds(protein, locked_sites=locked, codon_table=table,
-                           genetic_code=genetic_code, seed=seed,
-                           enzymes=enzyme_profile, avoid_sequences=avoid_sequences)
-        if opt["constraints_ok"]:
-            attempt = (cuts, overhangs, fidelity, opt)
-            break
-        if fallback is None:
-            fallback = (cuts, overhangs, fidelity, opt)
-    if attempt is None:
-        if fallback is None:
-            raise ValueError(f"no viable design for {target_rna}")
-        attempt = fallback
-    cuts, overhangs, fidelity, opt = attempt
-    cds = opt["cds"]
+    with _stage(timings, "optimization"):
+        for cuts, overhangs, fidelity in plans[:OPTIMISE_ATTEMPTS]:
+            locked = {3 * c - 4: o for c, o in zip(cuts, overhangs)}
+            if lock_prefix:
+                prefix = str(lock_prefix).upper().replace("U", "T")
+                # Overlapping a junction overhang would give DNA Chisel two EnforceSequence
+                # constraints on the same bases; if they disagreed the design would fail with a
+                # message about neither of them. Refuse up front instead.
+                clash = [s for s in locked if s < len(prefix)]
+                if clash:
+                    raise ValueError(
+                        f"lock_prefix covers {len(prefix)} nt but a junction overhang is locked "
+                        f"at {min(clash)}; they would conflict")
+                locked[0] = prefix
+            opt = optimize_cds(protein, locked_sites=locked, codon_table=table,
+                               genetic_code=genetic_code, seed=seed,
+                               enzymes=enzyme_profile, avoid_sequences=avoid_sequences)
+            if opt["constraints_ok"]:
+                attempt = (cuts, overhangs, fidelity, opt)
+                break
+            if fallback is None:
+                fallback = (cuts, overhangs, fidelity, opt)
+        if attempt is None:
+            if fallback is None:
+                raise ValueError(f"no viable design for {target_rna}")
+            attempt = fallback
+        cuts, overhangs, fidelity, opt = attempt
+        cds = opt["cds"]
 
     decisions = _overhang_decisions(protein, cuts, overhangs, enzyme_profile)
 
     # split_cds re-derives the overhangs from the CDS and raises if the lock slipped
-    fragments = split_cds(cds, cuts, overhangs, destination, enzyme)
-    oligos = build_oligos(cds, cuts, overhangs, destination, enzyme, prefix=target_rna)
-    qc = synthesis_qc(cds)
+    with _stage(timings, "assembly"):
+        fragments = split_cds(cds, cuts, overhangs, destination, enzyme)
+        oligos = build_oligos(cds, cuts, overhangs, destination, enzyme, prefix=target_rna)
+    with _stage(timings, "qc"):
+        qc = synthesis_qc(cds)
     cost = opool_quote(oligos)
 
     dest = destination or C.DESTINATION_OVERHANGS["level0"]
@@ -298,16 +305,17 @@ def design_oneshot(
 
     paths: dict[str, str] = {}
     if outdir is not None:
-        out = Path(outdir)
-        stem = f"clippr_{target_rna}"
-        paths = {
-            "oligo_csv": str(write_oligo_csv(oligos, out / f"{stem}_oligos.csv")),
-            "oligo_fasta": str(write_fasta(oligos, out / f"{stem}_oligos.fasta")),
-            "gene_fasta": str(write_gene_fasta(cds, target_rna, out / f"{stem}_gene.fasta",
-                                               architecture)),
-            "genbank": str(write_genbank(cds, fragments, target_rna, out / f"{stem}.gb",
-                                         genetic_code, enzyme, destination)),
-        }
+        with _stage(timings, "export"):
+            out = Path(outdir)
+            stem = f"clippr_{target_rna}"
+            paths = {
+                "oligo_csv": str(write_oligo_csv(oligos, out / f"{stem}_oligos.csv")),
+                "oligo_fasta": str(write_fasta(oligos, out / f"{stem}_oligos.fasta")),
+                "gene_fasta": str(write_gene_fasta(cds, target_rna,
+                                                   out / f"{stem}_gene.fasta", architecture)),
+                "genbank": str(write_genbank(cds, fragments, target_rna, out / f"{stem}.gb",
+                                             genetic_code, enzyme, destination)),
+            }
 
     # Does the target also occur where a PPR could bind it? A PPR binds RNA, so the tier
     # that matters is an annotated transcript in the sense orientation, not genomic DNA on
@@ -318,7 +326,8 @@ def design_oneshot(
     if check_offtarget:
         try:
             from .offtarget import scan as _scan
-            offtarget = _scan(d["target_rna"])
+            with _stage(timings, "screening"):
+                offtarget = _scan(d["target_rna"])
         except (OSError, ValueError, ImportError) as exc:
             # Only genuine unavailability -- no network, no cached genome -- is tolerated.
             # A broad `except` here previously hid a signature mismatch behind a cheerful
@@ -326,6 +335,15 @@ def design_oneshot(
             offtarget = {"verdict": "not checked",
                          "error": f"{type(exc).__name__}: {exc}",
                          "n_transcript": None, "n_genomic": None, "genes": []}
+
+    # Screening that did not run must be visible in the audit. The matches themselves are
+    # reported through `warnings` below, so this line only records whether it happened.
+    if not check_offtarget:
+        offtarget_status = "not assessed — screening disabled"
+    elif offtarget.get("verdict") == "not checked":
+        offtarget_status = f"not assessed — {offtarget['error']}"
+    else:
+        offtarget_status = "screened against host transcripts and genomic DNA"
 
     warnings = list(qc["warnings"])
     if not opt["constraints_ok"]:
@@ -373,6 +391,7 @@ def design_oneshot(
         fidelity_ceiling=backbone,
         constraints_satisfied=bool(opt["constraints_ok"]),
         qc_status=qc["status"],
+        offtarget_status=offtarget_status,
         findings=tuple(warnings),
     )
 
@@ -396,6 +415,9 @@ def design_oneshot(
         "constraints_ok": opt["constraints_ok"],
         "warnings": warnings,
         "paths": paths,
+        #: Wall seconds per pipeline stage. Nondeterministic by nature, so nothing that
+        #: fingerprints a design may include it -- see `validation/check_regression.py`.
+        "timings": dict(timings),
         # The resolved inputs, not the requested ones. `organism` names a table but
         # `codon_table` may override it, and `extra_blacklist` is merged into the profile,
         # so a caller cannot reconstruct either from its own arguments. Reported so a design

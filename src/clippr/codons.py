@@ -48,8 +48,9 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from . import constants as C
+from .paths import cache_dir
 
-CACHE = Path(__file__).resolve().parents[2] / "data" / "codon_tables"
+CACHE = cache_dir("codon_tables")
 
 #: Backwards-compatible alias for the default profile. Prefer naming a profile --
 #: `constants.ENZYME_PROFILES` records *why* each site is excluded, which is not the same
@@ -109,10 +110,15 @@ def complete_table(table: Mapping[str, Mapping[str, float]], genetic_code: int =
 
 
 def table_from_kazusa(taxid: int = CHLAMYDOMONAS_TAXID) -> dict[str, dict[str, float]]:
-    """Download a codon usage table from Kazusa, caching it under `data/codon_tables/`.
+    """Download a codon usage table from Kazusa, caching it under the cache directory.
 
-    Defaults to Chlamydomonas reinhardtii nuclear. The cache means a design run is
-    reproducible offline and does not depend on Kazusa being up.
+    Defaults to Chlamydomonas reinhardtii nuclear. **The first call needs network.**
+    `python_codon_tables` bundles nine organisms offline and Chlamydomonas is not one of
+    them, so this reaches Kazusa and caches the result; only afterwards is a design run
+    reproducible offline and independent of Kazusa being up. To avoid the fetch entirely,
+    pass the table to `design_oneshot(codon_table=...)` yourself and record its hash.
+
+    See `paths.cache_dir` for where the cache lives and how to move it.
     """
     CACHE.mkdir(parents=True, exist_ok=True)
     cached = CACHE / f"kazusa_{taxid}.json"

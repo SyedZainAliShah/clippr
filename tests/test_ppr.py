@@ -42,7 +42,7 @@ class TestCode:
             assert code in C.CODE_TO_BASE
 
     def test_published_mapping(self):
-        # Farley et al. Fig 1B: Thr/Asn->A, Asn/Asn->C, Thr/Asp->G, Asn/Asp->U
+        # Dennis et al. Fig 1B: Thr/Asn->A, Asn/Asn->C, Thr/Asp->G, Asn/Asp->U
         assert C.CODE_TO_BASE == {"TN": "A", "NN": "C", "TD": "G", "ND": "T"}
 
 

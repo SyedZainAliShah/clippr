@@ -28,9 +28,30 @@ free, so each member can be given its own encoding of it. `diversify_library` do
 reports the before/after, because a fix of this kind is only worth having if it is measured.
 On the five designs above:
 
-    longest shared stretch    84 nt -> 47 nt
+    longest shared stretch    107 nt -> 47 nt
     pairs over the 50 nt threshold    10 of 10 -> 0 of 10
     proteins still correct    5 of 5
+
+**Add a sixth member and the fix stops clearing the threshold** (re-measured 2026-09-11):
+
+    longest shared stretch    107 nt -> 77 nt
+    pairs over the 50 nt threshold    15 of 15 -> 2 of 15
+
+Raising `retries` from 3 to 8 changes neither number. Most of the sharing is the 69 nt scaffold,
+but not all of it: in the six-member baseline two pairs share 62 nt at positions 663/663 and
+597/318, entirely inside the repeat body, and three more start at 0 and run past the scaffold's
+end.
+
+Do **not** read that as "re-rolling the scaffold cannot reach the body" -- an earlier version of
+this docstring said exactly that and it is false. Locking a different prefix re-optimises the
+whole design, not just the first 69 bases: five encodings of UUACACGUG at a fixed seed give five
+distinct CDSs and **three distinct sequences after nucleotide 69**. What the six-target result
+supports is only the narrow, measured statement that this retry schedule did not improve these
+outputs. It leaves open whether a better assignment or a different search would.
+
+The "before" figure was 84 nt until 2026-09-11. It moved because the ligation-fidelity
+correction in `overhangs.py` changed the selected junction overhangs on 5 of 5 targets, which
+changes the locked sites and so the whole design.
 
 **But the pairwise view alone would overstate the fix.** Fixing the worst *pair* says nothing
 about blocks carried by most of the library, which are the risk that grows with library size, so
@@ -133,7 +154,8 @@ measures *sequence identity between designs*. It does not establish that any of 
 
 The defensible sentence is: *independently designed library members acquired substantial
 unintended DNA identity through a fixed shared scaffold, and synonymous redesign reduced the
-longest shared tract from 84 to 47 nt.* Everything beyond that needs the bench.
+longest shared tract from 107 to 47 nt across five members, and to 77 nt across six.*
+Everything beyond that needs the bench.
 """
 from __future__ import annotations
 
@@ -480,6 +502,15 @@ def diversify_library(targets, *, threshold: int = HR_THRESHOLD_NT, codon_table=
     **accepted only if it is no worse than the baseline it replaces**. That makes the whole
     procedure monotone by construction.
 
+    **A re-roll varies the scaffold encoding, not the seed (corrected 2026-09-11).** Until then
+    the loop re-rolled `seed` and was inert: under a locked prefix the design is identical
+    across seeds, so all `retries + 1` attempts returned one sequence and the retry did nothing.
+    Measured on UUACACGUG with the Chlamydomonas table — five seeds give five distinct CDS
+    unlocked and **one** distinct CDS under a 69 nt locked scaffold, while five distinct
+    scaffold encodings give five distinct CDS at a *fixed* seed. Attempt *a* of member *i* uses
+    encoding index `(i - 1) + len(targets) * a`, unique across every (member, attempt) pair so
+    two members can never collide on an encoding.
+
     Returns the designs plus a measured before/after, because an unmeasured fix is worth
     nothing. `kwargs` are passed to `design_oneshot`; cost is up to `2 + retries` designs per
     member.
@@ -487,8 +518,15 @@ def diversify_library(targets, *, threshold: int = HR_THRESHOLD_NT, codon_table=
     from .biology import N_TERMINAL
     from .design import design_oneshot
 
+    from .experiment import stage
+
     targets = [str(t).strip().upper() for t in targets if str(t).strip()]
     base_seed = kwargs.pop("seed", 42)
+    # Homology is its own cost, separate from the designs it compares. Exact
+    # longest-shared-tract is a quadratic dynamic program run once per pair, so a library
+    # of N members pays N(N-1)/2 of them -- the term that decides whether a joint search
+    # over candidate banks is affordable. Timed apart so that decision rests on a number.
+    timings: dict[str, float] = {}
     baseline, current, encodings = {}, {}, {}
     for i, t in enumerate(targets, 1):
         base = design_oneshot(t, codon_table=codon_table, seed=base_seed, **kwargs)
@@ -499,33 +537,45 @@ def diversify_library(targets, *, threshold: int = HR_THRESHOLD_NT, codon_table=
         prefix = scaffold_encoding(
             i - 1, N_TERMINAL, base["codon_table"], genetic_code=base["genetic_code"],
             enzymes=base["enzyme_profile_effective"])
-        encodings[t] = prefix
         # Locking the scaffold fixes the scaffold but leaves the repeat body to the optimiser,
         # and changing the locked prefix changes its whole search trajectory. Measured, that
         # occasionally makes one pair much worse: nine pairs of ten improved while one went
-        # from 84 nt shared to 181 nt. So build the member, then keep re-rolling its seed
-        # while it still shares too much with an already-finalised member, and accept only an
-        # outcome no worse than the baseline. That makes the fix monotone by construction
-        # rather than by luck, which is what the reactive k-mer ban failed to be.
-        best_cds, best_worst = None, None
+        # from 84 nt shared to 181 nt. So build the member, then keep re-rolling it while it
+        # still shares too much with an already-finalised member, and accept only an outcome
+        # no worse than the baseline. That makes the fix monotone by construction rather than
+        # by luck, which is what the reactive k-mer ban failed to be.
+        #
+        # The re-roll changes the *encoding*, not the seed: under a locked prefix the design
+        # is seed-invariant, so the seed loop this replaces built one sequence retries+1 times.
+        best_cds, best_worst, best_prefix = None, None, None
         for attempt in range(retries + 1):
-            cand = design_oneshot(t, codon_table=codon_table, lock_prefix=prefix,
-                                  seed=base_seed + 1000 * attempt + i, **kwargs)["cds"]
-            worst = max((longest_shared(cand, done)[0] for done in current.values()),
-                        default=0)
+            attempt_prefix = prefix if attempt == 0 else scaffold_encoding(
+                (i - 1) + len(targets) * attempt, N_TERMINAL, base["codon_table"],
+                genetic_code=base["genetic_code"],
+                enzymes=base["enzyme_profile_effective"])
+            cand = design_oneshot(t, codon_table=codon_table, lock_prefix=attempt_prefix,
+                                  seed=base_seed, **kwargs)["cds"]
+            with stage(timings, "homology"):
+                worst = max((longest_shared(cand, done)[0] for done in current.values()),
+                            default=0)
             if best_worst is None or worst < best_worst:
-                best_cds, best_worst = cand, worst
+                best_cds, best_worst, best_prefix = cand, worst, attempt_prefix
             if best_worst < threshold:
                 break
-        baseline_worst = max((longest_shared(baseline[t], baseline[o])[0]
-                              for o in current), default=0)
+        with stage(timings, "homology"):
+            baseline_worst = max((longest_shared(baseline[t], baseline[o])[0]
+                                  for o in current), default=0)
         # never accept a diversified member that is worse than what it replaced
-        current[t] = best_cds if best_worst <= max(baseline_worst, threshold - 1) \
-            else baseline[t]
+        keep = best_worst <= max(baseline_worst, threshold - 1)
+        current[t] = best_cds if keep else baseline[t]
+        # A rejected member falls back to its undiversified baseline, which locks no scaffold
+        # at all, so recording a prefix for it would misreport what was actually built.
+        encodings[t] = best_prefix if keep else None
         if on_progress:
             on_progress(i, len(targets), t)
 
-    before, after = assess(baseline), assess(current)
+    with stage(timings, "homology"):
+        before, after = assess(baseline), assess(current)
     return {
         "cds": current,
         "baseline_cds": baseline,
@@ -538,4 +588,5 @@ def diversify_library(targets, *, threshold: int = HR_THRESHOLD_NT, codon_table=
         "flagged_after": sum(1 for p in after if p.length >= threshold),
         "n_pairs": len(before),
         "threshold": threshold,
+        "timings": dict(timings),
     }
