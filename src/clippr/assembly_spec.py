@@ -152,42 +152,81 @@ LEVEL1_REFERENCE_COMPOSITION = {
 }
 
 
-def level1_participants(block_subset, *, coassembled=(), final_cassette=None,
-                        evidence: str = "") -> dict:
-    """Assemble a level-1 participant list, and say whether it is complete.
+#: Roles a complete level-1 reaction must account for. Derived from the deposited construct:
+#: the PPR blocks sit inside a final cassette, and the same BsaI reaction carries a P2L2S2
+#: linker and the consensus DYW domain. The bridge between `TTCG` and `TGTG` is demanded
+#: explicitly because the supplied records do not contain it -- so completeness is currently
+#: unreachable, and that is the honest state rather than a hidden one.
+LEVEL1_REQUIRED_ROLES: tuple[str, ...] = (
+    "ppr_blocks", "final_cassette", "linker", "editing_domain", "bridge",
+)
 
-    The reaction stays unscored while `coassembled` is empty, because the deposited construct
-    demonstrably contains parts this package does not compile. Supplying them -- with evidence
-    naming where they came from -- makes the reaction scorable and records what it was scored
-    on.
 
-    This exists so the gap is **fillable** rather than permanent. "We cannot score this" and
-    "there is no route to scoring this" are different statements, and only the first is true.
+def level1_participants(block_subset, *, roles=None, evidence: str = "") -> dict:
+    """Assemble a level-1 participant list, and say whether it is **complete**.
 
-    Returns the set, its completeness, and the evidence, so a number derived from it can never
-    be separated from the basis on which it was claimed.
+    `roles` maps a role from `LEVEL1_REQUIRED_ROLES` to the overhangs it contributes. A
+    reaction is complete only when every required role is present, every contributed end is a
+    four-base overhang, and the ends form a single closed chain -- each internal overhang
+    appearing exactly twice, and exactly two ends appearing once.
+
+    `evidence` is required but **not sufficient**. An earlier version set completeness from
+    `bool(extra) and bool(evidence)`, so one overhang and a sentence saying "DYW and bridging
+    parts are missing" returned `participants_established=True`. A citation field is not a
+    completeness check, and prose cannot discharge a contract.
+
+    Nothing here is scored. The caller gets the set, an explicit verdict and, when incomplete,
+    the roles it is missing.
     """
-    overhangs = list(block_subset)
-    if final_cassette is not None:
-        five, three = final_cassette
-        overhangs = [five] + overhangs + [three]
-    extra = [str(o).upper().replace("U", "T") for o in coassembled]
-    complete = bool(extra) and bool(evidence)
+    supplied = {str(role): [str(o).upper().replace("U", "T") for o in (ends or ())]
+                for role, ends in (roles or {}).items()}
+    subset = [str(o).upper().replace("U", "T") for o in block_subset]
+    supplied.setdefault("ppr_blocks", subset)
+
+    missing = [role for role in LEVEL1_REQUIRED_ROLES if not supplied.get(role)]
+    malformed = sorted({o for ends in supplied.values() for o in ends
+                        if len(o) != 4 or set(o) - set("ACGT")})
+
+    overhangs: list[str] = []
+    for role in LEVEL1_REQUIRED_ROLES:
+        overhangs.extend(supplied.get(role, []))
+    for role, ends in sorted(supplied.items()):
+        if role not in LEVEL1_REQUIRED_ROLES:
+            overhangs.extend(ends)
+
+    # A reaction is a chain: internal junctions are shared by two parts, the two outermost
+    # ends by one each. Anything else is not a set of fragments that can assemble in order.
+    counts: dict[str, int] = {}
+    for overhang in overhangs:
+        counts[overhang] = counts.get(overhang, 0) + 1
+    terminal = sorted(o for o, n in counts.items() if n == 1)
+    overused = sorted(o for o, n in counts.items() if n > 2)
+    chain_ok = len(terminal) == 2 and not overused
+
+    complete = bool(evidence) and not missing and not malformed and chain_ok
+    reasons = []
+    if not evidence:
+        reasons.append("no evidence supplied naming where these participants came from")
+    if missing:
+        reasons.append(f"no participant supplied for {', '.join(missing)}")
+    if malformed:
+        reasons.append(f"not four-base overhangs: {', '.join(malformed)}")
+    if not chain_ok and not missing:
+        reasons.append(
+            f"the ends do not form one chain: {len(terminal)} appear once "
+            f"(expected 2)" + (f", and {', '.join(overused)} appear more than twice"
+                               if overused else ""))
+
     return {
-        "overhangs": overhangs + extra,
-        "block_subset": list(block_subset),
-        "final_cassette": list(final_cassette) if final_cassette else None,
-        "coassembled": extra,
+        "overhangs": overhangs,
+        "block_subset": subset,
+        "roles_supplied": {role: list(ends) for role, ends in sorted(supplied.items())},
+        "roles_required": list(LEVEL1_REQUIRED_ROLES),
+        "roles_missing": missing,
         "participants_established": complete,
         "evidence": evidence or None,
-        "why_incomplete": None if complete else (
-            "no co-assembled participants supplied; the deposited BsaI reaction contains a "
-            "P2L2S2 linker and a consensus DYW domain, and at least one further part bridging "
-            "TTCG to TGTG that the supplied records do not contain. Pass `coassembled` with "
-            "`evidence` naming its source to make this reaction scorable."),
+        "why_incomplete": None if complete else "; ".join(reasons),
     }
-
-
 
 #: Residue offsets from an ARELF motif at which the corpus designs place cuts.
 #: Measured across all 200 stored designs by `validation/compare_cuts.py`. Recorded as an

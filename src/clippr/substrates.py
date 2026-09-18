@@ -98,6 +98,8 @@ class Substrate:
     #: declared band and limits as written. Recognition sites belonging to the wrapper are
     #: excluded by role; anything else is a real breach of what would be synthesised.
     synthesis_problems: tuple[str, ...] = ()
+    #: Breaches of rules the profile declares *targets*. Reported, not blocking.
+    synthesis_warnings: tuple[str, ...] = ()
 
     def as_dict(self) -> dict:
         return {"module": self.module_id, "version": self.version,
@@ -123,7 +125,8 @@ def released_fragment(insert: str, block: str) -> str:
     return LEFT_OVERHANG[block] + insert
 
 
-def build(insert: str, block: str, module_id: str = "", version: str = "") -> Substrate:
+def build(insert: str, block: str, module_id: str = "", version: str = "",
+          profile=None) -> Substrate:
     """Wrap a fragment so BbsI releases exactly it, then prove that by digesting the result.
 
     Layout, 5' to 3':
@@ -148,7 +151,9 @@ def build(insert: str, block: str, module_id: str = "", version: str = "") -> Su
             f"({len(got)} nt released, {len(fragment)} nt intended)")
     return Substrate(module_id=module_id, version=version, sequence=sequence,
                      released=fragment, five_overhang=five, three_overhang=three,
-                     synthesis_problems=tuple(synthesis_problems(sequence)))
+                     synthesis_problems=tuple(synthesis_problems(sequence, profile)),
+                     synthesis_warnings=tuple(
+                         synthesis_findings(sequence, profile)["target"]))
 
 
 def substrate_problems(insert: str, block: str, profile=None) -> list[str]:
@@ -304,11 +309,11 @@ def digest(sequence: str) -> tuple[str, str, str]:
     return fragment, fragment[:OVERHANG], fragment[-OVERHANG:]
 
 
-def substrates_for(inventory) -> list[Substrate]:
+def substrates_for(inventory, profile=None) -> list[Substrate]:
     """An assembly-ready substrate for every module in an inventory."""
     out = []
     for module_id, record in sorted(inventory.modules.items()):
-        out.append(build(record.dna, record.block, module_id, record.version))
+        out.append(build(record.dna, record.block, module_id, record.version, profile=profile))
     return out
 
 

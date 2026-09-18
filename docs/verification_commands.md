@@ -155,7 +155,8 @@ Count from the collection total and the summary line, never from progress dots.
 | level 1 | `python validation/experiments/level1_geometry.py` | `work/level1/geometry.json` |
 | policy | `python -m pytest tests/test_synthesis_profile.py` | 20 regressions; asserts 0.618830 strict and 0.819921 broad |
 | fitness | python -m pytest tests/test_synthesis_fitness.py | 19 regressions; pins that repeat_burden is zero at k=20,16,12,10 |
-| runtime | python validation/experiments/runtime_profile.py | work/runtime/runtime_profile.json; per-stage medians |
+| runtime | python validation/experiments/runtime_profile.py | work/runtime/runtime_profile.json; isolated stage medians **and** measured end-to-end chain times under two policies |
+| regressions are not vacuous | python validation/falsify_boundaries.py | reverts each policy repair in a scratch worktree and checks the boundary suite goes red; exits non-zero if any defect leaves it green |
 
 Each accepts `--out` so a reviewer can write to their own directory.
 
@@ -164,6 +165,24 @@ The oracle benchmark reads the preserved reference output at
 `work/phaseb/inventory_recoded.json`; it runs nothing in the reference's environment, so it
 reproduces without that checkout being installed. Re-running the reference itself is
 `validation/experiments/m3_reference_comparison.py`, which does need it.
+
+## Level-1 readiness
+
+The block-join geometry is derived; the rest of the reaction is not supplied by the deposited
+material. A user who has those parts can say so:
+
+```bash
+python -c "import sys;sys.path.insert(0,'src');from clippr import workflow as w;chain={'linker':['CTTC','GTGA'],'editing_domain':['GTGA','CACG'],'bridge':['CACG','TTCG'],'final_cassette':['TTCG','CGCT']};r=w.level1_readiness(['AATG','CTTC'],'out/level1',roles=chain,evidence='your source here');print(r.summary)"
+```
+
+An incomplete list is refused and names the roles it lacks; it is never scored, because a
+fidelity number over a partial reaction describes a reaction nobody is running. The refusal is
+the expected outcome with today's inputs and is the useful one: it says exactly what to find.
+
+Fidelity is computed over the **distinct** junctions, not over every contributed end. Each
+internal overhang is supplied twice, once by the part on each side, and scoring the list as
+given makes every junction compete with a perfect copy of itself — 0.0039 instead of 0.9940 on
+the example above.
 
 ## Supplied inputs
 
@@ -174,4 +193,4 @@ reproduces without that checkout being installed. Re-running the reference itsel
 | codon table | recoding, optimisation | fetched once from Kazusa and cached, or supplied |
 | chloroplast genome | host screening | fetched from NCBI on first use, or screening disabled |
 | block-plasmid context | the level-1 block **geometry** | **not needed** — the released block fragment is the joined module inserts, so the ends come from the compiled product (`validation/experiments/level1_geometry.py`) |
-| the level-1 reaction's **participant list** | scoring that reaction | **not available**; the deposited BsaI reaction co-assembles parts this package does not compile, so the reaction is reported unscorable and only a labelled PPR-only diagnostic is given |
+| the level-1 reaction's **participant list** | scoring that reaction | **not available here**, but now suppliable: `workflow.level1_readiness` takes the linker, editing-domain, bridging and final-cassette ends plus a citation, refuses with the roles it lacks, and scores the reaction's fidelity when the list is complete. Without them the reaction stays unscorable and only a labelled PPR-only diagnostic is given |

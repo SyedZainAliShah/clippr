@@ -117,13 +117,28 @@ class TestHardVersusTarget:
         assert sub.substrate_warnings(RUN_OF_FIVE, "B", sp.STRICT_LEGACY) == []
 
     def test_no_profile_can_make_a_forbidden_site_advisory(self):
-        """An enzyme cutting where it should not is never a matter of preference."""
-        lenient = sp.STRICT_LEGACY.narrowed(
-            name="tries-to-soften-sites",
+        """An enzyme cutting where it should not is never a matter of preference.
+
+        This used to build such a profile and check the validator caught the site anyway. It
+        did -- but `solver_bounds()` still *advertised* `forbidden_sites` as soft, and the
+        recorded binding carried that, so an artefact could claim sites were advisory while
+        every consumer treated them as absolute. The profile now refuses to exist, which is a
+        stronger guarantee than every consumer independently declining to honour it.
+        """
+        with pytest.raises(ValueError, match="not a preference"):
+            sp.STRICT_LEGACY.narrowed(
+                name="tries-to-soften-sites",
+                enforcement={"local_gc": sp.TARGET, "homopolymer": sp.TARGET,
+                             "forbidden_sites": sp.TARGET})
+
+    def test_a_site_is_still_caught_on_the_substrate_under_the_softest_legal_profile(self):
+        """And the validator half of it still holds, with everything else softened."""
+        softest = sp.STRICT_LEGACY.narrowed(
+            name="everything-else-soft",
             enforcement={"local_gc": sp.TARGET, "homopolymer": sp.TARGET,
-                         "forbidden_sites": sp.TARGET})
+                         "forbidden_sites": sp.HARD})
         internal_bsai = "ACTC" + "ATGCGT" * 3 + "GGTCTC" + "ATGCGT" * 5 + "AAGA"
-        problems = sub.substrate_problems(internal_bsai, "B", lenient)
+        problems = sub.substrate_problems(internal_bsai, "B", softest)
         assert any("BsaI" in p for p in problems), problems
 
     def test_a_clean_substrate_is_clean_under_every_shipped_profile(self):

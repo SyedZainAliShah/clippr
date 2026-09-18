@@ -319,8 +319,8 @@ class TestOrderRejectsContractBreaches:
         inv.save(inv.load_deposited(deposited_path), tmp_path / "inv.json")
         real = sub.build
 
-        def failing(insert, block, module_id="", version=""):
-            built = real(insert, block, module_id, version)
+        def failing(insert, block, module_id="", version="", profile=None):
+            built = real(insert, block, module_id, version, profile=profile)
             return sub.Substrate(**{**built.__dict__,
                                     "synthesis_problems": ("GC 0.660 outside band",)})
 

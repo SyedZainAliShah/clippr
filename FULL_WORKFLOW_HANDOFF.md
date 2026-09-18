@@ -694,30 +694,50 @@ builds 42 substrates per candidate. Both are reported rather than absorbed.
 
 The weights are a declared engineering choice, not a measurement, and travel with every score.
 
-### Runtime is now measured — closed
+### Runtime — measured, then measured properly
 
 Section 12 asked for runtime and **neither system had any instrumentation**. Grepping the
 reference's 21 modules for `perf_counter` or equivalent finds nothing; CLIPPR had a single
 figure for the 200-design corpus.
 
-`validation/experiments/runtime_profile.py`, 3 repeats, 4 seeds, medians:
+**The first version measured no chain.** Its docstring said stages were timed "in isolation and
+again as a chain" and no chain existed: it ran the collection optimiser and discarded the
+inventory it returned, ran a search whose result never reached an export, and reported a sum of
+medians — a number no run ever took, and one that understates the workflow because the later
+stages are cheap on the deposited kit and expensive on the optimised inventory they receive.
+
+Rewritten. `validation/experiments/runtime_profile.py`, 2 repeats, 4 seeds, medians.
+
+**Isolated** — every stage from the same fixed input, for comparing stages with each other:
 
 | stage | median |
 |---|---:|
-| load deposited kit | 0.012 s |
-| recode for host (42 modules, 4 seeds) | 1.704 s |
+| load deposited kit | 0.276 s |
+| recode for host (42 modules, 4 seeds) | 2.173 s |
 | compile 3 targets | 0.000 s |
-| optimise collection (greedy, 42) | 0.746 s |
+| optimise collection (greedy, 42) | 0.788 s |
 | build junction classes | 0.001 s |
-| interface search (100 evaluations) | 1.913 s |
-| build 42 order substrates | 0.003 s |
-| check order eligibility | 0.003 s |
-| **sum of stage medians** | **4.384 s** |
+| interface search (100 evaluations) | 1.149 s |
+| build 42 order substrates | 0.005 s |
+| check order eligibility | 0.005 s |
+| *sum of the above* | *4.397 s — **not** a workflow time* |
 
-Every repeat is recorded, not a best-of, because a user experiences the spread. The sum of
-medians is labelled as what it is: no single run took exactly that. It does **not** time the
-reference — running their optimiser under our budgets would compare different amounts of work
-and call it speed.
+**Chained** — each stage consuming the previous stage's actual output, timed end to end:
+
+| route | end to end (median) | front | export |
+|---|---:|---|---|
+| default (`clippr-strict-legacy`) | **4.696 s** | 48 / 100 feasible, 9 on the front | 42 items, 0 failures |
+| explicit `broad-experimental` | **6.260 s** | 85 / 100 feasible, 15 on the front | 42 items, 0 failures |
+
+The broad route costs 33% more wall clock for nearly twice the feasible candidates — the extra
+time is work the strict route never had to do, because those candidates were vetoed before they
+were scored. Under the broad policy the collection optimiser also reports **no improvement**:
+recoding already reached what it would have found, so a stage that looks productive under one
+policy is redundant under another.
+
+Every repeat is recorded, not a best-of, because a user experiences the spread. It does **not**
+time the reference — running their optimiser under our budgets would compare different amounts
+of work and call it speed.
 
 ### Level-1 participants — narrowed, not closed
 
@@ -755,11 +775,14 @@ demands evidence.
   least one further part is absent from the supplied records entirely. Adding only the known
   omitted ends moves 19S from 0.996046 to 0.742067, so a subset figure cannot stand in for the
   reaction.
-- **The oracle benchmark covers part of plan §12.** Sequence checks under both rule sets,
-  codon adaptation over aligned spans, and now **runtime** (§14b) are done. Repeat/sharing and
-  stage-specific fidelity **under matched conditions against the reference** remain
-  unperformed — we measure both for ourselves, but no matched comparison has been run. A PASS
-  on the dimensions that ran is not parity.
+- **The oracle benchmark covers most of plan §12.** Sequence checks under both rule sets,
+  codon adaptation over aligned spans, runtime (§14b), and now **repeat/sharing under matched
+  conditions** are done. The sharing comparison is unfavourable to us and is reported as such:
+  internal repetition is 0.000000 on both sides, but cross-module sharing is **0.964147 ours
+  against 0.911273 theirs**, over **552 distinct 12-mers to their 1005**. Our own collection
+  optimiser (`inventory_greedy.json`, sharing weighted 1.0) reaches 0.953602 / 621 — real
+  movement, about a fifth of the gap. **Stage-specific fidelity under matched conditions
+  remains unperformed.** A PASS on the dimensions that ran is not parity.
 - The matched whole-workflow benchmark against the newer reference is **done** — §12b. Its
   scope is the ordered sequence and codon adaptation. It does **not** compare assembly plans,
   because their wrapper is a level-1 cassette and ours a level-0 cassette; those are different

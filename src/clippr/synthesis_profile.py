@@ -31,13 +31,23 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import dataclass, field, replace
+from types import MappingProxyType
 
 #: How a rule is enforced. The middle value is the one this module exists to make expressible.
 HARD = "hard"
 TARGET = "target"
 VENDOR_JUDGEMENT = "vendor_judgement"
 ENFORCEMENT = (HARD, TARGET, VENDOR_JUDGEMENT)
+
+#: Rules no profile may soften. A recognition site for the enzyme that performs the assembly
+#: is not a preference: a sequence carrying an extra BsaI site does not assemble badly, it
+#: assembles into something else. `optimize_cds` already refused to move these to its objective
+#: list, but a profile could still *advertise* them as soft -- `solver_bounds()` reported it and
+#: the recorded binding carried it, so an artefact could claim sites were advisory when the
+#: solver had treated them as absolute. Declaring one soft is a caller error, not a preference
+#: to be silently overridden, so it raises.
+NEVER_SOFT = ("forbidden_sites",)
 
 
 @dataclass(frozen=True)
@@ -62,10 +72,20 @@ class SynthesisProfile:
     note: str = ""
 
     def __post_init__(self) -> None:
+        # `frozen=True` stops attribute assignment and nothing else: a plain dict here could
+        # still be edited in place, and `narrowed()` handed the same object to the child, so a
+        # derived profile could rewrite its parent's rules and version. Own a copy, and make
+        # it read-only.
+        object.__setattr__(self, "enforcement", MappingProxyType(dict(self.enforcement)))
         for rule, how in self.enforcement.items():
             if how not in ENFORCEMENT:
                 raise ValueError(f"{self.name}: rule {rule!r} has enforcement {how!r}; "
                                  f"expected one of {ENFORCEMENT}")
+            if rule in NEVER_SOFT and how != HARD:
+                raise ValueError(
+                    f"{self.name}: rule {rule!r} cannot be enforced as {how!r}. An enzyme "
+                    f"site is not a preference -- a stray site changes what assembles, not "
+                    f"how well it scores -- so it is hard in every profile.")
         lo, hi = self.local_gc
         if not 0.0 <= lo < hi <= 1.0:
             raise ValueError(f"{self.name}: local_gc {self.local_gc} is not a band in [0, 1]")
@@ -76,6 +96,30 @@ class SynthesisProfile:
         if self.window < 1:
             raise ValueError(f"{self.name}: window must be positive")
 
+    def __deepcopy__(self, memo) -> "SynthesisProfile":
+        """Rebuild rather than pickle: a `mappingproxy` cannot be deep-copied.
+
+        Making `enforcement` read-only closed the aliasing hole in `narrowed()` and broke
+        `copy.deepcopy`, which callers reasonably use to isolate a profile before editing a
+        derived one. Rebuilding gives them an independent object, which is what they wanted.
+        """
+        return SynthesisProfile(
+            name=self.name, source=self.source, product=self.product, read_on=self.read_on,
+            local_gc=tuple(self.local_gc), window=self.window,
+            max_homopolymer=self.max_homopolymer,
+            global_gc=tuple(self.global_gc) if self.global_gc else None,
+            enforcement=dict(self.enforcement), unresolved=tuple(self.unresolved),
+            note=self.note)
+
+    def __copy__(self) -> "SynthesisProfile":
+        return self.__deepcopy__({})
+
+    @property
+    def soft_rules(self) -> tuple[str, ...]:
+        """Rules this profile declares as targets. The solver must steer, not refuse."""
+        return tuple(sorted(rule for rule, how in self.enforcement.items()
+                            if how == TARGET))
+
     @property
     def version(self) -> str:
         """Content hash over every field that can change a verdict.
@@ -83,8 +127,17 @@ class SynthesisProfile:
         `name` and `note` are included: two policies that score identically today but are
         documented differently are still different policies to cite.
         """
-        payload = json.dumps(asdict(self), sort_keys=True, default=list)
+        payload = json.dumps(self._payload(), sort_keys=True, default=list)
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+    def _payload(self) -> dict:
+        """Every verdict-changing field, as plain data. `asdict` cannot walk a proxy."""
+        return {"name": self.name, "source": self.source, "product": self.product,
+                "read_on": self.read_on, "local_gc": list(self.local_gc),
+                "window": self.window, "max_homopolymer": self.max_homopolymer,
+                "global_gc": list(self.global_gc) if self.global_gc else None,
+                "enforcement": dict(self.enforcement),
+                "unresolved": list(self.unresolved), "note": self.note}
 
     def how(self, rule: str) -> str:
         """Enforcement for one rule. Unlisted rules are hard, because silence must not relax."""
@@ -96,18 +149,29 @@ class SynthesisProfile:
     def solver_bounds(self) -> dict:
         """The keyword arguments `codons.optimize_cds` needs to search this policy's space.
 
-        This is the half that was missing: the solver and the validator now take their limits
-        from the same object, so they cannot drift apart again.
+        Carries **which rules are soft**, not only the thresholds. An earlier version returned
+        the same arguments whether a rule was `hard` or `target`, so the solver installed every
+        threshold as a hard constraint and a declared target was indistinguishable from a
+        declared limit. Anything reported as a soft-enforcement result before this was a narrow
+        solver with a permissive validator, which is a different thing.
         """
         return {"gc_bounds": tuple(self.local_gc), "gc_window": self.window,
-                "max_homopolymer": self.max_homopolymer}
+                "max_homopolymer": self.max_homopolymer,
+                "global_gc_bounds": tuple(self.global_gc) if self.global_gc else None,
+                "soft_rules": self.soft_rules}
 
     def as_dict(self) -> dict:
-        return {**asdict(self), "version": self.version}
+        return {**self._payload(), "version": self.version,
+                "soft_rules": list(self.soft_rules)}
 
     def narrowed(self, **changes) -> "SynthesisProfile":
-        """A derived profile. Renamed on purpose: a changed policy is not the same policy."""
+        """A derived profile. Renamed on purpose: a changed policy is not the same policy.
+
+        The child always owns its enforcement map. Sharing it let a derived profile's edit
+        rewrite the parent, which is the opposite of what deriving a policy should mean.
+        """
         changes.setdefault("name", f"{self.name}+derived")
+        changes.setdefault("enforcement", dict(self.enforcement))
         return replace(self, **changes)
 
 
@@ -197,6 +261,27 @@ PROFILES: dict[str, SynthesisProfile] = {
 #: What every stage uses unless a caller passes something else. Changing this line changes
 #: published results, which is why it is a named constant and not a literal.
 DEFAULT_PROFILE = STRICT_LEGACY
+
+
+def from_dict(payload: dict) -> SynthesisProfile:
+    """Rebuild a policy from the form `as_dict()` writes into an artefact.
+
+    A front records the policy it was measured under; selection has to reconstruct exactly
+    that, not a same-named default. Reconstruction is by content, and the caller is expected
+    to compare `version` afterwards.
+    """
+    known = PROFILES.get(payload.get("name", ""))
+    if known is not None and known.version == payload.get("version"):
+        return known
+    return SynthesisProfile(
+        name=payload["name"], source=payload.get("source", "reconstructed"),
+        product=payload.get("product", "reconstructed"), read_on=payload.get("read_on"),
+        local_gc=tuple(payload["local_gc"]), window=int(payload["window"]),
+        max_homopolymer=int(payload["max_homopolymer"]),
+        global_gc=tuple(payload["global_gc"]) if payload.get("global_gc") else None,
+        enforcement=dict(payload.get("enforcement") or {}),
+        unresolved=tuple(payload.get("unresolved") or ()),
+        note=payload.get("note", ""))
 
 
 def resolve(profile: "SynthesisProfile | str | None") -> SynthesisProfile:

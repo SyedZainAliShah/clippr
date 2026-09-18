@@ -203,6 +203,65 @@ def cai(dna: str, table) -> float:
     return math.exp(sum(math.log(w) for w in used) / len(used))
 
 
+def repetition_profile(sequences: dict[str, str], k: int = 12) -> dict:
+    """Internal repetition and cross-module sharing over one collection of sequences.
+
+    Written here rather than imported from either side. The reference carries a similarity
+    penalty in its objective and CLIPPR carries `collection_sharing` in `synthesis_fitness`, so
+    scoring with either system's own code would grade one of them with the very term it was
+    optimising — and the result would look like a finding about sequence quality rather than
+    about whose scorer was used.
+
+    Two quantities, both orientation-folded so a k-mer and its reverse complement count as one
+    (a repeat is a repeat on either strand, and a synthesiser does not care which way round it
+    reads):
+
+      `internal`  the fraction of a module's own k-mer positions that are duplicates within
+                  that module
+      `shared`    the fraction that also occur in at least one *other* module
+
+    Document frequency is counted once per module, so a k-mer appearing forty times in one
+    module does not look like collection-wide sharing.
+    """
+    def kmers(seq: str) -> list[str]:
+        seq = seq.upper()
+        out = []
+        for i in range(len(seq) - k + 1):
+            kmer = seq[i:i + k]
+            out.append(min(kmer, rc(kmer)))
+        return out
+
+    per_module = {name: kmers(seq) for name, seq in sequences.items()}
+    document_frequency: dict[str, int] = {}
+    for found in per_module.values():
+        for kmer in set(found):
+            document_frequency[kmer] = document_frequency.get(kmer, 0) + 1
+
+    rows = {}
+    for name, found in per_module.items():
+        if not found:
+            rows[name] = {"internal": 0.0, "shared": 0.0, "positions": 0}
+            continue
+        seen: dict[str, int] = {}
+        for kmer in found:
+            seen[kmer] = seen.get(kmer, 0) + 1
+        internal = sum(n - 1 for n in seen.values()) / len(found)
+        shared = sum(1 for kmer in found if document_frequency[kmer] > 1) / len(found)
+        rows[name] = {"internal": round(internal, 6), "shared": round(shared, 6),
+                      "positions": len(found)}
+
+    values_internal = [r["internal"] for r in rows.values()]
+    values_shared = [r["shared"] for r in rows.values()]
+    return {"k": k, "per_module": rows,
+            "mean_internal": round(statistics.mean(values_internal), 6),
+            "mean_shared": round(statistics.mean(values_shared), 6),
+            "max_internal": round(max(values_internal), 6),
+            "max_shared": round(max(values_shared), 6),
+            "distinct_kmers": len(document_frequency),
+            "kmers_in_more_than_one_module": sum(1 for n in document_frequency.values()
+                                                 if n > 1)}
+
+
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -248,6 +307,9 @@ def main() -> int:
         row = {"module": module,
                "ours_nt": len(our_seq), "reference_nt": len(their_seq),
                "alignment": alignment,
+               # Kept on the row for the repetition comparison, which scores the coding spans
+               # rather than the wrappers -- the two wrappers serve different assembly steps.
+               "ours_span": our_cds,
                "ours_cai": round(cai(our_cds, table), 6),
                # Scored over the span both systems have in common. The whole-CDS figure is
                # kept beside it, labelled, so the difference the alignment makes is visible
@@ -318,6 +380,30 @@ def main() -> int:
           f"{wins['reference']}, tied {wins['tied']}")
     print(f"  (their whole CDS instead reads {statistics.mean(theirs_unaligned):.6f} "
           f"over a different region, which is not a comparison)")
+
+    # --- repetition and sharing, one measure over both collections ---
+    # Scored on the coding spans, not the wrappers: the two wrappers are for different assembly
+    # steps and differ in length and composition by design, so including them would compare the
+    # padding rather than the designs.
+    ours_spans = {r["module"]: r["ours_span"] for r in scored if r.get("ours_span")}
+    theirs_spans = {r["module"]: r["alignment"]["reference_span"] for r in scored
+                    if r["alignment"].get("reference_span")}
+    repetition = {}
+    if ours_spans and theirs_spans:
+        repetition = {"ours": repetition_profile(ours_spans),
+                      "reference": repetition_profile(theirs_spans)}
+        print(f"{chr(10)}repetition and sharing over the shared coding spans "
+              f"(k={repetition['ours']['k']}, one measure, both systems):")
+        print(f"   {'':10s} {'internal':>10s} {'shared':>10s} {'max shared':>11s}")
+        for side in ("ours", "reference"):
+            got = repetition[side]
+            print(f"   {side:10s} {got['mean_internal']:10.6f} {got['mean_shared']:10.6f} "
+                  f"{got['max_shared']:11.6f}")
+        print("   Internal repetition is duplicate k-mer positions within one module; shared")
+        print("   is positions whose k-mer also occurs in another module. Both are folded on")
+        print("   reverse complement. Lower is easier to synthesise; neither is a verdict, and")
+        print("   these modules are tandem repeats of one template, so high sharing is the")
+        print("   architecture rather than a defect in either design.")
 
     # --- the same alignment, over every preserved run rather than one saved CSV ---
     per_run = []
@@ -392,6 +478,9 @@ def main() -> int:
                     round(statistics.mean(theirs_unaligned), 6),
                 "per_module_wins": wins,
                 "per_preserved_run": per_run},
+        "repetition_and_sharing": repetition or {
+            "measured": False,
+            "reason": "no aligned coding spans were available to score"},
         "reference_spread": spread,
         "unexplained_cross_regime_failures": unexplained,
         "declared_asymmetries": [

@@ -141,10 +141,16 @@ def _propose(module_id: str, record, table, rng: random.Random,
     if "*" in protein:
         return Proposal(module_id, record.dna, False, "stop codon in frame")
 
+    # The policy reaches the solver, not only the validator below. Accepting a profile here
+    # and then letting `optimize_cds` fall back to its own defaults is how a requested policy
+    # became a strict search with a permissive check.
+    from .synthesis_profile import resolve as _resolve
+
+    bounds = _resolve(profile).solver_bounds()
     try:
         result = optimize_cds(protein, locked_sites=locked_interface_sites(
             record.dna, record.frame), codon_table=table, genetic_code=genetic_code,
-            seed=rng.randrange(1 << 30), unique_kmer_size=None)
+            seed=rng.randrange(1 << 30), unique_kmer_size=None, **bounds)
     except Exception as exc:                          # noqa: BLE001 - recorded, not hidden
         return Proposal(module_id, record.dna, False, f"{type(exc).__name__}: {exc}")
     if not result.get("constraints_ok"):
@@ -169,6 +175,7 @@ def _propose(module_id: str, record, table, rng: random.Random,
 
 
 def optimise_library(inv: Inventory, codon_table: dict, *, mode: str = "greedy",
+                     profile=None,
                      label: str | None = None, genetic_code: int = 1, seed: int = 42,
                      k: int = 20, weights: dict | None = None,
                      wall_seconds: float = 600.0, max_proposals: int = 400,
@@ -215,7 +222,8 @@ def optimise_library(inv: Inventory, codon_table: dict, *, mode: str = "greedy",
             budget_exhausted = step < len(visits) - 1
             break
 
-        proposal = _propose(module_id, inv.modules[module_id], table, rng, genetic_code)
+        proposal = _propose(module_id, inv.modules[module_id], table, rng,
+                            genetic_code, profile)
         proposals += 1
         if not proposal.feasible:
             infeasible += 1

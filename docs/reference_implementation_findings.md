@@ -82,11 +82,19 @@ marked `qc_status: WARNING`. Ours refuses and returns the module *unchanged*. Ou
 count is not an absence of opportunity; it is the band vetoing every improvement, and the three
 modules concerned are named in `docs/synthesis_policy.md`.
 
-**Measured 2026-09-16, and it deflates this section.** At thresholds that do not bind, hard and
-soft enforcement produce **identical** output — 42 of 42 modules, to twelve decimal places. Soft
-enforcement has no independent value; it is a compensation for a threshold that is too tight.
-Softening our strict band recovers 3 modules for +0.038 CAI, while *widening* it lifts 40 for
-+0.201. The architecture is not the advantage it appeared to be here — the threshold is.
+**Measured 2026-09-17, and it vindicates their architecture.** An earlier version of this
+paragraph claimed hard and soft enforcement produce identical output and that soft has no
+independent value. That experiment never implemented soft enforcement -- `solver_bounds()`
+returned the same arguments for `hard` and `target` -- and its conclusion was retracted.
+
+Rerun against the repaired solver: enforcing CLIPPR's **strict** band as a target reaches mean
+CAI 0.819921, identical module for module to widening the band to 0.15-0.85, against 0.618830
+when the same thresholds are hard. So the soft-penalty approach the reference uses recovers the
+full +0.201091 that a wider band buys, while still reporting all 40 out-of-band windows.
+
+Their architecture is therefore a real advantage and not, as this document briefly claimed, a
+compensation for a tight threshold. What it buys is the ability to keep a conservative
+threshold as *guidance* without paying for it in codon adaptation.
 
 ### 3.2 Vendor profiles with a three-way rule split **[R]**
 
@@ -323,3 +331,77 @@ not edits.
 
 Read for this document: `synthesis_vendors.py`, `optimizer.py`, `objectives.py`, `pareto.py`,
 `ligation_fidelity.py`, `idt_opools.py`. The rest are mapped but not examined.
+
+---
+
+## Cross-module sharing — measured against them, and we come off worse
+
+§12 asked for matched-condition comparisons. Breaches (under both rule sets) and codon
+adaptation (over the aligned span) were done. Repetition and cross-module sharing had only ever
+been measured for CLIPPR against itself, which is a self-assessment.
+
+Measured 2026-09-17 by `validation/experiments/matched_oracle_benchmark.py`, one implementation
+written in that file and applied to both systems' coding spans — deliberately not either side's
+own scorer, because the reference carries a similarity penalty in its objective and CLIPPR
+carries `collection_sharing` in `synthesis_fitness`, so using either would grade one system with
+the term it was optimising for. k = 12, folded on reverse complement:
+
+| | internal repetition | cross-module sharing | distinct 12-mers |
+|---|---:|---:|---:|
+| CLIPPR | 0.000000 | **0.964147** | 552 |
+| GRASP Designer | 0.000000 | **0.911273** | **1005** |
+
+Per module, CLIPPR shares more on **33 of 42**, less on 2, tied on 7.
+
+**Neither system produces a module that repeats internally** — no duplicated 12-mer inside any
+single sequence, on either side. That axis is settled and it is a tie.
+
+It also corroborates an earlier result by a different route. `repeat_burden`, CLIPPR's original
+third Pareto axis, was identically zero at k = 20, 16, 12 and 10 and registered only at k = 8,
+which is why it was replaced: a repeated 10-mer inside a ~100 nt module is genuinely rare. This
+measurement reaches the same conclusion from the reference's sequences as well as ours, so the
+zero is a property of the molecules rather than of our scorer.
+
+**On sharing across the collection the reference is ahead**, and the gap is larger than the
+means suggest: their 42 designs draw on **1005 distinct 12-mers against our 552**. Nearly twice
+the sequence diversity over the same 42 proteins.
+
+**Why, mechanically — and I had this wrong the first time I wrote it down.**
+
+My first version of this section said nothing in CLIPPR's per-module path sees collection
+sharing. That is false. `library_search.optimise_library` carries a `sharing` term weighted
+**1.0, equal to adaptation** — not an afterthought. What has no sharing term is
+`recoding.recode_inventory`, and that is what produced `work/phaseb/inventory_recoded.json`, the
+inventory this benchmark compares. So the comparison above pitted our *no-sharing* artefact
+against their *with-similarity* one.
+
+Running the fair version:
+
+| inventory | cross-module sharing | distinct 12-mers |
+|---|---:|---:|
+| `inventory_recoded.json` — recoded per module, no sharing term | 0.964147 | 552 |
+| `inventory_greedy.json` — our collection optimiser, sharing weighted 1.0 | 0.953602 | 621 |
+| GRASP Designer | **0.911273** | **1005** |
+
+Our collection optimiser helps and does not close the gap: it recovers about **a fifth** of the
+distance on sharing (0.964 → 0.954 against their 0.911) and adds 69 distinct 12-mers against
+their lead of 453.
+
+Two differences plausibly explain the rest, neither of them measured here. Their similarity
+penalty sits **inside each module's solve**, so every candidate codon choice is scored against
+the rest of the collection as it is made; ours ranks whole proposals *after* a per-module
+optimiser has already produced them, over a bounded proposal budget. And CLIPPR recodes each
+module toward the same codon optimum by default, so identical amino-acid stretches receive
+identical codons unless something actively pushes them apart.
+
+**What it is worth, honestly.** Both figures are high because these modules are tandem repeats
+of one template — the architecture, not either design. A 5-point difference on a quantity that
+starts at 0.91 is not obviously a large practical change, and no synthesis outcome was measured:
+this is a sequence property, and whether it changes an oligo pool's behaviour at the bench is
+exactly the sort of claim this project does not make. But it is a real, matched, reproducible
+difference on an axis where we had reported only our own number.
+
+**The improvement it suggests**, not yet made: move the similarity term into the per-module
+solve rather than scoring finished proposals, and give `recode_inventory` one at all. Both trade
+codon adaptation for diversity at a rate nobody here has measured, so each needs its own
+experiment — closing a gap is not by itself an improvement.

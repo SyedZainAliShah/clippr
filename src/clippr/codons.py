@@ -271,6 +271,8 @@ def optimize_cds(
     gc_bounds: tuple[float, float] = (0.35, 0.65),
     gc_window: int = 50,
     max_homopolymer: int = 4,
+    global_gc_bounds: tuple[float, float] | None = None,
+    soft_rules: tuple[str, ...] = (),
     unique_kmer_size: int | None = 20,
     avoid_sequences: Sequence[str] = (),
 ) -> dict:
@@ -318,14 +320,37 @@ def optimize_cds(
 
     table_name = _table_name(genetic_code)
     sequence = dc.reverse_translate(protein, table=table_name)
-    constraints = [
-        dc.EnforceTranslation(genetic_table=table_name, translation=protein),
-        dc.EnforceGCContent(mini=gc_bounds[0], maxi=gc_bounds[1], window=gc_window),
-    ]
+    # A rule named in `soft_rules` goes to the objective list instead of the constraint list.
+    # DNA Chisel accepts the same specification either way: as a constraint an unsatisfiable
+    # limit raises `NoSolutionError`, as an objective it is a penalty the search steers away
+    # from and still returns a sequence. Before this, `target` and `hard` produced identical
+    # solver arguments, so a declared target was silently a hard limit.
+    soft = set(soft_rules or ())
+    soft_specs = []
+
+    constraints = [dc.EnforceTranslation(genetic_table=table_name, translation=protein)]
+
+    local_gc_spec = dc.EnforceGCContent(mini=gc_bounds[0], maxi=gc_bounds[1],
+                                        window=gc_window)
+    (soft_specs if "local_gc" in soft else constraints).append(local_gc_spec)
+
+    if global_gc_bounds is not None:
+        # Never passed before, so a profile declaring a global band steered on the window
+        # alone. Every vendor guideline read for this project leads with the global range.
+        global_spec = dc.EnforceGCContent(mini=global_gc_bounds[0], maxi=global_gc_bounds[1])
+        (soft_specs if "global_gc" in soft else constraints).append(global_spec)
+
+    # Enzyme sites are never soft. An enzyme cutting where it should not is not a preference,
+    # and no profile may declare otherwise.
     constraints += [dc.AvoidPattern(dc.EnzymeSitePattern(e))
                     for e in C.enzymes_for(enzymes)]
-    constraints += [dc.AvoidPattern(dc.HomopolymerPattern(b, max_homopolymer + 1))
-                    for b in "ACGT"]
+
+    homopolymer_specs = [dc.AvoidPattern(dc.HomopolymerPattern(b, max_homopolymer + 1))
+                         for b in "ACGT"]
+    if "homopolymer" in soft:
+        soft_specs += homopolymer_specs
+    else:
+        constraints += homopolymer_specs
 
     # Sequences this design must not reproduce verbatim. Used to break DNA shared with other
     # members of a library: the scaffold regions are protein-identical across members, so
@@ -349,6 +374,8 @@ def optimize_cds(
                                    method="use_best_codon")]
     if unique_kmer_size:
         objectives.append(dc.UniquifyAllKmers(k=unique_kmer_size, boost=2.0))
+    # Declared targets, steering the search rather than gating it.
+    objectives += soft_specs
 
     problem = dc.DnaOptimizationProblem(sequence=sequence, constraints=constraints,
                                         objectives=objectives, logger=None)
@@ -372,4 +399,7 @@ def optimize_cds(
         "constraints_ok": bool(ok),
         "summary": summary,
         "objectives_score": problem.objectives_evaluations().scores_sum(),
+        # Which rules were steered rather than enforced. `constraints_ok` says nothing about
+        # these, and a reader who does not know which were soft cannot interpret it.
+        "soft_rules": sorted(soft),
     }

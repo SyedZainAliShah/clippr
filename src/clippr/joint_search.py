@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from .assembly_spec import BLOCK_JOIN_OVERHANGS
 from .inventories import INTERFACE, Inventory, compile_target, derive
 from .junctions import permitted_overhangs, sites_in, valid_assignment
+from .synthesis_profile import resolve as _resolve_profile
 
 #: Objective directions, declared before searching. `docs/objectives.md` §6.
 #: The three objectives, and their directions, declared before any search runs.
@@ -140,11 +141,29 @@ def apply_assignment(inv: Inventory, classes, assignment: dict[str, str],
     replacements: dict[str, str] = {}
     by_key = {c.key: c for c in classes}
 
+    # An assignment naming something this inventory does not have is a caller error, and it
+    # was reaching here as a bare KeyError from a dict lookup -- a refusal, but one whose
+    # message named only the missing string and not what it was missing from. The most likely
+    # source is a front computed against a different inventory or a different target set, so
+    # the error says which and lists what is actually available.
+    unknown = sorted(set(assignment) - set(by_key))
+    if unknown:
+        raise ValueError(
+            f"assignment names junction class(es) this inventory does not have: "
+            f"{', '.join(unknown)}. Available: {', '.join(sorted(by_key)) or '(none)'}. "
+            f"A front computed over different targets or a different inventory will do this.")
+
     for key, overhang in assignment.items():
         cls = by_key[key]
         if overhang == cls.deposited:
             continue
-        codons = dict(cls.options)[overhang]
+        options = dict(cls.options)
+        if overhang not in options:
+            raise ValueError(
+                f"junction class {key} cannot take overhang {overhang!r}; its options are "
+                f"{', '.join(sorted(options)) or '(none)'}. An overhang absent from the "
+                f"options was never scored, so applying it would publish an unmeasured design.")
+        codons = options[overhang]
         if not codons:
             continue
         left_tail = codons[:cls.offset + INTERFACE]
@@ -290,7 +309,7 @@ def evaluate(inv: Inventory, classes, assignment: dict[str, str], targets, table
     # dominance was being decided by two objectives while three were reported.
     from .synthesis_fitness import inventory_fitness
 
-    fitness = inventory_fitness(rebuilt, k=k)
+    fitness = inventory_fitness(rebuilt, k=k, profile=profile)
     objectives = {
         # The minimum across *scorable* reactions, labelled. Never a product: a product reads
         # as a predicted overall yield and is not one.
@@ -310,7 +329,7 @@ def evaluate(inv: Inventory, classes, assignment: dict[str, str], targets, table
                      sorted(set(unscorable)), rebuilt.version)
 
 
-def search(inv: Inventory, targets, table, *, beam_width: int = 8,
+def search(inv: Inventory, targets, table, *, beam_width: int = 8, profile=None,
            max_evaluations: int = 20, wall_seconds: float = 120.0,
            k: int = 20, matrix: str = "BsaI-HFv2", destination: str = "level0",
            genetic_code: int = 1) -> dict:
@@ -334,7 +353,8 @@ def search(inv: Inventory, targets, table, *, beam_width: int = 8,
         key = tuple(sorted(assignment.items()))
         if key not in evaluated:
             evaluated[key] = evaluate(inv, classes, assignment, targets, table,
-                                      k=k, matrix=matrix, destination=destination)
+                                      k=k, matrix=matrix, destination=destination,
+                                      profile=profile)
         return evaluated[key]
 
     base = score(incumbent)
@@ -404,6 +424,10 @@ def search(inv: Inventory, targets, table, *, beam_width: int = 8,
             "destination": destination,
             "k": k,
             "fidelity_tolerance": FIDELITY_TOLERANCE,
+            # Recorded so selection can reconstruct the policy this front was measured
+            # under. Without it, selection silently rechecked every candidate against
+            # the default and 7 of 16 broad-policy points came back infeasible.
+            "synthesis_profile": _resolve_profile(profile).as_dict(),
             "source_sha256": _source_identity(),
         },
         "classes": [{"key": c.key, "stage": c.stage, "amino_acids": c.amino_acids,

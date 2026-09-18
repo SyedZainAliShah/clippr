@@ -158,6 +158,28 @@ is a number nobody can check.
 axis with no spread is not an axis, and the failure that produced this section must announce
 itself rather than be discovered a second time.
 
+**The weights were tested for load-bearing, not assumed harmless.**
+`validation/experiments/fitness_weight_sensitivity.py` reruns the same search under six
+weightings — the shipped one, an even split, and each term taken to dominance:
+
+| weighting | axis spread | front size | recommendation |
+|---|---:|---:|---|
+| shipped (0.45/0.25/0.15/0.15) | 0.085402 | 9 | unchanged |
+| equal | 0.073520 | 9 | unchanged |
+| gc_centrality only | 0.133522 | 5 | unchanged |
+| homopolymer only | 0.154099 | 8 | unchanged |
+| collection sharing only | 0.166598 | 6 | unchanged |
+| internal repetition only | **0.000000** | 5 | unchanged |
+
+**The recommendation is identical under all six**, including the extremes, so the weights are
+not load-bearing for the choice this package makes. Front *membership* does move (5 to 9
+members), so they do affect which trade-offs are visible — worth knowing before anyone reads
+the front as exhaustive.
+
+The last row is the old axis in isolation, and it is the only weighting that degenerates. The
+sweep therefore reproduces the original defect independently, and the `degenerate` flag catches
+it rather than the search silently falling back to two objectives.
+
 ---
 
 ## 5. Reaction fidelity

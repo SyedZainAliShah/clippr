@@ -172,23 +172,57 @@ def synthesis_fitness(sequence: str, *, profile=None, others: list[str] | None =
                            "collection_size": len(others or [])})
 
 
+def _kmers(sequence: str, k: int) -> set[str]:
+    return {sequence[i:i + k] for i in range(max(0, len(sequence) - k + 1))}
+
+
 def inventory_fitness(inventory, *, profile=None, k: int = DEFAULT_K) -> dict:
     """Mean composite fitness over an inventory's ordered substrates, with its spread.
 
     The spread is reported because a mean alone cannot say whether an objective discriminates,
     and discriminating is the entire reason this replaced `repeat_burden`. A standard deviation
     of zero here means the axis has degenerated again and should be reported, not hidden.
+
+    Sharing is computed from each k-mer's **document frequency** across the inventory rather
+    than by rebuilding every neighbour's k-mer set per module. A k-mer in this module is shared
+    exactly when at least one other module has it, so df >= 2 is the same test in one pass
+    instead of n. Identical results; the quadratic form was the interface search's slowdown.
     """
     import statistics
+    from collections import Counter
 
+    from .synthesis_profile import resolve
     from .substrates import build
+
+    policy = resolve(profile)
+    weights = dict(WEIGHTS)
+    total_weight = sum(weights.values())
 
     scores, per_module = [], {}
     sequences = {module_id: build(record.dna, record.block).sequence
                  for module_id, record in inventory.modules.items()}
+    owned = {module_id: _kmers(sequence, k) for module_id, sequence in sequences.items()}
+    document_frequency: Counter = Counter()
+    for words in owned.values():
+        document_frequency.update(words)
+
     for module_id, sequence in sorted(sequences.items()):
-        others = [s for m, s in sequences.items() if m != module_id]
-        got = synthesis_fitness(sequence, profile=profile, others=others, k=k)
+        words = owned[module_id]
+        shared = sum(1 for word in words if document_frequency[word] >= 2)
+        components = {
+            "gc_centrality": gc_centrality(sequence, policy.local_gc, policy.window),
+            "homopolymer_headroom": homopolymer_headroom(sequence, policy.max_homopolymer),
+            "internal_repetition": internal_repetition(sequence, k),
+            "collection_sharing": round(1.0 - (min(1.0, shared / len(words)) if words
+                                               else 0.0), 6),
+        }
+        total = sum(weights[name] * value for name, value in components.items())
+        got = Fitness(total=round(total / total_weight, 6), components=components,
+                      weights=weights, k=k,
+                      detail={"profile": policy.name, "band": list(policy.local_gc),
+                              "window": policy.window,
+                              "max_homopolymer": policy.max_homopolymer,
+                              "collection_size": len(sequences) - 1})
         per_module[module_id] = got.as_dict()
         scores.append(got.total)
 

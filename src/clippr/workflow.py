@@ -10,6 +10,7 @@ contract this implements.
     4. optimise_collection    optimise an inventory as a collection
     5. explore_interfaces     explore junction/codon trade-offs, return the observed front
     6. plan_order             check eligibility, plan pools, export the package
+    7. level1_readiness       is a level-1 reaction fully specified, and how well does it ligate
 
 **Selecting an alternative changes the inventory.** Task 5 returns candidates whose junction
 assignments differ, and choosing one produces a *different interface version*. Products
@@ -106,8 +107,14 @@ def load_and_compile(inventory_path, targets, outdir, fusion_site: str = "AATG"
 
 
 def recode_for_host(inventory_path, codon_table, outdir, *, label: str,
-                    **kwargs) -> WorkflowResult:
-    """Task 3 — recode an inventory for a host context, both interfaces frozen."""
+                    profile=None, **kwargs) -> WorkflowResult:
+    """Task 3 — recode an inventory for a host context, both interfaces frozen.
+
+    `profile` is the synthesis policy, reaching both the solver and the validator.
+    Default reproduces the shipped result exactly. It was previously reachable only
+    through `**kwargs`, which meant a caller had to know it existed; it is explicit
+    now, and its version is recorded on the result.
+    """
     from . import inventories as inv
     from .recoding import recode_inventory
 
@@ -117,7 +124,8 @@ def recode_for_host(inventory_path, codon_table, outdir, *, label: str,
     library = (inv.load_deposited(path) if path.suffix.lower() in (".xlsx", ".csv")
                else inv.load(path))
 
-    report = recode_inventory(library, codon_table, label=label, **kwargs)
+    report = recode_inventory(library, codon_table, label=label, profile=profile,
+                              **kwargs)
     saved = inv.save(report.inventory, out / f"inventory_{label}.json")
     written = out / "recoding_report.json"
     written.write_text(json.dumps(report.as_dict(), indent=2, sort_keys=True) + "\n",
@@ -129,12 +137,13 @@ def recode_for_host(inventory_path, codon_table, outdir, *, label: str,
                  f"attempted"),
         artefacts={"inventory": str(saved), "report": str(written)},
         data={"from_version": library.version, "to_version": report.inventory.version,
+              "synthesis_profile": report.profile,
               "budget_exhausted": report.budget_exhausted},
         failures=[{"module": m, "reason": "infeasible"} for m in report.infeasible])
 
 
 def optimise_collection(inventory_path, codon_table, outdir, *, mode: str = "greedy",
-                        **kwargs) -> WorkflowResult:
+                        profile=None, **kwargs) -> WorkflowResult:
     """Task 4 — optimise an inventory as a collection, not module by module."""
     from . import inventories as inv
     from .library_search import optimise_library
@@ -142,7 +151,8 @@ def optimise_collection(inventory_path, codon_table, outdir, *, mode: str = "gre
     out = Path(outdir)
     out.mkdir(parents=True, exist_ok=True)
     library = inv.load(Path(inventory_path))
-    result = optimise_library(library, codon_table, mode=mode, **kwargs)
+    result = optimise_library(library, codon_table, mode=mode, profile=profile,
+                              **kwargs)
     saved = inv.save(result.inventory, out / f"inventory_{mode}.json")
     written = out / f"search_{mode}.json"
     written.write_text(json.dumps(result.as_dict(), indent=2, sort_keys=True) + "\n",
@@ -159,7 +169,7 @@ def optimise_collection(inventory_path, codon_table, outdir, *, mode: str = "gre
 
 
 def explore_interfaces(inventory_path, targets, codon_table, outdir,
-                       **kwargs) -> WorkflowResult:
+                       profile=None, **kwargs) -> WorkflowResult:
     """Task 5 — explore junction/codon trade-offs and return the observed front.
 
     The result carries an explicit warning: taking any alternative changes the interface
@@ -172,7 +182,7 @@ def explore_interfaces(inventory_path, targets, codon_table, outdir,
     out.mkdir(parents=True, exist_ok=True)
     library = inv.load(Path(inventory_path))
     table = complete_table(codon_table, 1)
-    result = js.search(library, list(targets), table, **kwargs)
+    result = js.search(library, list(targets), table, profile=profile, **kwargs)
 
     written = out / "interface_front.json"
     written.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n",
@@ -195,9 +205,15 @@ def explore_interfaces(inventory_path, targets, codon_table, outdir,
                   "mixed with it")})
 
 
+def _profile_name(profile) -> str:
+    from .synthesis_profile import resolve
+
+    return resolve(profile).name
+
+
 def select_interface(inventory_path, front_path, outdir, *, choice: str = "recommended",
                      index: int | None = None, codon_table=None,
-                     allow_mismatch: bool = False) -> WorkflowResult:
+                     profile=None, allow_mismatch: bool = False) -> WorkflowResult:
     """Task 5b -- commit to one candidate from the front and save its inventory.
 
     Exploring a front and then ordering is only connected if the chosen candidate becomes a
@@ -227,6 +243,13 @@ def select_interface(inventory_path, front_path, outdir, *, choice: str = "recom
     # default k=20 refused a perfectly valid search, and `allow_mismatch=True` is not the
     # answer -- that suppresses the check rather than honouring the context.
     binding = front.get("binding") or {}
+    # The synthesis policy travels with the front for the same reason k does: a
+    # candidate rechecked under a different policy is a candidate nobody measured.
+    recorded_profile = binding.get("synthesis_profile")
+    if recorded_profile:
+        from .synthesis_profile import from_dict as _profile_from_dict
+
+        profile = _profile_from_dict(recorded_profile)
     k = binding.get("k", 20)
     genetic_code = binding.get("genetic_code", 1)
     matrix = binding.get("matrix", "BsaI-HFv2")
@@ -262,13 +285,27 @@ def select_interface(inventory_path, front_path, outdir, *, choice: str = "recom
 
     selected = js.apply_assignment(library, classes, chosen["assignment"],
                                    label=f"selected-{choice}")
-    saved = inv.save(selected, out / "inventory_selected.json")
 
     # Recomputed from the sequences actually delivered, never copied from the front. A value
-    # carried across is a value nobody checked against what shipped.
+    # carried across is a value nobody checked against what shipped. This runs *before* the
+    # inventory is written: an earlier version saved first and returned no artefact on
+    # failure, which left a rejected inventory on disk for the next step to pick up.
     verified = js.evaluate(library, classes, chosen["assignment"],
                            front.get("targets") or [], table, k=k, matrix=matrix,
-                           destination=destination)
+                           destination=destination, profile=profile)
+    if not verified.feasible:
+        # Never publish an artefact the verifier just rejected. This returned ok=True
+        # with objectives=None, which reads as a successful selection of a candidate
+        # that cannot be built.
+        return WorkflowResult(
+            task="select_interface", ok=False,
+            summary=(f"the selected candidate does not verify under the front's own "
+                     f"policy ({_profile_name(profile)}); nothing was published"),
+            data={"choice": choice, "index": index,
+                  "synthesis_profile": _profile_name(profile)},
+            failures=[{"stage": "verification", "reason": verified.reason}])
+
+    saved = inv.save(selected, out / "inventory_selected.json")
     drift = None
     if verified.objectives and chosen.get("objectives"):
         drift = {name: [chosen["objectives"].get(name), verified.objectives.get(name)]
@@ -282,6 +319,7 @@ def select_interface(inventory_path, front_path, outdir, *, choice: str = "recom
         "objectives_as_recorded_in_the_front": chosen.get("objectives"),
         "objective_drift": drift,
         "binding_mismatches": mismatches,
+        "synthesis_profile": _profile_name(profile),
         "from_inventory": library.version, "selected_inventory": selected.version,
         "interface_assignment": selected.interface_assignment,
         "requires_recompilation": True,
@@ -295,11 +333,78 @@ def select_interface(inventory_path, front_path, outdir, *, choice: str = "recom
                  f"{selected.version}, recompilation required"),
         artefacts={"inventory": str(saved), "selection": str(record)},
         data={"choice": choice, "from_version": library.version,
+              "synthesis_profile": _profile_name(profile),
               "to_version": selected.version,
               "objectives": verified.objectives,
               "objectives_recomputed": True,
               "objective_drift": drift,
               "binding_mismatches": mismatches})
+
+
+def level1_readiness(block_subset, outdir, *, roles=None, evidence: str = "",
+                     matrix: str = "BsaI-HFv2") -> WorkflowResult:
+    """Is a level-1 reaction fully specified, and if so, how well does it ligate?
+
+    CLIPPR derives the **block join geometry** from the deposited kit, but a level-1 reaction
+    also needs the linker, editing domain, bridging parts and final cassette, and the deposited
+    material does not supply their ends. That gap is real and documented; what was missing was
+    a way for a user who *has* those parts to say so and get an answer.
+
+    Supply `roles` mapping each of `assembly_spec.LEVEL1_REQUIRED_ROLES` to the overhangs it
+    contributes, plus `evidence` naming where they came from. An incomplete list is refused
+    with the roles it lacks — never scored, because a fidelity number computed over a partial
+    reaction describes a reaction nobody is running.
+
+    The refusal is the common case today and is a successful outcome of this task in the sense
+    that matters: it tells a user exactly what to go and find.
+    """
+    import json as _json
+
+    from . import assembly_spec as spec
+    from .overhangs import fidelity_components, set_fidelity
+
+    out = Path(outdir)
+    out.mkdir(parents=True, exist_ok=True)
+    participants = spec.level1_participants(block_subset, roles=roles, evidence=evidence)
+
+    scored = None
+    if participants["participants_established"]:
+        # The **distinct** junctions, not every contributed end. Each internal overhang is
+        # supplied twice -- once by the part on each side -- and scoring the list as given
+        # makes every junction compete against a perfect copy of itself. On the chain used in
+        # the tests that is the difference between 0.0039 and 0.9940: not a smaller number,
+        # a meaningless one.
+        ends = participants["overhangs"]
+        junctions = sorted(set(ends))
+        forward, reverse = fidelity_components(junctions, matrix)
+        scored = {"fidelity": set_fidelity(junctions, matrix),
+                  "forward": forward, "reverse": reverse,
+                  "matrix": matrix, "junctions": junctions,
+                  "contributed_ends": len(ends),
+                  "note": ("predicted from a published ligation table over the distinct "
+                           "junctions; not a measurement of this reaction")}
+
+    written = out / "level1_readiness.json"
+    written.write_text(_json.dumps({**participants, "scored": scored}, indent=2,
+                                   sort_keys=True) + "\n", encoding="utf-8")
+
+    if scored:
+        summary = (f"level-1 reaction fully specified: {len(scored['junctions'])} distinct "
+                   f"junctions from {scored['contributed_ends']} contributed ends; "
+                   f"predicted fidelity {scored['fidelity']:.4f} on {matrix}")
+    else:
+        summary = (f"level-1 reaction not fully specified: "
+                   f"{participants['why_incomplete']}")
+
+    return WorkflowResult(
+        task="level1_readiness", ok=bool(scored), summary=summary,
+        artefacts={"readiness": str(written)},
+        data={"participants_established": participants["participants_established"],
+              "roles_required": participants["roles_required"],
+              "roles_missing": participants["roles_missing"],
+              "evidence": participants["evidence"], "scored": scored},
+        failures=([] if scored else
+                  [{"stage": "participants", "reason": participants["why_incomplete"]}]))
 
 
 def _resolve_table(codon_table):
@@ -315,8 +420,8 @@ def _resolve_table(codon_table):
     return codon_table
 
 
-def order_items_for(inventory_path, outdir, *, form: str = "assembly_ready"
-                    ) -> WorkflowResult:
+def order_items_for(inventory_path, outdir, *, form: str = "assembly_ready",
+                    profile=None) -> WorkflowResult:
     """Task 5c -- the order items for an inventory, each traceable to its module.
 
     `form="assembly_ready"` (the default) wraps each module so BbsI releases the level-0
@@ -351,7 +456,7 @@ def order_items_for(inventory_path, outdir, *, form: str = "assembly_ready"
     elif form == "assembly_ready":
         items = [{**s.as_dict(), "design": library.label,
                   "inventory_version": library.version, "form": "assembly_ready"}
-                 for s in sub.substrates_for(library)]
+                 for s in sub.substrates_for(library, profile)]
         failing = [i for i in items if i["synthesis_problems"]]
         summary = (f"{len(items)} assembly-ready substrates from "
                    f"{library.label}@{library.version}, each digest-verified; "
@@ -379,8 +484,16 @@ def order_items_for(inventory_path, outdir, *, form: str = "assembly_ready"
         failures=failures)
 
 
-def plan_order(sequences_or_items, profile, outdir) -> WorkflowResult:
-    """Task 6 — eligibility, pooling and an export package."""
+def plan_order(sequences_or_items, vendor_profile, outdir) -> WorkflowResult:
+    """Task 6 — eligibility, pooling and an export package.
+
+    `vendor_profile` is the **ordering** profile — pool sizes, oligo length limits, price — and
+    is a different thing from the `profile=` every other task takes, which is the synthesis
+    policy. The parameter was called `profile` here too, which put two unrelated meanings of
+    one word on functions a user calls one after the other. Nothing misbehaved; it was a trap
+    waiting for whoever passed the wrong one first, and there is no diagnostic that could
+    distinguish them.
+    """
     from .ordering import check_eligibility, estimate_cost, plan_pools, write_order_files
 
     items = [{"sequence": s} if isinstance(s, str) else dict(s)
@@ -390,27 +503,27 @@ def plan_order(sequences_or_items, profile, outdir) -> WorkflowResult:
     # Order-wide checks first (lengths, bases, whether there are enough oligos for one pool
     # at all), then pool, then check each resulting pool against the per-pool count limits.
     # Applying the per-pool maximum to the whole order refused every multi-pool request.
-    eligibility = check_eligibility(sequences, profile)
-    plan = plan_pools(items, profile) if eligibility["eligible"] else {
-        "feasible": False, "reason": "order is not eligible under this profile",
+    eligibility = check_eligibility(sequences, vendor_profile)
+    plan = plan_pools(items, vendor_profile) if eligibility["eligible"] else {
+        "feasible": False, "reason": "order is not eligible under this vendor profile",
         "pools": []}
 
     pool_reports, pool_costs = [], []
     if plan["feasible"]:
         for pool in plan["pools"]:
             members = [m["sequence"] for m in pool["members"]]
-            report = check_eligibility(members, profile, per_pool=True)
+            report = check_eligibility(members, vendor_profile, per_pool=True)
             pool_reports.append({"pool": pool["pool"], **report})
-            pool_costs.append(estimate_cost(members, profile))
+            pool_costs.append(estimate_cost(members, vendor_profile))
         if not all(r["eligible"] for r in pool_reports):
             plan = {"feasible": False, "pools": [],
                     "reason": "; ".join(v for r in pool_reports
                                         for v in r["violations"])}
 
     # Cost is the sum over the pools actually planned, not one call on the whole order.
-    cost = _total_cost(pool_costs, profile) if plan["feasible"] else estimate_cost(
-        sequences, profile)
-    artefacts = write_order_files(plan, profile, outdir) if plan["feasible"] else {}
+    cost = _total_cost(pool_costs, vendor_profile) if plan["feasible"] else estimate_cost(
+        sequences, vendor_profile)
+    artefacts = write_order_files(plan, vendor_profile, outdir) if plan["feasible"] else {}
 
     failures = []
     if not eligibility["eligible"]:
@@ -431,7 +544,7 @@ def plan_order(sequences_or_items, profile, outdir) -> WorkflowResult:
               "pool_count": plan.get("pool_count", 0),
               "optimality": plan.get("optimality"),
               "vendor_approval": ("not obtained; these are local checks against a written "
-                                  "profile and no order was placed")},
+                                  "vendor profile and no order was placed")},
         failures=failures)
 
 
