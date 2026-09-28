@@ -295,9 +295,11 @@ def _stat(label, value, hint=""):
         f'<div style="font-size:11.5px;opacity:.6">{hint}</div></div>')
 
 
+# Labelled, because an unlabelled TNTNND... under "coding sequence" reads as the sequence.
 ppr_code = result["ppr_code"]
-if len(ppr_code) > 24:
-    ppr_code = ppr_code[:24] + "…"
+if len(ppr_code) > 22:
+    ppr_code = ppr_code[:22] + "…"
+ppr_code = f"PPR code {ppr_code}"
 
 cards = "".join([
     _stat("architecture", result["architecture"], f'{len(result["protein"])} aa protein'),
