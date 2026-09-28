@@ -1,4 +1,4 @@
-# Handover to Codex — 2026-09-17
+# Handover to Codex — 2026-09-17, revised 2026-09-28
 
 Everything done since the GC-policy review, what it settled, and what is genuinely still open.
 Written to be read by someone who has the repository and none of the conversation.
@@ -11,7 +11,7 @@ that fails when the defect is reintroduced — verified by `validation/falsify_b
 which reverts each repair in a scratch worktree and checks the suite goes red. **10 of 10
 reverted defects are caught.**
 
-Fixing them turned up four more defects that no review had found, all of the same kind — a
+Fixing them turned up five more defects that no review had found, all of the same kind — a
 number or a claim that looked plausible and had never been checked against the thing it
 described:
 
@@ -21,6 +21,7 @@ described:
 | writing the regressions | `select_interface` wrote the selected inventory to disk **before** verifying it, so a rejected candidate left a file for the next step to find |
 | falsifying the regressions | three of my own regressions did not discriminate what they claimed to — the falsifier caught them, not me |
 | wiring `level1_readiness` | fidelity scored over **every contributed end** rather than the distinct junctions, returning 0.0039 where the correct figure is 0.9940 |
+| adding a notebook policy selector | the notebook imported a module that exists only on this branch while its Setup cell installs from `main` — **every Colab session broke**, and the in-tree notebook test could not see it. Reverted; see §7 item 9 |
 
 **Two published conclusions are withdrawn and replaced by measurements**, both because the
 experiment behind them did not test what it said:
@@ -37,19 +38,26 @@ ours against 0.911273 theirs. §7, item 7.
 
 **The thread running through all of it**, and the reason the regressions are written at the
 workflow boundaries rather than as unit tests: *a parameter in a signature is not evidence that
-the consumer uses it, and a number in a document is not evidence that anything computed it.*
-Every defect above sat under a green suite.
+the consumer uses it; a number in a document is not evidence that anything computed it; and a
+passing test is not evidence that it tested what users get.* Every defect above sat under a
+green suite, and the last one sat under a green suite that was structurally incapable of
+seeing it.
+
+**Revision note, 2026-09-28.** Two claims in the first version of this document were wrong and
+are corrected here rather than silently edited: the State table said the notebook had a policy
+selector and 22/22 cells executing, and open-issue 9 was marked Closed. Both described work
+reverted the following day. The notebook figures below are re-measured, not recalled.
 
 **State**
 
 | | |
 |---|---|
 | branch | `synthesis-policy-profile`, based on merged `main` (`3100ff5`) |
-| commits | `74e4242` synthesis policy · `a7181fe` Pareto axis + runtime · *this pass uncommitted at time of writing* |
+| commits | `74e4242` synthesis policy · `a7181fe` Pareto axis + runtime · `2f936bc` this pass — all pushed |
 | tests | **949 passed of 949**, 0 failed |
 | release check | **10 / 10**, 0 failed, 0 needing a human — including a clean-environment install that reproduced the README example verbatim |
 | falsification | **10 / 10** reverted defects caught by the boundary suite |
-| notebook | **22 / 22** cells execute, now with a synthesis-policy selector |
+| notebook | **21 of 21 code cells run, 0 failed**, verified against a *pip-installed* build — not the working tree. No policy selector: see §7 item 9. |
 | default behaviour | **unchanged** — every published number reproduces |
 
 ---
@@ -305,7 +313,10 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
 
 **Decisions, not work:**
 
-1. **Merge `synthesis-policy-profile`.** 10/10 green.
+1. **Merge `synthesis-policy-profile`.** 10/10 green, and the notebook question is settled:
+   the notebook is byte-identical on `main` and on this branch, and runs 21/21 cells against
+   *both* builds, so the merge cannot break Colab. Not merged yet because the repository was
+   submitted for review and changing `main` mid-review is the submitter's call.
 2. **Whether the default profile changes.** The benchmark is favourable and is **not** evidence
    of vendor acceptance, which is the only thing that matters for an order. Someone must own
    that risk.
@@ -367,15 +378,45 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
    change in particular trades codon adaptation for diversity at a rate this project has not
    measured, and the four-arm benchmark is the template for how to settle that before shipping
    it — matched seeds, matched budgets, each arm judged on its own terms.
-9. ~~The notebook cannot select a profile.~~ **Closed.** `tools/notebook_inventory_cells.py`
-   adds an *Inventory 1b* form offering `clippr-strict-legacy`, `strict-as-target` and
-   `broad-experimental`, threaded into the recode, the collection optimiser, the interface
-   search and the export. `select_interface` deliberately takes none — it reconstructs the
-   policy the front recorded, which is why the front records it.
+9. **The notebook cannot select a profile. Still open — I closed it, broke Colab, and
+   reverted it.** This is the most useful thing in this document, so it is written out in full.
+
+   I added an *Inventory 1b* form to `tools/notebook_inventory_cells.py` offering the three
+   policies, threaded into the recode, the collection optimiser, the interface search and the
+   export. It worked. The full suite passed, and `validation/run_notebook.py` reported every
+   cell executing.
+
+   It broke every Colab session. The cell imports `clippr.synthesis_profile`, which exists on
+   this branch and **not on `main`** — and the notebook's own Setup cell installs with
+   `pip install git+https://github.com/SyedZainAliShah/clippr.git`, which resolves to the
+   default branch. So cell 1b raised `ModuleNotFoundError`, `policy` was never bound, and every
+   downstream cell failed on `NameError`. `order_items_for` on `main` takes no `**kwargs`, so
+   `profile=` was an immediate `TypeError` rather than a harmless extra.
+
+   **Why the green suite did not catch it.** `validation/run_notebook.py` inserts the working
+   tree's `src/` at the front of `sys.path`. It therefore tests whether the notebook agrees
+   with *the code you are editing* — which is useful, and is structurally incapable of catching
+   a notebook that depends on something the published package lacks. The test and the defect
+   were in disjoint spaces.
+
+   **The repair, and what is now in the repository.**
+   `validation/notebook_on_published_build.py` runs the notebook's code cells against a
+   virtualenv with CLIPPR pip-installed from GitHub, with the working tree kept off the path.
+   Current result, measured rather than recalled: **21 cells ran, 0 failed** against the `main`
+   build, and the same against this branch's build — so merging cannot break the notebook.
+
+   The selector itself is reverted and unshipped. The shape it needs is a cell that detects
+   whether the installed build has `synthesis_profile` and degrades to the defaults when it
+   does not, rather than assuming it. A draft exists and is not in the repository, because it
+   still has an escaping bug and has never been run against a `main` install.
+
+   **The general rule this earns:** anything that ships to users who did not choose their
+   package version has to degrade, not break — and it must be tested against the version they
+   will actually get.
 10. ~~Naming collision.~~ **Closed.** `plan_order`'s parameter is now `vendor_profile`. Every
-    call site passed it positionally, so nothing broke. The notebook had a third meaning again
-    in `enzyme_profile`, so the new control is `synthesis_policy` rather than a fourth
-    `profile`.
+    call site passed it positionally, so nothing broke. Note the notebook has a third meaning
+    again in `enzyme_profile` — which restriction sites to avoid — so whoever finishes the
+    selector in item 9 should name its control `synthesis_policy`, not a fourth `profile`.
 11. ~~`apply_assignment` raises a bare `KeyError`.~~ **Closed.** It now refuses with a message
     naming the unknown class and listing the available ones, and separately refuses an overhang
     absent from a class's options — applying one would publish a design nobody scored.
@@ -425,6 +466,8 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
 | `docs/verification_commands.md` | one invocation per operation |
 | `tests/test_policy_boundaries.py` | the regressions pinning each of your six findings |
 | `validation/falsify_boundaries.py` | proof those regressions are not vacuous — run it |
+| `validation/notebook_on_published_build.py` | runs the notebook against a pip-installed build, which is the only test that can catch a notebook/package version split |
+| `CLIPPR_FOR_THE_WET_LAB.md` | the briefing written for biologists — the metric glossary in Part 3 is the plainest statement of what every number means |
 
 **Reproduction:** every experiment above writes a JSON artefact under `work/`, and every
 command is in `docs/verification_commands.md`. The primary GenBank records resolve relative to

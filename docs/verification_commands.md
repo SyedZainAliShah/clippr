@@ -157,6 +157,7 @@ Count from the collection total and the summary line, never from progress dots.
 | fitness | python -m pytest tests/test_synthesis_fitness.py | 19 regressions; pins that repeat_burden is zero at k=20,16,12,10 |
 | runtime | python validation/experiments/runtime_profile.py | work/runtime/runtime_profile.json; isolated stage medians **and** measured end-to-end chain times under two policies |
 | regressions are not vacuous | python validation/falsify_boundaries.py | reverts each policy repair in a scratch worktree and checks the boundary suite goes red; exits non-zero if any defect leaves it green |
+| the notebook runs on the build users install | see below | 21/21 cells against a pip-installed CLIPPR; the in-tree notebook harness cannot catch a version split |
 
 Each accepts `--out` so a reviewer can write to their own directory.
 
@@ -165,6 +166,35 @@ The oracle benchmark reads the preserved reference output at
 `work/phaseb/inventory_recoded.json`; it runs nothing in the reference's environment, so it
 reproduces without that checkout being installed. Re-running the reference itself is
 `validation/experiments/m3_reference_comparison.py`, which does need it.
+
+## The notebook, against the build a user actually installs
+
+`validation/run_notebook.py` puts the working tree's `src/` first on `sys.path`, so it checks
+the notebook against the code being edited. It cannot catch a notebook that depends on
+something the *published* package lacks — and that failure has happened here, taking out every
+Colab session while the in-tree harness stayed green.
+
+Three steps. Build a throwaway environment, install CLIPPR the way the notebook's Setup cell
+does, then run the notebook's code cells against it.
+
+```bash
+python -m venv .sim
+```
+
+```bash
+.sim/Scripts/python -m pip install ipython "git+https://github.com/SyedZainAliShah/clippr.git"
+```
+
+```bash
+.sim/Scripts/python validation/notebook_on_published_build.py . notebooks/CLIPPR_designer.ipynb
+```
+
+On Linux or macOS the interpreter is `.sim/bin/python`. `ipython` is installed because Colab
+has it and some cells call `display()`; without it the harness reports failures a real Colab
+would not have.
+
+Append `@<branch>` to the install URL to check a branch before merging it — that is what
+established the current branch cannot break the notebook.
 
 ## Level-1 readiness
 

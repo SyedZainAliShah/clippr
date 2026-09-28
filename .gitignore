@@ -1,5 +1,7 @@
 # Environments and caches
 .venv/
+# Throwaway environment for validation/notebook_on_published_build.py
+.sim/
 __pycache__/
 *.py[cod]
 .pytest_cache/
