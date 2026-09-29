@@ -371,6 +371,21 @@ except ImportError:
 cells.append(md("""
 ## Why this design, and not another
 
+**First, what a junction is.** The gene is too long for one synthesised oligo, so it is cut
+into fragments — this design has 4, cut at residues 75, 151 and 226. A **junction** is each
+place two fragments rejoin, so 4 fragments have 3 junctions.
+
+Each junction needs a 4-base sticky end, the **overhang**, so the right two fragments anneal
+to each other and to nothing else. The constraint that makes this hard:
+
+> The overhang is made of **your own coding sequence** at that point. It is not a linker bolted
+> on. So the only overhangs available are the ones synonymous codons can spell there while
+> leaving the protein unchanged.
+
+That is the whole design problem: find 4 bases that code for the right amino acids, create no
+BsaI/BbsI/SapI site, and look sufficiently unlike the other junctions' overhangs that the
+fragments cannot assemble in the wrong order.
+
 Every junction records the overhangs it *could* have used and what became of each:
 
 - **selected** — the one used
@@ -453,17 +468,26 @@ an RNA off-target, and neither is a reverse-complement match in DNA — the tran
 that locus carries the other sequence. The scan reports both tiers so you can tell them
 apart.
 
-The *Chlamydomonas* chloroplast is 203,828 bases and 34.5% GC, with 109 annotated
-transcripts covering 43.5% of it. Over 200 random targets of each length:
+**Why the table below exists:** to tell you whether a hit is alarming or routine. Without a
+background rate, "your target occurs in a host transcript" sounds like a problem with your
+design. For a 9-mer it is usually just arithmetic.
 
-| target length | in genomic DNA | **in a transcript** |
+These figures were **measured once and written here**; the notebook does not recompute them.
+200 random targets of each length were scanned against the *Chlamydomonas* chloroplast —
+203,828 bases, 34.5% GC, 109 annotated transcripts covering 43.5% of it:
+
+| target length | found in genomic DNA | **found in a transcript** |
 |---|---|---|
 | 9 nt | 97 of 200 (48%) | **32 of 200 (16%)** |
-| 14 nt | 0 | 0 |
-| 19 nt | 0 | 0 |
+| 14 nt | 0 of 200 | 0 of 200 |
+| 19 nt | 0 of 200 | 0 of 200 |
 
-A nine-base sequence is not rare enough in a 204 kb genome; a fourteen-base one is. If a
-target comes back flagged in the transcript tier, lengthening it is the reliable fix.
+So roughly **one 9-mer in six** lands in a host transcript by chance alone. A nine-base
+sequence is simply not rare enough in a 204 kb genome. A fourteen-base one is: none of 200
+occurred anywhere.
+
+**If your target is flagged, lengthening it is the reliable fix** — not redesigning the
+protein.
 
 Occurrence is a *necessary* condition for an off-target interaction, never a sufficient
 one. This reports sequence, not affinity — no binding is predicted.
@@ -478,9 +502,18 @@ gc = 100 * (genome.count("G") + genome.count("C")) / len(genome)
 print(f"host: Chlamydomonas reinhardtii chloroplast, {len(genome):,} bp, {gc:.1f}% GC")
 print()
 
-print("expected occurrences by chance, for an average target:")
+# A count or a ratio, never a bare decimal: a dot is a thousands separator to many readers.
+print("how often an AVERAGE target of each length occurs in this genome by chance")
+print("(this is the background rate, not a result for your target):")
 for n, e in architecture_advice(genome).items():
-    print(f"  {n:>2}-nt target : {e:8.3f}")
+    if e >= 1:
+        how = f"about {round(e)} times over"
+    elif e > 0:
+        how = f"about once in every {round(1 / e):,} such targets".replace(",", " ")
+    else:
+        how = "essentially never"
+    verdict = "too short to be specific on its own" if e >= 1 else "specific"
+    print(f"  {n:>2}-nt target : {how}  ({verdict})")
 
 print()
 print(f"{len(transcripts)} annotated transcripts, "
@@ -555,6 +588,11 @@ arbitrate.
 """))
 
 cells.append(code('''
+#@markdown **`search_budget`** — how many complete candidate designs to build and score before
+#@markdown choosing. 2 is the fastest and barely a search; 12 explores most; 6 is the default.
+#@markdown Each candidate is a different set of cut positions and junction overhangs, built in
+#@markdown full and scored, so a larger budget costs proportionally more time and can only
+#@markdown improve or match the result — it never makes it worse.
 search_budget = 6  #@param {type:"slider", min:2, max:12, step:1}
 
 from clippr import design_searched
@@ -582,6 +620,10 @@ separated. Targets that sit close together risk one PPR binding another's UTR.
 """))
 
 cells.append(code('''
+#@markdown **These are three example targets, not derived from your target above.** Replace
+#@markdown them with your own set. The point of this cell is the *pairwise* question — whether
+#@markdown several regulators interfere with each other — which needs more than one target, so
+#@markdown it cannot reuse the single target from the top of the notebook.
 targets = "AAAAUGUGG, GCUAAAGAC, UUACACGUG"  #@param {type:"string"}
 
 from clippr import design_library

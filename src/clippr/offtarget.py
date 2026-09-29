@@ -220,10 +220,15 @@ def scan(target: str, genome: str | None = None,
 
 
 def architecture_advice(genome: str | None = None) -> dict[int, float]:
-    """Expected chance occurrences per architecture length, on genomic DNA.
+    """Expected chance occurrences for an **average** target of each length, on genomic DNA.
 
     The number that shows why length buys specificity. Genomic rather than transcript
     scale, so it is an upper bound on the risk rather than an estimate of it.
+
+    Averaged over composition, so it is not the figure for any particular target --
+    `expected_by_chance` gives that, and an A/T-rich target in an A/T-rich genome will differ.
+    Print the two with different labels; printed side by side as "expected" they read as a
+    contradiction, which is how a reviewer first encountered them.
     """
     g = load_genome() if genome is None else genome
     total = len(g)
@@ -233,13 +238,25 @@ def architecture_advice(genome: str | None = None) -> dict[int, float]:
 
 
 def report(results: list[dict]) -> str:
-    """A readable summary, keeping the two tiers visibly separate."""
+    """A readable summary, keeping the two tiers visibly separate.
+
+    The `expected` column is for **this** target, from its own base composition -- not the
+    mean over all targets of that length, which `architecture_advice` reports and which is a
+    different and usually larger number. Both were once printed as "expected" a few lines
+    apart, and a reviewer reasonably read the pair as a contradiction.
+    """
     lines = [f"{'target':<22}{'len':>4}{'transcript':>12}{'genomic':>9}"
-             f"{'expected':>10}  verdict",
-             "-" * 92]
+             f"{'expected here':>15}  verdict",
+             "-" * 97]
     for r in results:
         lines.append(f"{r['target']:<22}{r['length']:>4}{r['n_transcript']:>12}"
-                     f"{r['n_genomic']:>9}{r['expected_by_chance']:>10.2f}  {r['verdict']}")
+                     f"{r['n_genomic']:>9}{r['expected_by_chance']:>15.2f}  {r['verdict']}")
+    lines.append("")
+    lines.append('"expected here" is how often THIS target should occur by chance, given its '
+                 "own base composition.")
+    lines.append("An A/T-rich target occurs more often than average in an A/T-rich genome, so "
+                 "it will not match")
+    lines.append("the figure for an average target of the same length.")
     flagged = [r for r in results if r["n_transcript"]]
     if flagged:
         lines.append("")
@@ -247,6 +264,14 @@ def report(results: list[dict]) -> str:
         for r in flagged:
             for h in r["transcript_hits"][:3]:
                 lines.append(f"  {r['target']}  {h}")
+        lines.append("")
+        lines.append("Every name above is a HOST gene, not your construct. These are "
+                     "off-targets: places the")
+        lines.append("host already carries your sequence. This tool is given a bare target "
+                     "and does not know")
+        lines.append("where your intended site lives, so it cannot exclude it -- if one of "
+                     "these IS your intended")
+        lines.append("locus, only you can tell.")
     lines.append("")
     lines.append("Sequence occurrence is necessary for an off-target interaction, not "
                  "sufficient. No binding affinity is predicted here.")
