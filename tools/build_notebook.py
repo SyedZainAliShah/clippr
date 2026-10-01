@@ -11,6 +11,7 @@ from notebook_kit import REPO, code, colab_url, md, setup_cell, write_notebook
 OUT = Path("notebooks/CLIPPR_designer.ipynb")
 NAME = "CLIPPR_designer.ipynb"
 COLAB = colab_url(NAME)
+INVENTORY_COLAB = colab_url("CLIPPR_inventory.ipynb")
 DIAGRAM = Path("notebooks/pipeline.svg")
 #: Measured, not recalled: the sum of `pytest --collect-only -q` on 2026-10-01.
 #: Re-measure when tests are added or removed. A badge nothing recomputes goes stale,
@@ -18,8 +19,6 @@ DIAGRAM = Path("notebooks/pipeline.svg")
 TESTS = 927
 #: Served from the repository rather than inlined -- see pipeline_svg().
 DIAGRAM_URL = f"https://raw.githubusercontent.com/{REPO}/main/{DIAGRAM.as_posix()}"
-
-
 
 
 cells = []
@@ -101,7 +100,7 @@ cells.append(md(f"""
 
 # CLIPPR
 
-### Design a PPR protein that binds any RNA sequence you choose
+**Design a PPR protein that binds any RNA sequence you choose**
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]({COLAB})
 [![License: MIT](https://img.shields.io/badge/License-MIT-1a7f5a.svg)](https://github.com/{REPO}/blob/main/LICENSE)
@@ -131,8 +130,13 @@ So the protein is a deterministic function of your target — no catalogue to se
 nine bases and you get a nine-repeat protein, a synthesisable coding sequence, a Golden Gate
 assembly plan, and the fragments to order.
 
-**Four steps.** Edit **Step 1**, then run Steps 2, 3 and 4 in order. Everything marked
-*Optional* can be skipped entirely — run one when you want that particular check.
+**Four steps.** Run **0 · Setup** once, edit **1**, then run **2**, **3** and **4** in order.
+Everything under *Optional extras* can be skipped — open one when you want that check.
+Code is hidden behind the forms; use a cell's ⋮ menu → **Form → Show code** to read it.
+
+> **Designing from the deposited 42-module kit instead?** That is a different workflow with a
+> different set of answers, so it has its own notebook:
+> [CLIPPR_inventory.ipynb]({INVENTORY_COLAB}).
 
 > ##### Before you read any number
 > **Predicted fidelity** comes from published ligation-count matrices (Pryor *et al.* 2020) —
@@ -142,9 +146,21 @@ assembly plan, and the fragments to order.
 """))
 
 # ---------------------------------------------------------------- install
+cells.append(md("""
+## 0 · Setup
+
+Run once — installs CLIPPR from GitHub, about a minute.
+"""))
+
 cells.append(setup_cell())
 
 # ---------------------------------------------------------------- parameters
+cells.append(md("""
+## 1 · Your target and host
+
+The only cell you have to edit. Everything else runs on what you set here.
+"""))
+
 cells.append(code('''
 #@markdown # 1 · What should it bind?
 #@markdown ---
@@ -165,14 +181,16 @@ organism = "c_reinhardtii_nuclear"  #@param ["c_reinhardtii_nuclear", "c_reinhar
 #@markdown ### Your own codon usage — optional
 #@markdown Leave all three blank to use the host above. Highest filled one wins.
 #@markdown
-#@markdown **A file** — a `codon,frequency` CSV or a CDS FASTA. Upload it with the folder
-#@markdown icon in the sidebar, then put the filename here.
+#@markdown **`codon_table_file`** — a `codon,frequency` CSV or a CDS FASTA. Upload it with
+#@markdown the folder icon in the sidebar, then put the filename here.
+#@markdown
+#@markdown **`kazusa_taxid`** — any NCBI taxonomy id Kazusa carries, e.g. `4577` for maize.
+#@markdown Fetched and cached on first use.
+#@markdown
+#@markdown **`genetic_code_override`** — the genetic code for a table you supplied. Leave 0
+#@markdown to inherit from the host; set 11 for anything organellar.
 codon_table_file = ""  #@param {type:"string"}
-#@markdown **A Kazusa species id** — any NCBI taxonomy id Kazusa carries, e.g. `4577` for
-#@markdown maize. Fetched and cached on first use.
 kazusa_taxid = 0  #@param {type:"integer"}
-#@markdown **The genetic code** for a table you supplied. Leave 0 to inherit from the host;
-#@markdown set 11 for anything organellar.
 genetic_code_override = 0  #@param {type:"integer"}
 
 #@markdown # 3 · How will it be assembled?
@@ -188,9 +206,10 @@ ligation_table = "BsaI-HFv2"  #@param ["BsaI-HFv2", "BbsI-HF"]
 #@markdown `igem_rfc1000` — adds SapI, required by iGEM's Type IIS standard &nbsp;·&nbsp;
 #@markdown `moclo_compat` — adds BsmBI to keep later MoClo levels open, a preference that can
 #@markdown make some junctions infeasible.
+#@markdown
+#@markdown **`extra_blacklist`** — anything else this experiment needs kept clear,
+#@markdown comma-separated. Any name Biopython knows, for example `EcoRI, BamHI, HindIII, NotI`.
 enzyme_profile = "igem_rfc1000"  #@param ["assembly", "igem_rfc1000", "moclo_compat"]
-#@markdown Anything else this experiment needs kept clear, comma-separated. Any name
-#@markdown Biopython knows — for example `EcoRI, BamHI, HindIII, NotI`.
 extra_blacklist = ""  #@param {type:"string"}
 
 #@markdown ### Destination vector
@@ -202,33 +221,26 @@ custom_destination = ""  #@param {type:"string"}
 
 #@markdown # 4 · Anything else
 #@markdown ---
-#@markdown How many pieces to split the gene into. Leave at 0 to let the length decide — set
-#@markdown it only if your vendor has an awkward limit.
+#@markdown **`n_fragments`** — how many pieces to split the gene into. Leave at 0 to let the
+#@markdown length decide; set it only if your vendor has an awkward limit.
+#@markdown
+#@markdown **`seed`** — the same seed always gives the same design.
+#@markdown
+#@markdown **`write_files`** writes the design files to disk, and **`check_offtarget`** checks
+#@markdown the target against the host genome.
 n_fragments = 0  #@param {type:"integer"}
-#@markdown The same seed always gives the same design.
 seed = 42  #@param {type:"integer"}
-#@markdown Write the design files to disk, and check the target against the host genome.
 write_files = True  #@param {type:"boolean"}
 check_offtarget = True  #@param {type:"boolean"}
-''', title="Step 1 — your target and host  (edit this)"))
-
-# ---------------------------------------------------------------- optional upload
-cells.append(code('''
-#@markdown Optional. Run this only if you want to upload a codon table from your computer
-#@markdown rather than type a path. It puts the file in the runtime and fills in the
-#@markdown filename for you — then re-run the Design cell.
-try:
-    from google.colab import files as _f
-    _up = _f.upload()
-    if _up:
-        codon_table_file = list(_up)[0]
-        print(f"using {codon_table_file}")
-except ImportError:
-    print("not running on Colab — put the file beside the notebook and give its path "
-          "in codon_table_file instead.")
-''', title="Optional — upload a codon table"))
+''', title="1 · Your target and host  (edit this)"))
 
 # ---------------------------------------------------------------- design + results
+cells.append(md("""
+## 2 · Design it
+
+Run it. Nothing to edit here.
+"""))
+
 cells.append(code('''
 #@markdown Picks cut positions and Golden Gate overhangs **first**, then codon-optimises with
 #@markdown those positions locked — optimising first would let the optimiser rewrite the very
@@ -307,11 +319,11 @@ card = (
     f'{cards}</div></div>{warn}')
 
 display(HTML(card))
-''', title="Step 2 — design it"))
+''', title="2 · Design it"))
 
 # ---------------------------------------------------------------- fragments
 cells.append(md("""
-## Step 3 · the fragments to order
+## 3 · The fragments to order
 
 One row per orderable piece. `oh5` and `oh3` are the four-base Golden Gate overhangs that
 join each fragment to its neighbours.
@@ -338,13 +350,13 @@ try:
                                          ("font-variant-numeric", "tabular-nums")]}]))
 except ImportError:
     display(table)
-''', title="Step 3 — the fragments to order"))
+''', title="3 · The fragments to order"))
 
 # ---------------------------------------------------------------- audit
 
 # ---------------------------------------------------------------- download
 cells.append(md("""
-## Step 4 · take the files
+## 4 · Take the files
 
 The order CSV, the oligos as FASTA, the assembled gene, and an annotated GenBank record —
 every PPR repeat labelled with the base it reads — that opens in Benchling or SnapGene.
@@ -378,14 +390,43 @@ else:
     if colab_files:
         for p in result["paths"].values():
             colab_files.download(p)
-''', title="Step 4 — download the files"))
+''', title="4 · Download the files"))
 
-# ---------------------------------------------------------------- library
-# ---------------------------------------------------------------- off-target
+# ---------------------------------------------------------------- optional extras
 cells.append(md("""
 ---
 
-## Optional · does this target already occur in the host?
+## Optional extras
+
+*Nothing below is needed to place an order.* Use the arrow beside this heading to collapse
+the whole section, or open any single item.
+"""))
+
+# ---------------------------------------------------------------- upload a codon table
+cells.append(md("""
+### Upload a codon table
+
+Only if you want to supply your own codon usage from a file rather than typing a path.
+"""))
+
+cells.append(code('''
+#@markdown Optional. Run this only if you want to upload a codon table from your computer
+#@markdown rather than type a path. It puts the file in the runtime and fills in the
+#@markdown filename for you — then re-run the Design cell.
+try:
+    from google.colab import files as _f
+    _up = _f.upload()
+    if _up:
+        codon_table_file = list(_up)[0]
+        print(f"using {codon_table_file}")
+except ImportError:
+    print("not running on Colab — put the file beside the notebook and give its path "
+          "in codon_table_file instead.")
+''', title="Upload a codon table"))
+
+# ---------------------------------------------------------------- off-target
+cells.append(md("""
+### Does this target already occur in the host?
 
 This looks for your target as an **exact match** in the *Chlamydomonas* chloroplast reference.
 A match means the host already carries that sequence — a reason to look closer, **not** a
@@ -433,12 +474,12 @@ if expected is not None:
 print()
 print(f"host: Chlamydomonas reinhardtii chloroplast, {len(genome):,} bp, "
       f"{len(transcripts)} annotated transcripts")
-''', title="Optional — is this target unique in the host?"))
+''', title="Does this target occur in the host?"))
 
 cells.append(md("""
 ---
 
-## Optional · do you already own the parts?
+### Do you already own the parts?
 
 Everything above designs DNA to be **synthesised**. The GRASP authors also deposited a
 42-plasmid kit, and a lab holding it can assemble many PPRs from parts it already has.
@@ -461,12 +502,12 @@ from clippr import parts_report, select_parts
 
 plan = select_parts(target_rna)
 print(parts_report(plan))
-''', title="Optional — can you build this from parts you own?"))
+''', title="Build it from parts you own"))
 
 cells.append(md("""
 ---
 
-## Optional · designing a whole library
+### Designing a whole library
 
 For a set of regulators what matters is **orthogonality**: PPRᵢ must bind UTRᵢ and not UTRⱼ.
 The matrix below is the pairwise distance between targets — larger is better separated.
@@ -496,14 +537,14 @@ print()
 print(lib.summary())
 print()
 print(lib.crosstalk())
-''', title="Optional — design a whole library"))
+''', title="Design a whole library"))
 
 cells.append(code('''
 lib.qc_table()
-''', title="Optional — library QC table"))
+''', title="Library QC table"))
 
 cells.append(md("""
-### Optional · DNA shared between members
+### DNA shared between members
 
 Cross-talk asks whether two PPRs could bind each other's **target**. This asks whether two
 **genes** share enough identical DNA to recombine — a different question. Every member
@@ -519,10 +560,10 @@ will happen, and 50 nt is a rule of thumb rather than a measured constant for th
 
 cells.append(code('''
 print(lib.homology())
-''', title="Optional — DNA shared between members"))
+''', title="DNA shared between members"))
 
 cells.append(md("""
-### Optional · cross-talk, in two tiers
+### Cross-talk, in two tiers
 
 Sequence separation and *predicted binding* are different questions, so they stay apart:
 
@@ -555,7 +596,7 @@ if scores:
     print()
     print("A disagreement is a reading recommendation, not a failed design —")
     print("tier A alone decides what this library accepts.")
-''', title="Optional — cross-talk between targets"))
+''', title="Cross-talk between targets"))
 
 
 cells.append(md("""
@@ -592,7 +633,27 @@ if len(rejected) > 8:
     print(f"    … and {len(rejected) - 8} more")
 if not rejected:
     print("    (every achievable overhang was usable at every junction)")
-''', title="Going deeper — the design audit"))
+''', title="Going deeper: the design audit"))
+
+cells.append(md(f"""
+---
+
+## What each step does
+
+| Step | What happens |
+|---|---|
+| **0 · Setup** | installs CLIPPR from GitHub |
+| **1 · Target and host** | your target RNA, codon table, enzyme and destination |
+| **2 · Design it** | target to protein, then cuts and overhangs chosen **before** the coding sequence is optimised, so the optimiser cannot rewrite the bases the junctions depend on |
+| **3 · Fragments** | the oligo table you order |
+| **4 · Files** | FASTA, GenBank and the oligo CSV |
+| *Optional extras* | host occurrence check, the deposited-kit route, a whole library, cross-talk |
+| *Going deeper* | every overhang considered at every junction, and why each was kept or ruled out |
+
+**Predicted fidelity** is from published ligation-count matrices (Pryor *et al.* 2020), not a measured efficiency in your hands. **QC** is a sequence-complexity check, not calibrated against vendor outcomes. No sequence from this project has been synthesised.
+
+Building from the deposited 42-module kit instead? [CLIPPR_inventory.ipynb]({INVENTORY_COLAB})
+"""))
 
 DIAGRAM.write_text(pipeline_svg(), encoding="utf-8")
 print(f"wrote {DIAGRAM} ({DIAGRAM.stat().st_size} B)")

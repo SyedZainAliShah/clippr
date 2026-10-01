@@ -12,6 +12,7 @@ from notebook_kit import code, colab_url, md, setup_cell, write_notebook
 
 OUT = Path("notebooks/CLIPPR_inventory.ipynb")
 NAME = "CLIPPR_inventory.ipynb"
+DESIGNER_COLAB = colab_url("CLIPPR_designer.ipynb")
 
 cells = [
     md(f"""
@@ -30,7 +31,8 @@ cells = [
 ---
 
 **Use this notebook if you hold the kit.** If you want a PPR designed and synthesised from
-scratch, use `CLIPPR_designer.ipynb` instead — that is the other route, and it needs no kit.
+scratch, use [CLIPPR_designer.ipynb]({DESIGNER_COLAB}) instead — the other route, which
+needs no kit.
 
 Recode the kit once for your host, then *compile* targets from it: the DNA is ordered once
 and reused. The kit can only spell the targets its modules cover, which is the trade you are
