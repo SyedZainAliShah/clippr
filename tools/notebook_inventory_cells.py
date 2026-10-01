@@ -16,19 +16,7 @@ def cells(md, code):
     out.append(md("""
 ---
 
-# The reusable-inventory route
-
-Everything above designs a **new coding sequence per target**. This section is the other
-route: take the deposited GRASP module kit, recode it once for your host, then *compile*
-targets from it — the DNA is ordered once and reused.
-
-The two routes answer different questions. Synthesis gives you any target the PPR code can
-express. The kit gives you the targets its modules can spell, far more cheaply, because you
-are assembling parts you already have.
-
-**This route needs Supplementary Table S1.** It holds the module insert sequences and is not
-distributed with this package — see `NOTICE.md`. Upload it below. Every step after the recode
-works from a *saved inventory*, which carries its own sequences, so you need Table S1 once.
+## Step 1 — load the deposited kit
 """))
 
     out.append(code('''
@@ -41,8 +29,8 @@ from pathlib import Path
 from clippr import inventories as inv
 from clippr import workflow as w
 
-# This route resolves its own codon table, from the same organism and file chosen in the
-# design form above. It cannot borrow the name `table`: the fragment-table cell rebinds that
+# Resolves the codon table from the host form above. It cannot borrow the name `table`:
+# that name is used elsewhere for a dataframe
 # to a display DataFrame, so every call here was handed a DataFrame and raised. The name is
 # distinct so a later display cell cannot shadow it again.
 from clippr import constants as _C
@@ -250,15 +238,14 @@ releases the level-0 fragment with the correct exposed ends, and each is digest-
 before export. An A-module insert starts with its own `AATG` fusion site, while the substrate
 must expose `CTCA` — ordering the insert would order something that cannot assemble.
 
-**A local check is not vendor approval.** The shipped profile carries this project's
-historical price constants and deliberately **refuses to price**, because an undated number
-presented as current is worse than no number at all. Eligibility, pooling and export work
-without one; supply a dated profile to get an estimate.
+**A local check is not vendor approval.** Eligibility and pooling are checked against a
+written-down reading of the vendor's published rules; the vendor's current documentation is
+always the authority, and no order is placed here.
 """))
 
     out.append(code('''
-#@markdown Leave blank for the current published oPools rules (unpriced).
-#@markdown Supply a dated profile JSON to get a cost estimate.
+#@markdown Leave blank for the current published oPools rules. Supply your own profile
+#@markdown JSON to check against a different product.
 profile_file = ""  #@param {type:"string"}
 
 from clippr.ordering import CURRENT_OPOOL_50PMOL, load_profile
@@ -282,12 +269,6 @@ else:
     for failure in order.failures:
         print(f"   {failure['stage']}: {failure['reason']}")
 
-    cost = order.data["cost"]
-    if cost["available"]:
-        print(f"   estimate {cost['total']} {cost['currency']} "
-              f"(priced {cost['priced_on']}) -- an estimate, not a quote")
-    else:
-        print(f"   cost unavailable: {cost['reason']}")
     print()
     for rule in order.data["eligibility"]["unresolved"]:
         print(f"   unresolved: {rule}")

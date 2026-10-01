@@ -4,26 +4,22 @@ Written as a generator rather than hand-edited JSON so cell order, titles and th
 metadata stay consistent, and so the whole notebook can be regenerated after an API change
 instead of patched.
 """
-import json
 from pathlib import Path
 
+from notebook_kit import REPO, code, colab_url, md, setup_cell, write_notebook
+
 OUT = Path("notebooks/CLIPPR_designer.ipynb")
-REPO = "SyedZainAliShah/clippr"
-COLAB = f"https://colab.research.google.com/github/{REPO}/blob/main/notebooks/CLIPPR_designer.ipynb"
+NAME = "CLIPPR_designer.ipynb"
+COLAB = colab_url(NAME)
 DIAGRAM = Path("notebooks/pipeline.svg")
+#: Measured, not recalled: the sum of `pytest --collect-only -q` on 2026-10-01.
+#: Re-measure when tests are added or removed. A badge nothing recomputes goes stale,
+#: and this one read 283 for long enough to be wrong by 644.
+TESTS = 927
 #: Served from the repository rather than inlined -- see pipeline_svg().
 DIAGRAM_URL = f"https://raw.githubusercontent.com/{REPO}/main/{DIAGRAM.as_posix()}"
 
 
-def md(text):
-    return {"cell_type": "markdown", "metadata": {}, "source": text.strip("\n").splitlines(True)}
-
-
-def code(text, title=None, form=True):
-    meta = {"cellView": "form"} if (title and form) else {}
-    body = (f'#@title {title} {{display-mode: "form"}}\n' if title else "") + text.strip("\n")
-    return {"cell_type": "code", "execution_count": None, "metadata": meta,
-            "outputs": [], "source": body.splitlines(True)}
 
 
 cells = []
@@ -109,7 +105,7 @@ cells.append(md(f"""
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]({COLAB})
 [![License: MIT](https://img.shields.io/badge/License-MIT-1a7f5a.svg)](https://github.com/{REPO}/blob/main/LICENSE)
-[![Tests](https://img.shields.io/badge/tests-283%20passing-1a7f5a.svg)](https://github.com/{REPO})
+[![Tests](https://img.shields.io/badge/tests-{TESTS}%20passing-1a7f5a.svg)](https://github.com/{REPO})
 
 **iGEM Marburg 2026**
 
@@ -140,100 +136,77 @@ assembly plan, and the fragments to order.
 > ##### Before you read any number
 > **Predicted fidelity** comes from published ligation-count matrices (Pryor *et al.* 2020) —
 > it is not a measured assembly efficiency in your hands. **QC** is a sequence-complexity
-> check, not calibrated against vendor outcomes. **Cost** is a list price, not a quote.
+> check, not calibrated against vendor outcomes.
 > Nothing here has been validated at the bench.
 """))
 
 # ---------------------------------------------------------------- install
-cells.append(code(f'''
-#@markdown Installs the package if it is not already available. Safe to re-run — it never
-#@markdown reinstalls over a working copy.
-REPO = "{REPO}"
-
-try:
-    import clippr
-    _msg = f"clippr {{clippr.__version__}} already available"
-except ImportError:
-    token = None
-    try:
-        from google.colab import userdata          # private-repo fallback
-        token = userdata.get("GITHUB_TOKEN")
-    except Exception:
-        pass
-    url = (f"git+https://{{token}}@github.com/{{REPO}}.git" if token
-           else f"git+https://github.com/{{REPO}}.git")
-    %pip install --quiet $url
-    import clippr
-    _msg = f"installed clippr {{clippr.__version__}}"
-
-from IPython.display import HTML, display
-display(HTML(
-    f'<div style="border-left:3px solid #1a7f5a;padding:.5em .9em;'
-    f'font-family:ui-monospace,monospace;font-size:13px;opacity:.85">{{_msg}}</div>'))
-''', title="Setup — install CLIPPR"))
+cells.append(setup_cell())
 
 # ---------------------------------------------------------------- parameters
 cells.append(code('''
-#@markdown ### Target
-#@markdown The RNA sequence the PPR should bind. **Its length sets the architecture** —
+#@markdown # 1 · What should it bind?
+#@markdown ---
+#@markdown The RNA sequence your PPR will recognise. **Its length sets the architecture** —
 #@markdown 9, 14 or 19 bases give a 9S, 14S or 19S protein.
 target_rna = "AAAAUGUGG"  #@param {type:"string"}
 
-#@markdown ### Host
-#@markdown The genetic code follows automatically — nuclear hosts use table 1, chloroplasts
-#@markdown table 11. **The two Chlamydomonas entries are not interchangeable:** the nucleus
-#@markdown is GC-rich and prefers Leu `CTG` (0.73); the chloroplast is AT-rich and prefers
-#@markdown Leu `TTA` (0.74). Using one for the other produces DNA that looks fine and is wrong.
+#@markdown # 2 · Where will it be expressed?
+#@markdown ---
+#@markdown Sets the codon usage and the genetic code (nuclear hosts use table 1,
+#@markdown chloroplasts table 11).
+#@markdown
+#@markdown ⚠️ **The two Chlamydomonas entries are not interchangeable.** The nucleus is
+#@markdown GC-rich and prefers Leu `CTG`; the chloroplast is AT-rich and prefers Leu `TTA`.
+#@markdown Using one for the other produces DNA that looks fine and is wrong.
 organism = "c_reinhardtii_nuclear"  #@param ["c_reinhardtii_nuclear", "c_reinhardtii_chloroplast", "e_coli", "s_cerevisiae", "a_thaliana_nuclear", "n_tabacum_chloroplast"]
 
-#@markdown ### Or bring your own codon usage
-#@markdown Three ways, in order of precedence. Leave all blank to use the host above.
+#@markdown ### Your own codon usage — optional
+#@markdown Leave all three blank to use the host above. Highest filled one wins.
 #@markdown
 #@markdown **A file** — a `codon,frequency` CSV or a CDS FASTA. Upload it with the folder
-#@markdown icon in the sidebar, or run the upload cell below, then put the filename here.
+#@markdown icon in the sidebar, then put the filename here.
 codon_table_file = ""  #@param {type:"string"}
-#@markdown **A Kazusa species ID** — any NCBI taxonomy id Kazusa carries, e.g. `4577` for
+#@markdown **A Kazusa species id** — any NCBI taxonomy id Kazusa carries, e.g. `4577` for
 #@markdown maize. Fetched and cached on first use.
 kazusa_taxid = 0  #@param {type:"integer"}
-#@markdown **The genetic code** to go with a table you supplied. Leave 0 to inherit from
-#@markdown the host. Set 11 for anything organellar — a nuclear code on a chloroplast
-#@markdown construct produces DNA that looks fine and is wrong.
+#@markdown **The genetic code** for a table you supplied. Leave 0 to inherit from the host;
+#@markdown set 11 for anything organellar.
 genetic_code_override = 0  #@param {type:"integer"}
 
-#@markdown ### Which enzyme sites must be absent
-#@markdown `assembly` — this assembly's own chemistry (BsaI, BbsI)
-#@markdown &nbsp;&nbsp;·&nbsp; `igem_rfc1000` — adds SapI, required by iGEM's Type IIS standard
-#@markdown &nbsp;&nbsp;·&nbsp; `moclo_compat` — adds BsmBI to keep later MoClo levels open,
-#@markdown a preference that can make some junctions infeasible
-enzyme_profile = "igem_rfc1000"  #@param ["assembly", "igem_rfc1000", "moclo_compat"]
-
-#@markdown **Extra sites to keep clear** — anything else this particular experiment needs
-#@markdown absent, beyond the profile. Comma-separated, any name Biopython knows.
-#@markdown Examples: `EcoRI, BamHI, HindIII, NotI`.
-extra_blacklist = ""  #@param {type:"string"}
-
-#@markdown ### Assembly
+#@markdown # 3 · How will it be assembled?
+#@markdown ---
 #@markdown Which Type IIS enzyme cuts the fragments out, and which published mis-ligation
 #@markdown table scores the junctions. `BsaI-HFv2` and `BbsI-HF` are the two measured in
 #@markdown Pryor *et al.* 2020 at 25 °C over 18 h.
 assembly_enzyme = "BsaI"  #@param ["BsaI", "BbsI", "BsmBI", "SapI"]
 ligation_table = "BsaI-HFv2"  #@param ["BsaI-HFv2", "BbsI-HF"]
 
-#@markdown ### Destination vector level
-#@markdown Or type your own acceptor overhangs below as `5prime,3prime` coding sites —
-#@markdown they override the level. Remember the 3' entry is the **coding site**; the
-#@markdown enzyme leaves its reverse complement.
+#@markdown ### Which enzyme sites must be absent
+#@markdown `assembly` — this assembly's own chemistry only &nbsp;·&nbsp;
+#@markdown `igem_rfc1000` — adds SapI, required by iGEM's Type IIS standard &nbsp;·&nbsp;
+#@markdown `moclo_compat` — adds BsmBI to keep later MoClo levels open, a preference that can
+#@markdown make some junctions infeasible.
+enzyme_profile = "igem_rfc1000"  #@param ["assembly", "igem_rfc1000", "moclo_compat"]
+#@markdown Anything else this experiment needs kept clear, comma-separated. Any name
+#@markdown Biopython knows — for example `EcoRI, BamHI, HindIII, NotI`.
+extra_blacklist = ""  #@param {type:"string"}
+
+#@markdown ### Destination vector
+#@markdown Or type your own acceptor overhangs below as `5prime,3prime` coding sites, which
+#@markdown override the level. The 3' entry is the **coding site**; the enzyme leaves its
+#@markdown reverse complement.
 destination_level = "level0"  #@param ["level_minus1", "level0", "level1"]
 custom_destination = ""  #@param {type:"string"}
 
-#@markdown ### Fragments
-#@markdown How many pieces to split the gene into. Leave at 0 to let the length decide —
-#@markdown set it only if your vendor has an awkward limit.
+#@markdown # 4 · Anything else
+#@markdown ---
+#@markdown How many pieces to split the gene into. Leave at 0 to let the length decide — set
+#@markdown it only if your vendor has an awkward limit.
 n_fragments = 0  #@param {type:"integer"}
-
-#@markdown ### Reproducibility
 #@markdown The same seed always gives the same design.
 seed = 42  #@param {type:"integer"}
+#@markdown Write the design files to disk, and check the target against the host genome.
 write_files = True  #@param {type:"boolean"}
 check_offtarget = True  #@param {type:"boolean"}
 ''', title="Design parameters — edit these"))
@@ -328,8 +301,7 @@ card = (
     f'{result["target_rna"]}</span>'
     f'<span style="background:{tone};color:#fff;font-size:11px;font-weight:700;'
     f'letter-spacing:.07em;padding:.2em .7em;border-radius:99px">{qc["status"]}</span>'
-    f'<span style="margin-left:auto;font-size:12.5px;opacity:.65">'
-    f'{result["cost"]["total_eur"]:.2f} EUR list price · not a quote</span></div>'
+    f'</div>'
     f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">'
     f'{cards}</div></div>{warn}')
 
@@ -368,60 +340,13 @@ except ImportError:
 ''', title="Fragment table"))
 
 # ---------------------------------------------------------------- audit
-cells.append(md("""
-## Why this design, and not another
-
-**First, what a junction is.** The gene is too long for one synthesised oligo, so it is cut
-into fragments — this design has 4, cut at residues 75, 151 and 226. A **junction** is each
-place two fragments rejoin, so 4 fragments have 3 junctions.
-
-Each junction needs a 4-base sticky end, the **overhang**, so the right two fragments anneal
-to each other and to nothing else. The constraint that makes this hard:
-
-> The overhang is made of **your own coding sequence** at that point. It is not a linker bolted
-> on. So the only overhangs available are the ones synonymous codons can spell there while
-> leaving the protein unchanged.
-
-That is the whole design problem: find 4 bases that code for the right amino acids, create no
-BsaI/BbsI/SapI site, and look sufficiently unlike the other junctions' overhangs that the
-fragments cannot assemble in the wrong order.
-
-Every junction records the overhangs it *could* have used and what became of each:
-
-- **selected** — the one used
-- **considered** — feasible, but another scored at least as well
-- **rejected** — no synonymous codon arrangement could avoid an excluded enzyme site, so
-  that junction is *impossible* under the active profile, not merely worse
-
-`local realizations` counts the synonymous arrangements still available around a junction.
-It is reported, never used to choose — but a junction with 2 is more fragile than one with
-16, and that is worth seeing before you order.
-
-**If a design looks surprising, read this rather than trusting it.**
-"""))
-
-cells.append(code('''
-audit = result["audit"]
-print(audit.report())
-
-rejected = audit.rejected
-print(f"\\n{len(rejected)} candidate overhang(s) ruled out entirely under "
-      f"profile '{audit.enzyme_profile}'")
-for d in rejected[:8]:
-    print(f"    {d.sequence}  cut {d.junction_cut:>4d}   {d.reason}")
-if len(rejected) > 8:
-    print(f"    … and {len(rejected) - 8} more")
-if not rejected:
-    print("    (every achievable overhang was usable at every junction)")
-''', title="Design audit"))
 
 # ---------------------------------------------------------------- download
 cells.append(md("""
 ## Take the files
 
-Four artefacts: the order CSV, the oligos as FASTA, the assembled gene, and an annotated
-GenBank record — every PPR repeat labelled with the base it reads — that opens directly in
-Benchling or SnapGene.
+The order CSV, the oligos as FASTA, the assembled gene, and an annotated GenBank record —
+every PPR repeat labelled with the base it reads — that opens in Benchling or SnapGene.
 """))
 
 cells.append(code('''
@@ -457,40 +382,21 @@ else:
 # ---------------------------------------------------------------- library
 # ---------------------------------------------------------------- off-target
 cells.append(md("""
-## Does this target also exist in the chloroplast?
+---
+
+## Is this target unique in the host?
 
 A PPR cannot tell which copy of a sequence you meant. If your target also occurs in an
 endogenous chloroplast transcript, the protein binds there too and stops being specific to
 your construct.
 
-**A PPR binds RNA, so only transcripts count.** A match in a non-transcribed region is not
-an RNA off-target, and neither is a reverse-complement match in DNA — the transcript from
-that locus carries the other sequence. The scan reports both tiers so you can tell them
-apart.
+**Only transcripts count.** A match in non-transcribed DNA is not an RNA off-target, and
+neither is a reverse-complement match — the transcript from that locus carries the other
+sequence. Both tiers are reported so you can tell them apart.
 
-**Why the table below exists:** to tell you whether a hit is alarming or routine. Without a
-background rate, "your target occurs in a host transcript" sounds like a problem with your
-design. For a 9-mer it is usually just arithmetic.
-
-These figures were **measured once and written here**; the notebook does not recompute them.
-200 random targets of each length were scanned against the *Chlamydomonas* chloroplast —
-203,828 bases, 34.5% GC, 109 annotated transcripts covering 43.5% of it:
-
-| target length | found in genomic DNA | **found in a transcript** |
-|---|---|---|
-| 9 nt | 97 of 200 (48%) | **32 of 200 (16%)** |
-| 14 nt | 0 of 200 | 0 of 200 |
-| 19 nt | 0 of 200 | 0 of 200 |
-
-So roughly **one 9-mer in six** lands in a host transcript by chance alone. A nine-base
-sequence is simply not rare enough in a 204 kb genome. A fourteen-base one is: none of 200
-occurred anywhere.
-
-**If your target is flagged, lengthening it is the reliable fix** — not redesigning the
-protein.
-
-Occurrence is a *necessary* condition for an off-target interaction, never a sufficient
-one. This reports sequence, not affinity — no binding is predicted.
+Occurrence is a *necessary* condition for an off-target interaction, never a sufficient one:
+this reports sequence, not affinity. The background rates behind the verdict, and how they
+were measured, are in `CLIPPR_FOR_THE_WET_LAB.md`.
 """))
 
 cells.append(code('''
@@ -498,58 +404,47 @@ from clippr.offtarget import architecture_advice, load_genome, load_transcripts,
 
 genome = load_genome()
 transcripts = load_transcripts()
-gc = 100 * (genome.count("G") + genome.count("C")) / len(genome)
-print(f"host: Chlamydomonas reinhardtii chloroplast, {len(genome):,} bp, {gc:.1f}% GC")
-print()
 
-# A count or a ratio, never a bare decimal: a dot is a thousands separator to many readers.
-print("how often an AVERAGE target of each length occurs in this genome by chance")
-print("(this is the background rate, not a result for your target):")
-for n, e in architecture_advice(genome).items():
-    if e >= 1:
-        how = f"about {round(e)} times over"
-    elif e > 0:
-        how = f"about once in every {round(1 / e):,} such targets".replace(",", " ")
-    else:
-        how = "essentially never"
-    verdict = "too short to be specific on its own" if e >= 1 else "specific"
-    print(f"  {n:>2}-nt target : {how}  ({verdict})")
-
-print()
-print(f"{len(transcripts)} annotated transcripts, "
-      f"{sum(len(x.sequence) for x in transcripts):,} nt "
-      f"({100*sum(len(x.sequence) for x in transcripts)/len(genome):.1f}% of the genome)")
-print()
+# The answer first. A background-rate table printed above the result made readers ask what
+# the statistic was for before they had seen whether their own target was flagged.
 print(report([scan(target_rna, genome, transcripts)]))
-''', title="Off-target check — does the host already contain this sequence?"))
+
+# Length is the lever that actually fixes a flagged target, so it belongs beside the result.
+expected = architecture_advice(genome).get(len(target_rna))
+print()
+if expected is not None and expected >= 1:
+    print(f"A {len(target_rna)}-base target is short enough that a genome this size is")
+    print("expected to contain one by chance, so a hit here is arithmetic, not a fault in")
+    print("the design. Lengthening the target is the reliable fix: across 200 random trials")
+    print("a 14-base target occurred nowhere in this genome.")
+else:
+    print(f"A {len(target_rna)}-base target is long enough to be specific in a genome this")
+    print("size, so a hit here is a real finding rather than background.")
+
+print()
+print(f"host: Chlamydomonas reinhardtii chloroplast, {len(genome):,} bp, "
+      f"{len(transcripts)} annotated transcripts")
+''', title="Off-target check - is this target unique in the host?"))
 
 cells.append(md("""
 ---
 
 ## Do you already own the parts?
 
-Everything above designs DNA to be **synthesised**. But the GRASP authors deposited a
-42-plasmid kit, and a lab that holds it can assemble many PPRs from parts it already has. For
-such a lab, "order 906 nt of new DNA" is the wrong answer to a question with a cheaper one.
+Everything above designs DNA to be **synthesised**. The GRASP authors also deposited a
+42-plasmid kit, and a lab holding it can assemble many PPRs from parts it already has.
 
-So a target gets two realisation routes, judged by the same audit:
-
-| route | what it costs | what it constrains |
+| route | what you supply | what it constrains |
 |---|---|---|
 | **de novo synthesis** | new DNA | nothing — full synonymous freedom |
-| **GRASP module kit** | nothing, if you hold the kit | fixed to the deposited parts |
+| **GRASP module kit** | parts you already hold | fixed to the deposited modules |
 
-The kit turns out to be sized exactly for its job. Modules chain by their Golden Gate
-overhangs through a graph with a single branch point, one run of `B C D` plus a linker
-contributes five modules, and an *n*-base target needs *n+1* modules — so 9, 14 and 19 bases
-need two, three and four sub-assemblies. Each internal join consumes one linker pair, 19S needs
-three, and the kit contains exactly three. It cannot build anything longer, and the cell below
-says so plainly when asked.
+An *n*-base target needs *n*+1 modules, and each internal join consumes one linker pair. The
+kit holds exactly three, so 19 bases is the longest it can build — the cell below says so
+plainly when asked for more.
 
-> Module identity, overhangs and plate positions are derived from **Dennis et al. 2025
-> Supplementary Table S1**, and the selection reproduces the module lists published in Table S2
-> for 28 of 28 internally consistent variants. This selects the PPR modules only — not the
-> acceptor plasmids or the rest of the transcriptional unit.
+> Module identity, overhangs and plate positions come from **Dennis et al. 2025 Table S1**.
+> This selects PPR modules only, not the acceptor plasmids.
 """))
 
 cells.append(code('''
@@ -562,61 +457,14 @@ print(parts_report(plan))
 cells.append(md("""
 ---
 
-## Is this design good, relative to the alternatives?
-
-The design above ranks assembly plans by predicted ligation fidelity and keeps the first one
-whose coding sequence satisfies every constraint. The rest are discarded unexamined — so it
-cannot tell you whether the answer was a good one.
-
-The cell below carries several plans **all the way through** codon optimisation and QC, then
-picks between finished designs using a stated priority order rather than hidden weights:
-
-1. every constraint satisfied and QC not FAIL
-2. predicted fidelity within a tolerance of the best feasible value
-3. prefer QC PASS, then the higher optimiser score
-4. tie-break on fidelity
-
-You get one answer plus the alternatives and what each would cost — not a trade-off plot to
-arbitrate.
-
-> **Measured caveat.** Across 9S, 14S and 19S, predicted fidelity came out *identical for every
-> candidate* and QC passed for every candidate: fidelity is capped by the destination overhang
-> pair, and the infeasible overhangs were already removed earlier. So in this configuration the
-> ranking is effectively decided by sequence quality alone. It still improves on the
-> first-feasible plan for all three architectures — but this is not a multi-objective optimiser,
-> and calling it one would be wrong.
-"""))
-
-cells.append(code('''
-#@markdown **`search_budget`** — how many complete candidate designs to build and score before
-#@markdown choosing. 2 is the fastest and barely a search; 12 explores most; 6 is the default.
-#@markdown Each candidate is a different set of cut positions and junction overhangs, built in
-#@markdown full and scored, so a larger budget costs proportionally more time and can only
-#@markdown improve or match the result — it never makes it worse.
-search_budget = 6  #@param {type:"slider", min:2, max:12, step:1}
-
-from clippr import design_searched
-
-searched = design_searched(target_rna, organism=organism, codon_table=None,
-                           enzyme_profile=enzyme_profile, seed=seed,
-                           check_offtarget=False, budget=search_budget)
-print(f"exploring changed the chosen design: {searched['differs_from_oneshot']}")
-print()
-print(searched["certificate"])
-''', title="Explore the alternatives, then justify one"))
-
-cells.append(md("""
----
-
 ## Designing a whole library
 
-For a set of regulators, what matters is **orthogonality**: PPRᵢ must bind UTRᵢ and not
-UTRⱼ. The matrix below is the pairwise distance between targets — larger is better
-separated. Targets that sit close together risk one PPR binding another's UTR.
+For a set of regulators what matters is **orthogonality**: PPRᵢ must bind UTRᵢ and not UTRⱼ.
+The matrix below is the pairwise distance between targets — larger is better separated.
 
-> `orthogonal.py` is a **capability, not a validated result**. Every other part of this
-> package is checked against a 200-design corpus; this one has unit tests only, because no
-> ground truth for it exists.
+> This section is a **capability, not a validated result**. Every other part of this package
+> is checked against a 200-design corpus; this one has unit tests only, because no ground
+> truth for it exists.
 """))
 
 cells.append(code('''
@@ -649,25 +497,15 @@ cells.append(md("""
 ### DNA shared between members
 
 Cross-talk asks whether two PPRs could bind each other's **target**. This asks whether two
-**genes** share enough identical DNA to recombine — a different question with a different
-answer. Every member of a PPR library carries the same scaffold, so it is never trivially no.
+**genes** share enough identical DNA to recombine — a different question. Every member
+carries the same scaffold, so the answer is never trivially no.
 
-Measured on five 9S designs, every pair shared at least **59 nt**, and every one of those
-stretches began at position 0 in both members: the fixed 23-residue N-terminal scaffold, which is
-protein-identical by construction and gets the same codons every time. Most, but not all — two
-pairs of a six-member library share 62 nt inside the repeat body, at positions 663/663 and
-597/318, with no scaffold involved.
+`diversify_library` gives each member its own synonymous encoding of that scaffold. On five
+9S designs it took the longest shared stretch from 107 nt to 47 and cleared every pair over
+the 50 nt threshold; at six members it reaches only 77 nt and leaves 2 of 15 pairs above it.
 
-`diversify_library` gives each member its own synonymous encoding of that scaffold, locked in
-place. On those five designs: longest shared stretch **107 → 47 nt**, pairs over the 50 nt
-threshold **10 → 0**. It is deterministic in the member index, so the library stays reproducible,
-and a diversified member is accepted only when it is no worse than the one it replaces. **At six
-members it reaches only 77 nt and leaves 2 of 15 pairs above the threshold** — part of the
-residue lives in the repeat body rather than the scaffold, and this retry schedule did not
-reach it.
-
-A shared stretch is a *necessary* substrate for recombination, never a prediction that it will
-happen, and 50 nt is a rule of thumb rather than a measured constant for this host.
+A shared stretch is a *necessary* substrate for recombination, never a prediction that it
+will happen, and 50 nt is a rule of thumb rather than a measured constant for this host.
 """))
 
 cells.append(code('''
@@ -677,25 +515,18 @@ print(lib.homology())
 cells.append(md("""
 ### Cross-talk, in two tiers
 
-Sequence separation is one question; *predicted binding* is a different one, and mixing
-them would smuggle an unvalidated model into a hard criterion. So they stay apart:
+Sequence separation and *predicted binding* are different questions, so they stay apart:
 
 | tier | what it is | status |
 |---|---|---|
-| **A — Hamming distance** | two targets differ in *k* of *n* positions | **the hard criterion, and the only thing that gates** |
+| **A — Hamming distance** | two targets differ in *k* of *n* positions | **the only thing that gates** |
 | **B — predicted affinity** | the PPR designed for A, scored against B | an annotation; gates nothing |
 
-Tier A makes no biological claim — it says two sequences differ in *k* places, which is
-geometry, and stays true whatever anyone later learns about PPR binding.
+Tier B needs a PPR specificity table. **CLIPPR does not ship one** — the available table
+carries no licence, and it comes from **P-type** experiments while this scaffold is
+**S-type**. A high score means *look*, never *fail*.
 
-Tier B needs a PPR specificity table. **CLIPPR does not ship one**: the available table
-(Yan *et al.*, distributed with [PPRmatcher](https://github.com/ian-small/PPRmatcher))
-carries no licence, so redistributing it would be a rights problem however useful it is.
-It also comes from **P-type** PPR experiments, while this scaffold is **S-type** — all four
-codes GRASP uses do score their cognate base highest in it, which is reassuring, but a
-P-type model has not been shown to apply here. A high score means *look*, never *fail*.
-
-Leave the path blank and you get tier A alone, which is the criterion that gates anyway.
+Leave the path blank and you get tier A alone, which is what gates anyway.
 """))
 
 cells.append(code('''
@@ -717,25 +548,43 @@ if scores:
     print("tier A alone decides what this library accepts.")
 ''', title="Two-tier cross-talk — separation gates, affinity annotates"))
 
-# ------------------------------------------------ reusable inventory route
-# Kept in its own module: a second complete workflow appended here would bury both.
-from notebook_inventory_cells import cells as inventory_cells   # noqa: E402
 
-cells += inventory_cells(md, code)
+cells.append(md("""
+---
 
-nb = {
-    "cells": cells,
-    "metadata": {
-        "colab": {"provenance": [], "toc_visible": True, "name": "CLIPPR_designer.ipynb"},
-        "kernelspec": {"display_name": "Python 3", "name": "python3"},
-        "language_info": {"name": "python"},
-    },
-    "nbformat": 4,
-    "nbformat_minor": 0,
-}
+## Going deeper — why this design, and not another
+
+*You do not need this to order. Read it if a design looks surprising.*
+
+The gene is cut into fragments, and each place two fragments rejoin is a **junction**. Every
+junction needs a 4-base sticky end, the **overhang**, so the right two fragments anneal to
+each other and to nothing else.
+
+The constraint that makes this hard: the overhang is made of **your own coding sequence** at
+that point, not a linker bolted on. So the only overhangs available are the ones synonymous
+codons can spell there while leaving the protein unchanged.
+
+Below, each junction lists what it could have used and what became of it — **selected**,
+**considered** (feasible, but another scored at least as well), or **rejected** (no synonymous
+arrangement avoids an excluded enzyme site, so that overhang is impossible here, not merely
+worse).
+"""))
+
+cells.append(code('''
+audit = result["audit"]
+print(audit.report())
+
+rejected = audit.rejected
+print(f"\\n{len(rejected)} candidate overhang(s) ruled out entirely under "
+      f"profile '{audit.enzyme_profile}'")
+for d in rejected[:8]:
+    print(f"    {d.sequence}  cut {d.junction_cut:>4d}   {d.reason}")
+if len(rejected) > 8:
+    print(f"    … and {len(rejected) - 8} more")
+if not rejected:
+    print("    (every achievable overhang was usable at every junction)")
+''', title="Design audit"))
+
 DIAGRAM.write_text(pipeline_svg(), encoding="utf-8")
-OUT.write_text(json.dumps(nb, indent=1, ensure_ascii=False), encoding="utf-8")
 print(f"wrote {DIAGRAM} ({DIAGRAM.stat().st_size} B)")
-print(f"wrote {OUT}  ({len(cells)} cells: "
-      f"{sum(1 for c in cells if c['cell_type']=='code')} code, "
-      f"{sum(1 for c in cells if c['cell_type']=='markdown')} markdown)")
+write_notebook(cells, OUT, NAME)
