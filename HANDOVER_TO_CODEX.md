@@ -490,7 +490,35 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
     keeping all 40 advisories, so the choice is no longer "conservative or optimised" but
     "refuse or record". It ships out-of-band sequences the strict default refuses to produce.
     That is a judgement about risk, and it is not mine to make.
-14. **Region-based targeting. Scoped and reviewed, not built — `PROPOSAL_TO_CODEX.md`.** The
+14. **Region-based targeting. First increment built: `src/clippr/targeting.py`.** Scoped and
+    reviewed in `PROPOSAL_TO_CODEX.md`.
+
+    **What is in.** Window selection from a *supplied* sequence — the review's reading B — with
+    occurrence accounting underneath it. `SearchSequence` requires an `origin` and never infers
+    one. Occurrences are keyed on **feature identity**, never on a gene name. Intent is declared
+    as an `IntendedLocus`, not as a fixed occurrence, because the intended offset moves with the
+    window; `loci_for_gene('psbA')` returns **two**, and declaring one copy does not absolve the
+    other. The chosen window is a plain RNA target, so `design_oneshot`, `design_library` and
+    `parts.select` consume it unchanged — nothing's signature moved, which is the review's
+    finding that this need not touch the public API at all.
+
+    **What is deliberately out.** No notebook control: the package must reach `main` first, or
+    the cell breaks every Colab session, which is §7 item 9. No native-UTR retrieval — the
+    cached annotation holds coding spans, not UTRs. No target generation. No GC or overhang term
+    in the ranking; selection ranks on other-occurrence count alone, and the shorter-then-earlier
+    tie-break is a cost and determinism argument that `select_window`'s docstring says is not
+    biological.
+
+    **Evidence.** 46 tests, and the two central claims were falsified rather than assumed: with
+    occurrence identity keyed back on the gene name, three go red; with whole-source exclusion
+    restored in place of per-occurrence, three more. The proposal's measurements are regressions
+    now — psbA 128 of 192 with both copies declared and 0 with one, rbcL 99 with the whole
+    feature declared and 98 narrowed to the searched interval. That last pair is the proposal's
+    98 reconciled: the single window between the counts is `UUCCACCUG`, which occurs twice inside
+    `rbcL` and nowhere else, so both counts are right for what they declare and
+    `multiply_intended` reports the divergence instead of deciding it.
+
+    The original framing follows, and it still holds. The
     reviewer recommended specifying a region of the target gene rather than a fixed
     9/14/19-mer. Still true: given a bare k-mer the tool cannot separate the intended binding
     site from a genuine off-target, which is what the reviewer asked when a hit landed in

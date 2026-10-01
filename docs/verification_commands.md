@@ -214,6 +214,37 @@ internal overhang is supplied twice, once by the part on each side, and scoring 
 given makes every junction compete with a perfect copy of itself — 0.0039 instead of 0.9940 on
 the example above.
 
+## Target window selection
+
+Choose which window of a supplied sequence a PPR should read, instead of naming the target by
+hand. The window is a plain RNA target, so it feeds `design_oneshot`, `design_library` and
+`parts.select` unchanged.
+
+```bash
+python -c "import sys;sys.path.insert(0,'src');from clippr import SearchSequence,select_window,loci_for_gene,window_report;from clippr.offtarget import load_transcripts;trs=load_transcripts();f=next(t for t in trs if t.name=='rbcL');s=SearchSequence('rbcL_200',f.sequence[:200],origin='native');print(window_report(select_window(s,lengths=(9,),transcripts=trs,intended_loci=loci_for_gene('rbcL',trs),reference='NC_005353.1')))"
+```
+
+`origin` is required and never inferred: a designed sequence's intended site is absent from a
+wild-type reference while a native one's is present, which changes what every occurrence means.
+
+**Intent is declared per locus, not per occurrence.** `loci_for_gene('psbA', trs)` returns
+**two**, because the annotation carries two byte-identical `psbA` features at different genomic
+locations -- nine of its 109 features share a name with another. Declaring one copy does not
+absolve the other, and a locus that absorbs more than one occurrence of the same window is named
+in `TargetWindow.multiply_intended` rather than quietly absorbing it.
+
+Measured on `rbcL`'s first 200 nt: **99 of 192** 9-mers carry no other occurrence with the whole
+feature declared, **98** with the declaration narrowed to the searched interval, and the single
+window between those counts occurs twice inside `rbcL` and nowhere else. On `psbA`: **128 of
+192** with both copies declared, **0** with one. All five figures are regressions in
+`tests/test_targeting.py`.
+
+Nothing here predicts binding, and no window is ranked on GC or overhang feasibility -- window GC
+is RNA while the band `synthesis_profile` governs is the coding DNA of a different molecule, and
+overhang feasibility belongs to the design that follows. Selection ranks on other-occurrence
+count alone; shorter-then-earlier breaks ties and is a cost and determinism argument, not a
+biological one.
+
 ## Supplied inputs
 
 | Input | Needed for | If absent |

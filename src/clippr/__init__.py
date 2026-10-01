@@ -120,6 +120,16 @@ from .ppr import (
     normalize_target,
     rna_to_code,
 )
+from .targeting import (
+    IntendedLocus,
+    Occurrence,
+    SearchSequence,
+    Selection,
+    TargetWindow,
+    loci_for_gene,
+    select_window,
+    window_report,
+)
 
 __version__ = "0.1.0"
 
@@ -154,5 +164,7 @@ __all__ = [
     "Module", "PartsPlan", "block_chain", "inventory", "parts_report", "select_parts",
     "architecture_of", "code_to_protein", "code_to_rna", "describe",
     "normalize_target", "rna_to_code",
+    "IntendedLocus", "Occurrence", "SearchSequence", "Selection", "TargetWindow",
+    "loci_for_gene", "select_window", "window_report",
     "__version__",
 ]
