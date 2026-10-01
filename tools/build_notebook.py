@@ -385,19 +385,25 @@ else:
 cells.append(md("""
 ---
 
-## Optional · is this target unique in the host?
+## Optional · does this target already occur in the host?
 
-A PPR cannot tell which copy of a sequence you meant. If your target also occurs in an
-endogenous chloroplast transcript, the protein binds there too and stops being specific to
-your construct.
+This looks for your target as an **exact match** in the *Chlamydomonas* chloroplast reference.
+A match means the host already carries that sequence — a reason to look closer, **not** a
+prediction that your PPR will bind there. Nothing here measures affinity.
 
-**Only transcripts count.** A match in non-transcribed DNA is not an RNA off-target, and
+**Only transcripts can matter.** A match in non-transcribed DNA is not an RNA target, and
 neither is a reverse-complement match — the transcript from that locus carries the other
-sequence. Both tiers are reported so you can tell them apart.
+sequence. Both tiers are printed separately.
 
-Occurrence is a *necessary* condition for an off-target interaction, never a sufficient one:
-this reports sequence, not affinity. The background rates behind the verdict, and how they
-were measured, are in `CLIPPR_FOR_THE_WET_LAB.md`.
+**What was searched.** 109 annotated features of one reference. Nine gene names appear
+**twice** — `psbA` among them, as two identical copies at different places in the genome — so
+a gene name does not identify a single location, and the CDS entries are coding spans rather
+than UTR-inclusive transcripts. Your construct and the other members of your library are
+**not** searched; for those, see the cross-talk cells below. Background rates and how they
+were measured are in `CLIPPR_FOR_THE_WET_LAB.md`.
+
+> The target this notebook ships with, `AAAAUGUGG`, **does** occur in the host, deliberately,
+> so a first run shows you what a match looks like rather than a blank result.
 """))
 
 cells.append(code('''
@@ -410,17 +416,19 @@ transcripts = load_transcripts()
 # the statistic was for before they had seen whether their own target was flagged.
 print(report([scan(target_rna, genome, transcripts)]))
 
-# Length is the lever that actually fixes a flagged target, so it belongs beside the result.
+# Length is the lever that fixes a flagged target, so it belongs beside the result. Name the
+# quantity: this is a GENOMIC, both-strand figure, while the verdict above is about
+# transcripts. Using one to dismiss the other is a confusion a reviewer already hit here.
 expected = architecture_advice(genome).get(len(target_rna))
 print()
-if expected is not None and expected >= 1:
-    print(f"A {len(target_rna)}-base target is short enough that a genome this size is")
-    print("expected to contain one by chance, so a hit here is arithmetic, not a fault in")
-    print("the design. Lengthening the target is the reliable fix: across 200 random trials")
-    print("a 14-base target occurred nowhere in this genome.")
-else:
-    print(f"A {len(target_rna)}-base target is long enough to be specific in a genome this")
-    print("size, so a hit here is a real finding rather than background.")
+if expected is not None:
+    print(f"For scale: an average {len(target_rna)}-base sequence occurs about "
+          f"{expected:.1f} time(s) by chance")
+    print("in this genome, counting both strands of the DNA. That is a different quantity")
+    print("from the transcript verdict above and does not explain it away.")
+    print()
+    print("Length is what buys specificity: across 200 random trials a 14-base target")
+    print("occurred nowhere in this genome, in either tier.")
 
 print()
 print(f"host: Chlamydomonas reinhardtii chloroplast, {len(genome):,} bp, "

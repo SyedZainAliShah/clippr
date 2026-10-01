@@ -265,13 +265,18 @@ def report(results: list[dict]) -> str:
             for h in r["transcript_hits"][:3]:
                 lines.append(f"  {r['target']}  {h}")
         lines.append("")
-        lines.append("Every name above is a HOST gene, not your construct. These are "
-                     "off-targets: places the")
-        lines.append("host already carries your sequence. This tool is given a bare target "
-                     "and does not know")
-        lines.append("where your intended site lives, so it cannot exclude it -- if one of "
-                     "these IS your intended")
-        lines.append("locus, only you can tell.")
+        lines.append("Every name above is a HOST gene, not your construct: a place the host "
+                     "already carries")
+        lines.append("your sequence. Each is a candidate to review, NOT a demonstrated "
+                     "off-target -- an exact")
+        lines.append("match is not binding. And this tool is given a bare target, so it does "
+                     "not know where")
+        lines.append("your intended site lives and cannot exclude it: if one of these IS "
+                     "your intended locus,")
+        lines.append("only you can tell.")
+        lines.append("A gene name is not a location, either: an annotation may carry two "
+                     "copies under one")
+        lines.append("name, so a single name can stand for more than one place.")
     lines.append("")
     lines.append("Sequence occurrence is necessary for an off-target interaction, not "
                  "sufficient. No binding affinity is predicted here.")
