@@ -287,6 +287,11 @@ What is actually required:
 These are corrections, not features. Three of them repair claims that revision 1 either made or
 proposed to make.
 
+> **Status: items 1, 2 and 3 shipped in `e1a09a7`**, on `main`. Item 4 did **not** — it is a
+> cell move rather than a wording fix, and the item itself diagnoses the problem as placement.
+> Items 1–3 below are left in the present tense deliberately, as the record of what was wrong
+> and why; the repository no longer reads that way.
+
 1. **Remove the overstatements.** The off-target cell's markdown says an occurrence means "the
    protein binds there too" — the module's own docstring says occurrence is necessary and never
    sufficient. Revision 1 proposed replacing it with a *second* overstatement ("a hit here is a
@@ -353,8 +358,9 @@ Revision 1 asked for an A/B/C choice. That was a false choice (§1); these are w
 
 1. **Is the first increment reading B — "choose a window inside a sequence I supply"?** It needs
    no annotation, no intended-occurrence model, and no new data source. I recommend yes.
-2. **Should §7's prose corrections ship now, separately?** They fix claims that are wrong in the
-   repository today. I recommend yes, and would send them first.
+2. ~~**Should §7's prose corrections ship now, separately?**~~ **Answered yes; shipped in
+   `e1a09a7`.** Items 1–3 of §7 are on `main`. Item 4, moving the library cell, is a cell move
+   rather than a wording fix and is still open.
 3. **Is a native-gene UTR workflow wanted at all** (reading A), given that the cached annotation
    holds **coding spans, not UTRs**, so it would need a new data source? This is the question
    revision 1 should have asked instead of the A/B/C one.

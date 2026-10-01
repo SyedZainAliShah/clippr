@@ -523,12 +523,26 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
     and outputs, and making detail collapsible, is unstarted — and depends on whether Step 1
     stays a sequence box, so it is held behind item 14.
 
-    **Two corrections are not held, because they are wrong in the repository today.** The
-    off-target cell's markdown says an occurrence means "the protein binds there too", which
-    contradicts `offtarget.py`'s own docstring: occurrence is necessary and never sufficient.
-    And the cell prints `expected_by_chance` beside a transcript verdict, when that figure is a
-    **genomic, both-strand** composition null — `report()` already warns in prose that the two
-    read as a contradiction, and an earlier reviewer made exactly that reading.
+    ~~**Two corrections are not held, because they are wrong in the repository today.**~~
+    **Both shipped in `e1a09a7`.** The off-target cell's markdown had said an occurrence means
+    "the protein binds there too", contradicting `offtarget.py`'s own docstring three paragraphs
+    below it; and it printed `architecture_advice` beside a **transcript** verdict to argue the
+    hit was "arithmetic", when that figure is a **genomic, both-strand** composition null —
+    the pairing `report()` already warns about in prose, and which an earlier reviewer did read
+    as a contradiction.
+
+    `report()` changed with the markdown, which is why that commit touches `src/`: it printed
+    "These are off-targets", so correcting only the cell would have left it contradicting itself
+    one screen lower, in text the notebook prints rather than renders. Each occurrence is now
+    "a candidate to review, NOT a demonstrated off-target". The cell also now states what was
+    searched — 109 features, nine duplicated names, coding spans rather than UTR-inclusive
+    transcripts — and what was not: the user's own construct and the rest of their library.
+
+    Verified the way this repository requires, because `offtarget.py` is in the package Colab
+    installs: 927 of 927 pass, and the notebook was run against a pip-installed build **three**
+    times — before the edit, after the edit against the old build, and again after the merge
+    against a build reinstalled from the new `main`, which is the only run that exercises the
+    new `report()`. Designer 12 code cells, inventory 10, 0 failed each time.
 
     On the web app: the ordering argument in the proposal cited **4.70 s / 6.26 s** as the
     designer route. Those are `chained_routes` in `work/runtime/runtime_profile.json` — the
