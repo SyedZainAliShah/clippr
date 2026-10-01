@@ -66,7 +66,7 @@ else:
         '<div style="border-left:3px solid #1a7f5a;padding:.6em 1em;'
         'font-family:ui-monospace,monospace;font-size:13px;opacity:.85">'
         'inventory workflow available</div>'))
-''', title="Check this build has the inventory workflow"),
+''', title="Setup check — does this build have the inventory workflow?"),
     code('''
 #@markdown The host the kit is recoded for. The genetic code follows automatically —
 #@markdown nuclear hosts use table 1, chloroplasts table 11.
@@ -79,7 +79,7 @@ codon_table_file = ""  #@param {type:"string"}
 #@markdown Optional: the genetic code for a table you supplied. Leave 0 to inherit from the
 #@markdown host. Set 11 for anything organellar.
 genetic_code_override = 0  #@param {type:"integer"}
-''', title="Host — edit these"),
+''', title="Before you start — your host  (edit this)"),
 ]
 
 cells += inventory_cells(md, code)

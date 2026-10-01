@@ -131,7 +131,8 @@ So the protein is a deterministic function of your target — no catalogue to se
 nine bases and you get a nine-repeat protein, a synthesisable coding sequence, a Golden Gate
 assembly plan, and the fragments to order.
 
-**Run the cells top to bottom.** Only the *Design parameters* cell normally needs editing.
+**Four steps.** Edit **Step 1**, then run Steps 2, 3 and 4 in order. Everything marked
+*Optional* can be skipped entirely — run one when you want that particular check.
 
 > ##### Before you read any number
 > **Predicted fidelity** comes from published ligation-count matrices (Pryor *et al.* 2020) —
@@ -209,7 +210,7 @@ seed = 42  #@param {type:"integer"}
 #@markdown Write the design files to disk, and check the target against the host genome.
 write_files = True  #@param {type:"boolean"}
 check_offtarget = True  #@param {type:"boolean"}
-''', title="Design parameters — edit these"))
+''', title="Step 1 — your target and host  (edit this)"))
 
 # ---------------------------------------------------------------- optional upload
 cells.append(code('''
@@ -225,7 +226,7 @@ try:
 except ImportError:
     print("not running on Colab — put the file beside the notebook and give its path "
           "in codon_table_file instead.")
-''', title="Upload a codon table (optional)"))
+''', title="Optional — upload a codon table"))
 
 # ---------------------------------------------------------------- design + results
 cells.append(code('''
@@ -306,11 +307,11 @@ card = (
     f'{cards}</div></div>{warn}')
 
 display(HTML(card))
-''', title="Design — run this"))
+''', title="Step 2 — design it"))
 
 # ---------------------------------------------------------------- fragments
 cells.append(md("""
-## The fragments to order
+## Step 3 · the fragments to order
 
 One row per orderable piece. `oh5` and `oh3` are the four-base Golden Gate overhangs that
 join each fragment to its neighbours.
@@ -337,13 +338,13 @@ try:
                                          ("font-variant-numeric", "tabular-nums")]}]))
 except ImportError:
     display(table)
-''', title="Fragment table"))
+''', title="Step 3 — the fragments to order"))
 
 # ---------------------------------------------------------------- audit
 
 # ---------------------------------------------------------------- download
 cells.append(md("""
-## Take the files
+## Step 4 · take the files
 
 The order CSV, the oligos as FASTA, the assembled gene, and an annotated GenBank record —
 every PPR repeat labelled with the base it reads — that opens in Benchling or SnapGene.
@@ -377,14 +378,14 @@ else:
     if colab_files:
         for p in result["paths"].values():
             colab_files.download(p)
-''', title="Download the design files"))
+''', title="Step 4 — download the files"))
 
 # ---------------------------------------------------------------- library
 # ---------------------------------------------------------------- off-target
 cells.append(md("""
 ---
 
-## Is this target unique in the host?
+## Optional · is this target unique in the host?
 
 A PPR cannot tell which copy of a sequence you meant. If your target also occurs in an
 endogenous chloroplast transcript, the protein binds there too and stops being specific to
@@ -424,12 +425,12 @@ else:
 print()
 print(f"host: Chlamydomonas reinhardtii chloroplast, {len(genome):,} bp, "
       f"{len(transcripts)} annotated transcripts")
-''', title="Off-target check - is this target unique in the host?"))
+''', title="Optional — is this target unique in the host?"))
 
 cells.append(md("""
 ---
 
-## Do you already own the parts?
+## Optional · do you already own the parts?
 
 Everything above designs DNA to be **synthesised**. The GRASP authors also deposited a
 42-plasmid kit, and a lab holding it can assemble many PPRs from parts it already has.
@@ -452,12 +453,12 @@ from clippr import parts_report, select_parts
 
 plan = select_parts(target_rna)
 print(parts_report(plan))
-''', title="GRASP kit route — can you build this from parts you own?"))
+''', title="Optional — can you build this from parts you own?"))
 
 cells.append(md("""
 ---
 
-## Designing a whole library
+## Optional · designing a whole library
 
 For a set of regulators what matters is **orthogonality**: PPRᵢ must bind UTRᵢ and not UTRⱼ.
 The matrix below is the pairwise distance between targets — larger is better separated.
@@ -487,14 +488,14 @@ print()
 print(lib.summary())
 print()
 print(lib.crosstalk())
-''', title="Design the whole library"))
+''', title="Optional — design a whole library"))
 
 cells.append(code('''
 lib.qc_table()
-''', title="Library QC table"))
+''', title="Optional — library QC table"))
 
 cells.append(md("""
-### DNA shared between members
+### Optional · DNA shared between members
 
 Cross-talk asks whether two PPRs could bind each other's **target**. This asks whether two
 **genes** share enough identical DNA to recombine — a different question. Every member
@@ -510,10 +511,10 @@ will happen, and 50 nt is a rule of thumb rather than a measured constant for th
 
 cells.append(code('''
 print(lib.homology())
-''', title="Homology — DNA shared between library members"))
+''', title="Optional — DNA shared between members"))
 
 cells.append(md("""
-### Cross-talk, in two tiers
+### Optional · cross-talk, in two tiers
 
 Sequence separation and *predicted binding* are different questions, so they stay apart:
 
@@ -546,7 +547,7 @@ if scores:
     print()
     print("A disagreement is a reading recommendation, not a failed design —")
     print("tier A alone decides what this library accepts.")
-''', title="Two-tier cross-talk — separation gates, affinity annotates"))
+''', title="Optional — cross-talk between targets"))
 
 
 cells.append(md("""
@@ -583,7 +584,7 @@ if len(rejected) > 8:
     print(f"    … and {len(rejected) - 8} more")
 if not rejected:
     print("    (every achievable overhang was usable at every junction)")
-''', title="Design audit"))
+''', title="Going deeper — the design audit"))
 
 DIAGRAM.write_text(pipeline_svg(), encoding="utf-8")
 print(f"wrote {DIAGRAM} ({DIAGRAM.stat().st_size} B)")

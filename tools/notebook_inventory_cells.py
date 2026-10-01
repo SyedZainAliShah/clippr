@@ -59,7 +59,7 @@ else:
         print()
         print("That limit is CLIPPR's engineering choice, not a published rule, so this")
         print("is a statement about fit -- not a defect in the deposited kit.")
-''', title="Inventory 1 - load the deposited kit"))
+''', title="Step 1 — load the deposited kit"))
 
     out.append(md("""
 ## Recode the kit for your host
@@ -94,7 +94,7 @@ if deposited is not None:
         print()
         print("CAI predicts how well codons match the host. It is not a measurement of")
         print("expression, and a large CAI gain is not a proportional expression gain.")
-''', title="Inventory 2 - recode for your host, interfaces frozen"))
+''', title="Step 2 — recode for your host, interfaces frozen"))
 
     out.append(md("""
 ## Compile targets from the inventory
@@ -125,7 +125,7 @@ if recoded is not None:
     for name, product in products.items():
         print(f"   {name}: {product['product_nt']} nt, "
               f"{len(product['modules'])} modules, {product['reactions']} reaction(s)")
-''', title="Inventory 3 - compile targets"))
+''', title="Step 3 — compile targets"))
 
     out.append(md("""
 ## Optimise the inventory as a collection
@@ -161,7 +161,7 @@ if recoded is not None:
     print()
     print("The sharing term steers the search. It is not a recombination probability,")
     print("and lowering it does not necessarily shorten the worst shared tract.")
-''', title="Inventory 4 - optimise the collection"))
+''', title="Step 4 — optimise the collection"))
 
     out.append(md("""
 ## Explore junction trade-offs
@@ -196,7 +196,7 @@ if recoded is not None:
         print("Every candidate scored the same fidelity -- no trade-off to make here.")
     print()
     print(front.data["selecting_an_alternative"])
-''', title="Inventory 5 - explore junction trade-offs"))
+''', title="Step 5 — explore junction trade-offs"))
 
     out.append(md("""
 ## Commit to a choice
@@ -226,7 +226,7 @@ if front is not None:
 
     order_items = w.order_items_for(selected.artefacts["inventory"], "out/order_items")
     print(order_items.summary)
-''', title="Inventory 6 - commit to a choice and rebuild"))
+''', title="Step 6 — commit to a choice and rebuild"))
 
     out.append(md("""
 ## Plan the order
@@ -272,7 +272,7 @@ else:
     print()
     for rule in order.data["eligibility"]["unresolved"]:
         print(f"   unresolved: {rule}")
-''', title="Inventory 7 - eligibility and pool plan"))
+''', title="Step 7 — eligibility and pool plan"))
 
     out.append(md("""
 ## Take the package
@@ -306,6 +306,6 @@ else:
     except ImportError:
         print()
         print("Not running in Colab -- the package is in out/.")
-''', title="Inventory 8 - download the result package"))
+''', title="Step 8 — download the result package"))
 
     return out

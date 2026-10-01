@@ -1,7 +1,50 @@
-# Handover to Codex — 2026-09-17, revised 2026-09-28
+# Handover to Codex — 2026-09-17, revised 2026-09-28 and 2026-10-01
 
 Everything done since the GC-policy review, what it settled, and what is genuinely still open.
 Written to be read by someone who has the repository and none of the conversation.
+
+## What changed on 2026-10-01
+
+Two commits, both driven by the wet lab reviewer's feedback and by a decision that costing
+should not exist at all. Neither changes a design this tool produces.
+
+**`44446fe` — cost estimation removed.** We cannot obtain quotes, so every number the pricing
+code produced was a list price of unrecorded age, and most of the surrounding code existed to
+say so. Checked before cutting: cost fed **no objective** — `objectives`, `joint_search`,
+`library_search`, `synthesis_fitness` and `qc` carry no reference to it. Gone: `PriceTier`,
+`estimate_cost`, `opool_quote`, `_total_cost`, `LibraryResult.cost`, and the 109.00 EUR /
+1.63 EUR constants. Kept: `check_eligibility`, `plan_pools`, `write_order_files`, none of
+which ever needed a price.
+
+Two consequences worth a reviewer's attention:
+
+  - `LibraryResult.cost` is now `LibraryResult.totals` (designs, oligos, bases). The summary
+    line loses the pooled-versus-separate comparison, which was a property of the price model
+    rather than of any design.
+  - `phasee_gate` measured the pooling heuristic's distance from optimal **in euros**. Under a
+    flat per-pool tier that was a restatement of pool count, so it now measures pool count
+    directly — the quantity the heuristic actually controls. Gap is zero at every n from 2 to
+    10, as before.
+
+**`b33a383` — the notebook split in two and cut down.** The reviewer could not make sense of
+the inventory results, and the cause was structural: one document carried two complete
+workflows sharing nothing but a Setup cell, so a reader reached the inventory route holding
+the wrong mental model. It is now `notebooks/CLIPPR_inventory.ipynb`, with its own header,
+host form and setup; both builders share `tools/notebook_kit.py` so a fix to the install cell
+cannot land in one and not the other.
+
+The designer notebook went from 40 cells to 22, and 3,256 words of prose to 1,573. "Explore
+the alternatives" is **cut**: it carried a slider the reviewer did not understand, and its own
+markdown recorded that predicted fidelity came out identical for every candidate in this
+configuration. The design audit moved to the end, as machinery rather than an answer. The
+off-target cell prints the verdict first instead of a background-rate table the reviewer asked
+the purpose of.
+
+**The tests badge read 283; the measured figure is 927.** It is now a named constant beside
+the command that produced it. That badge is the same failure the thread below names: a number
+in a document that nothing recomputed, wrong by 644 and green the whole time.
+
+---
 
 ## What changed in this pass, in one place
 
@@ -52,12 +95,12 @@ reverted the following day. The notebook figures below are re-measured, not reca
 
 | | |
 |---|---|
-| branch | `synthesis-policy-profile`, based on merged `main` (`3100ff5`) |
-| commits | `74e4242` synthesis policy · `a7181fe` Pareto axis + runtime · `2f936bc` this pass — all pushed |
-| tests | **949 passed of 949**, 0 failed |
-| release check | **10 / 10**, 0 failed, 0 needing a human — including a clean-environment install that reproduced the README example verbatim |
-| falsification | **10 / 10** reverted defects caught by the boundary suite |
-| notebook | **21 of 21 code cells run, 0 failed**, verified against a *pip-installed* build — not the working tree. No policy selector: see §7 item 9. |
+| branch | `synthesis-policy-profile` at `b33a383`, **8 commits ahead** of `origin/main` (`3100ff5`). Clean fast-forward |
+| commits | `74e4242` · `a7181fe` · `2f936bc` · `35898a1` · `fa98fc6` · `3b737a9` · `44446fe` cost removed · `b33a383` notebook split — all pushed |
+| tests | **927 passed of 927**, 0 failed. Was 949; the 22 that went were the ones asserting the costing feature that was removed |
+| release check | **9 / 10**, 0 failed, **1 needing a human** — the clean-environment install. Its saved evidence went stale when this pass changed package source and the README worked example, so it needs re-running with `--clean-install`. Nothing is broken; the evidence is simply older than the tree |
+| falsification | 10 / 10 reverted defects caught. **Not re-run this pass** — no boundary test was added or changed, and nothing in `tests/test_policy_boundaries.py` was touched |
+| notebooks | **Two.** Designer: 22 cells, 12 code cells run, 0 failed. Inventory: 20 cells, 10 code cells run, 0 failed. Both against a *pip-installed* build from `origin/main`, not the working tree |
 | default behaviour | **unchanged** — every published number reproduces |
 
 ---
@@ -313,10 +356,14 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
 
 **Decisions, not work:**
 
-1. **Merge `synthesis-policy-profile`.** 10/10 green, and the notebook question is settled:
-   the notebook is byte-identical on `main` and on this branch, and runs 21/21 cells against
-   *both* builds, so the merge cannot break Colab. Not merged yet because the repository was
-   submitted for review and changing `main` mid-review is the submitter's call.
+1. **Merge `synthesis-policy-profile`.** 8 commits ahead of `origin/main`, a clean
+   fast-forward. The notebook is **no longer** byte-identical across the two — this pass
+   rewrote it — so the earlier argument no longer applies. The replacement evidence is direct:
+   both notebooks were executed against a pip-installed build from `origin/main` and passed
+   (12 and 10 code cells, 0 failed), so the merge still cannot break Colab. Not merged because
+   changing `main` is the submitter's call. **Until it lands, the reviewer keeps opening a
+   Colab notebook containing none of the six fixes from `3b737a9`, nor anything from this
+   pass.**
 2. **Whether the default profile changes.** The benchmark is favourable and is **not** evidence
    of vendor acceptance, which is the only thing that matters for an order. Someone must own
    that risk.
@@ -433,6 +480,16 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
     keeping all 40 advisories, so the choice is no longer "conservative or optimised" but
     "refuse or record". It ships out-of-band sequences the strict default refuses to produce.
     That is a judgement about risk, and it is not mine to make.
+14. **Region-based targeting.** The reviewer recommended specifying a region of the target gene
+    rather than a fixed 9/14/19-mer. This is not a convenience: given a bare k-mer the tool
+    cannot distinguish the intended binding site from a genuine off-target, which is precisely
+    what the reviewer asked when a hit landed in ORF1995. The off-target cell can report the
+    hit and advise lengthening, but it cannot answer "is that mine?". Changes the input model,
+    so it is unstarted and should be a decision before it is work.
+15. **Notebook UX beyond the cut.** The two routes are separated and the prose is down to 1,573
+    words, but the designer notebook is still a linear scroll of Colab forms. Grouping inputs
+    and outputs, and making detail collapsible, is unstarted. If a web app is planned it would
+    subsume this, and that ordering should be settled before either is built.
 
 ---
 
