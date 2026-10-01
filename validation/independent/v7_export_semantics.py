@@ -8,7 +8,6 @@ would only prove the serializer is consistent with itself.
 
 Pricing is treated separately. The pool and phosphorylation constants are documented in
 `export.py` as measured across the 200-design corpus, not fetched from a vendor. A file
-format cannot validate a commercial price, so this reports them as historical constants with
 their stated basis rather than checking them.
 
     python validation/independent/v7_export_semantics.py
@@ -175,8 +174,7 @@ def inspect_exports(design: dict, problems: list[str]) -> dict:
                             f"{len(record.seq)} nt record")
 
     return {"target": target, "cds_nt": len(cds), "oligos": len(oligos),
-            "genbank_features": len(record.features), "cds_features": len(cds_features),
-            "cost": design["cost"]}
+            "genbank_features": len(record.features), "cds_features": len(cds_features)}
 
 
 def malformed_controls(outdir: Path, problems: list[str]) -> list[tuple[str, bool]]:
@@ -267,13 +265,6 @@ def main() -> int:
     for name, detected in controls:
         print(f"   {name:48s} {'detected' if detected else 'NOT DETECTED'}")
 
-    cost = summaries[0]["cost"]
-    print(f"\npricing, reported not validated: {cost.get('currency')} "
-          f"dna={cost.get('dna_eur')} total={cost.get('total_eur')}")
-    print("   basis: export.py documents 109.00 EUR pool and 1.63 EUR/oligo phosphorylation")
-    print("          as constants measured across the 200-design corpus -- a list price, not")
-    print("          a quote, and not fetched from a vendor. A valid file cannot validate a")
-    print("          commercial price; treat these as historical unless re-sourced with a date.")
 
     out = ROOT / "work" / "independent" / "v7_export_semantics.json"
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -281,8 +272,6 @@ def main() -> int:
         {"provenance": provenance(__file__),
          "designs": summaries, "semantic_problems": problems,
          "malformed_controls": {n: bool(d) for n, d in controls},
-         "pricing": {"values": cost, "status": "historical corpus-derived constants",
-                     "basis": "export.py docstrings; not a dated vendor quote"},
          "independence": ("reparses written files with stock parsers and compares against "
                           "the design's own values, never a second serializer call")},
         indent=2, default=str) + "\n", encoding="utf-8")

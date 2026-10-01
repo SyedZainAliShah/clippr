@@ -112,20 +112,17 @@ else ran first.
 
 ## 6. Vendor rules — vendor rule, versioned and expiring
 
-Product profiles carry name, region, currency, **source URL and retrieval date**, length
-bounds, count and scale limits, price tiers, modification rules, quantity assumptions, and the
-rules that cannot be machine-checked.
+Product profiles carry name, region, **source URL and retrieval date**, length bounds, count
+and scale limits, quantity assumptions, and the rules that cannot be machine-checked. They
+carry no prices: CLIPPR does not cost an order.
 
 Constraints:
 
-- Rules and prices come from **current official vendor documentation**. Hardcoded numbers
-  found in any other implementation are not authoritative and are not imported as fact.
-- Where prices are unavailable, an explicitly supplied **dated** price table is accepted;
-  otherwise cost is reported **unavailable** while eligibility and export still function.
-- Monetary arithmetic is exact decimal. Tax, shipping and modification treatment is explicit.
-- The existing `109.00 EUR` pool and `1.63 EUR/oligo` phosphorylation figures are **historical
-  constants measured across the 200-design corpus** — a list price, not a quote, not fetched
-  from a vendor. They are labelled historical and are never presented as current.
+- Rules come from **current official vendor documentation**. Hardcoded numbers found in any
+  other implementation are not authoritative and are not imported as fact.
+- **CLIPPR does not cost an order.** Pricing was removed rather than kept stale: quotes are
+  not obtainable here, and a list price of unrecorded age shown as current misleads more than
+  an absent number does. Eligibility, pooling and export never depended on one.
 - A local eligibility pass is an implementation check. **It is not vendor approval** and no
   output may imply that it is.
 

@@ -26,7 +26,7 @@ from .assembly import build_oligos, split_cds
 from .codons import (optimize_cds, table_from_cds_fasta, table_from_csv,
                      table_from_genome, table_from_kazusa)
 from .experiment import stage as _stage
-from .export import (opool_quote, write_fasta, write_gene_fasta, write_genbank,
+from .export import (write_fasta, write_gene_fasta, write_genbank,
                      write_oligo_csv)
 from .overhangs import (best_set, enumerate_candidates, fidelity_components,
                         reaction_overhangs, set_fidelity)
@@ -297,7 +297,6 @@ def design_oneshot(
         oligos = build_oligos(cds, cuts, overhangs, destination, enzyme, prefix=target_rna)
     with _stage(timings, "qc"):
         qc = synthesis_qc(cds)
-    cost = opool_quote(oligos)
 
     dest = destination or C.DESTINATION_OVERHANGS["level0"]
     reaction = reaction_overhangs(overhangs, "level0") if destination is None else [
@@ -373,8 +372,7 @@ def design_oneshot(
 
     summary = (
         f"{target_rna} ({architecture}) -> {len(protein)} aa, {len(cds)} nt, "
-        f"{len(oligos)} fragments. Fidelity {fidelity:.3f}. QC {qc['status']}. "
-        f"{cost['total_eur']:.2f} {cost['currency']} (list price)."
+        f"{len(oligos)} fragments. Fidelity {fidelity:.3f}. QC {qc['status']}."
     )
 
     audit = DesignAudit(
@@ -411,7 +409,6 @@ def design_oneshot(
         "qc": qc,
         "offtarget": offtarget,
         "fidelity": fidelity,
-        "cost": cost,
         "constraints_ok": opt["constraints_ok"],
         "warnings": warnings,
         "paths": paths,

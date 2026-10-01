@@ -2,14 +2,9 @@
 
 `design.design_oneshot` answers "what does this one target need?". A wet lab with fifty
 regulators does not want fifty answers in fifty folders -- it wants **one order sheet**,
-one pool, one cost, and one place to see which designs need attention.
+one pool, and one place to see which designs need attention.
 
 Two things only become visible at library scale, and both are handled here:
-
-**Pooling is where the money is.** An oligo pool is priced per pool, essentially flat
-across the sizes this project produces. Ordering fifty designs as fifty pools costs fifty
-times what ordering them as one pool costs, for the same DNA. `LibraryResult.cost`
-compares the two so the difference is impossible to miss.
 
 **Cross-talk is a property of the set, not of any member.** A design that is perfect alone
 is useless if another target in the same library sits one base away from it.
@@ -28,7 +23,6 @@ from typing import Any
 
 from .crosstalk import report as two_tier_report
 from .design import design_oneshot
-from .export import OPOOL_LIST_PRICE_EUR, PHOSPHORYLATION_EUR_PER_OLIGO
 from .orthogonal import crosstalk_report, distance
 
 
@@ -81,27 +75,13 @@ class LibraryResult:
         return pd.DataFrame(rows)
 
     @property
-    def cost(self) -> dict:
-        """Pooled versus per-design cost. The comparison is the point.
-
-        A list price, not a quote, and flat per pool across these sizes -- so the saving
-        from pooling is a property of the price model, not of any design.
-        """
-        n_designs = len(self.designs)
-        n_oligos = sum(len(r["oligos"]) for r in self.designs.values())
-        total_bases = sum(int(r["oligos"]["oligo_length"].sum())
-                          for r in self.designs.values())
-        pooled = OPOOL_LIST_PRICE_EUR
-        separate = OPOOL_LIST_PRICE_EUR * n_designs
+    def totals(self) -> dict:
+        """How much DNA this library is, across every design."""
         return {
-            "n_designs": n_designs,
-            "n_oligos": n_oligos,
-            "total_bases": total_bases,
-            "pooled_eur": pooled,
-            "separate_pools_eur": separate,
-            "saving_eur": separate - pooled,
-            "phosphorylation_eur": round(PHOSPHORYLATION_EUR_PER_OLIGO * n_oligos, 2),
-            "list_price_not_a_quote": True,
+            "n_designs": len(self.designs),
+            "n_oligos": sum(len(r["oligos"]) for r in self.designs.values()),
+            "total_bases": sum(int(r["oligos"]["oligo_length"].sum())
+                               for r in self.designs.values()),
         }
 
     def crosstalk(self, metric: str = "uniform", scores=None) -> str:
@@ -155,15 +135,12 @@ class LibraryResult:
 
     def summary(self) -> str:
         qc = self.qc_table()
-        c = self.cost
+        c = self.totals
         lines = [
             f"library of {len(self.designs)} designs"
             + (f", {len(self.failed)} failed" if self.failed else ""),
             f"  fragments      {c['n_oligos']} across all designs, "
             f"{c['total_bases']:,} bases",
-            f"  pooled cost    {c['pooled_eur']:.2f} EUR as one pool, versus "
-            f"{c['separate_pools_eur']:.2f} separately "
-            f"— {c['saving_eur']:.2f} EUR saved (list price, not a quote)",
         ]
         if not qc.empty:
             counts = qc["qc"].value_counts().to_dict()

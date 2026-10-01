@@ -17,18 +17,6 @@ from pathlib import Path
 
 from . import constants as C
 
-#: IDT oPools list price for the 50 pmol scale, in EUR.
-#:
-#: Measured constant at 109.00 across all 200 corpus designs -- 4-oligo and 7-oligo pools
-#: priced identically, and total_bases from 1038 to 2064 made no difference. So this
-#: number does not vary with anything a designer controls, and comparing designs on cost
-#: is meaningless at this scale. It is a list price, not a quote.
-OPOOL_LIST_PRICE_EUR: float = 109.00
-
-#: Optional 5' phosphorylation, charged per oligo. Derived from the corpus:
-#: 6.52 EUR / 4 oligos and 11.41 / 7 both give 1.63.
-PHOSPHORYLATION_EUR_PER_OLIGO: float = 1.63
-
 
 def write_oligo_csv(oligos, path: str | Path) -> Path:
     """Write the order table. Column order is preserved as given."""
@@ -165,29 +153,3 @@ def write_genbank(
     return path
 
 
-def opool_quote(oligos, phosphorylate_5prime: bool = False) -> dict:
-    """Estimate the cost of ordering these fragments as an IDT oPool.
-
-    **A list price, not a quote.** The pool price is flat: measured at 109.00 EUR for
-    every one of the 200 corpus designs, whether the pool held 4 oligos or 7 and whether
-    it totalled 1,038 or 2,064 bases. Cost therefore does not discriminate between
-    designs at this scale, and should not be used to choose one.
-    """
-    lengths = [len(s) for s in oligos["oligo_sequence_5to3"]]
-    if not lengths:
-        raise ValueError("no oligos to quote")
-    phospho = round(PHOSPHORYLATION_EUR_PER_OLIGO * len(lengths), 2)
-    return {
-        "vendor": "IDT",
-        "product": "oPools DNA",
-        "currency": "EUR",
-        "n_oligos": len(lengths),
-        "total_bases": sum(lengths),
-        "min_oligo_nt": min(lengths),
-        "max_oligo_nt": max(lengths),
-        "dna_eur": OPOOL_LIST_PRICE_EUR,
-        "phospho_eur": phospho,
-        "total_eur": round(OPOOL_LIST_PRICE_EUR + (phospho if phosphorylate_5prime else 0), 2),
-        "phosphorylate_5prime": phosphorylate_5prime,
-        "list_price_not_a_quote": True,
-    }

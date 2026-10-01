@@ -42,26 +42,16 @@ class TestLibrary:
                        on_progress=lambda i, n, t: seen.append((i, n, t)))
         assert [s[0] for s in seen] == [1, 2]
 
-    def test_summary_mentions_the_saving(self, lib):
-        assert "saved" in lib.summary()
+    def test_summary_reports_the_fragment_count(self, lib):
+        assert "12 across all designs" in lib.summary()
 
 
-class TestPooling:
-    def test_pooling_is_cheaper_than_separate_pools(self, lib):
-        """The reason library mode exists: the price is per pool, not per design."""
-        c = lib.cost
-        assert c["separate_pools_eur"] > c["pooled_eur"]
-        assert c["saving_eur"] == c["separate_pools_eur"] - c["pooled_eur"]
-
-    def test_pooled_price_does_not_grow_with_the_library(self, lib):
-        small = design_library(TARGETS[:1], codon_table=TOY_TABLE, check_offtarget=False)
-        assert small.cost["pooled_eur"] == lib.cost["pooled_eur"]
-
-    def test_flagged_as_not_a_quote(self, lib):
-        assert lib.cost["list_price_not_a_quote"] is True
-
+class TestTotals:
     def test_counts_every_fragment(self, lib):
-        assert lib.cost["n_oligos"] == len(lib.oligos())
+        assert lib.totals["n_oligos"] == len(lib.oligos())
+
+    def test_counts_every_design(self, lib):
+        assert lib.totals["n_designs"] == len(lib.designs)
 
 
 class TestCrosstalk:

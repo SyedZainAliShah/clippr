@@ -487,14 +487,14 @@ def order_items_for(inventory_path, outdir, *, form: str = "assembly_ready",
 def plan_order(sequences_or_items, vendor_profile, outdir) -> WorkflowResult:
     """Task 6 — eligibility, pooling and an export package.
 
-    `vendor_profile` is the **ordering** profile — pool sizes, oligo length limits, price — and
+    `vendor_profile` is the **ordering** profile — pool sizes and oligo length limits — and
     is a different thing from the `profile=` every other task takes, which is the synthesis
     policy. The parameter was called `profile` here too, which put two unrelated meanings of
     one word on functions a user calls one after the other. Nothing misbehaved; it was a trap
     waiting for whoever passed the wrong one first, and there is no diagnostic that could
     distinguish them.
     """
-    from .ordering import check_eligibility, estimate_cost, plan_pools, write_order_files
+    from .ordering import check_eligibility, plan_pools, write_order_files
 
     items = [{"sequence": s} if isinstance(s, str) else dict(s)
              for s in sequences_or_items]
@@ -508,21 +508,17 @@ def plan_order(sequences_or_items, vendor_profile, outdir) -> WorkflowResult:
         "feasible": False, "reason": "order is not eligible under this vendor profile",
         "pools": []}
 
-    pool_reports, pool_costs = [], []
+    pool_reports = []
     if plan["feasible"]:
         for pool in plan["pools"]:
             members = [m["sequence"] for m in pool["members"]]
             report = check_eligibility(members, vendor_profile, per_pool=True)
             pool_reports.append({"pool": pool["pool"], **report})
-            pool_costs.append(estimate_cost(members, vendor_profile))
         if not all(r["eligible"] for r in pool_reports):
             plan = {"feasible": False, "pools": [],
                     "reason": "; ".join(v for r in pool_reports
                                         for v in r["violations"])}
 
-    # Cost is the sum over the pools actually planned, not one call on the whole order.
-    cost = _total_cost(pool_costs, vendor_profile) if plan["feasible"] else estimate_cost(
-        sequences, vendor_profile)
     artefacts = write_order_files(plan, vendor_profile, outdir) if plan["feasible"] else {}
 
     failures = []
@@ -536,10 +532,9 @@ def plan_order(sequences_or_items, vendor_profile, outdir) -> WorkflowResult:
         task="plan_order", ok=eligibility["eligible"] and plan["feasible"],
         summary=(f"{eligibility['oligos']} oligos, "
                  f"{'eligible' if eligibility['eligible'] else 'not eligible'}, "
-                 f"{plan.get('pool_count', 0)} pool(s), cost "
-                 f"{'estimated' if cost['available'] else 'unavailable'}"),
+                 f"{plan.get('pool_count', 0)} pool(s)"),
         artefacts={k: str(v) for k, v in artefacts.items()},
-        data={"eligibility": eligibility, "cost": cost,
+        data={"eligibility": eligibility,
               "per_pool_eligibility": pool_reports,
               "pool_count": plan.get("pool_count", 0),
               "optimality": plan.get("optimality"),
@@ -562,23 +557,6 @@ def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _total_cost(pool_costs: list[dict], profile) -> dict:
-    """Sum the per-pool estimates. A multi-pool order costs the sum of its pools."""
-    from decimal import Decimal
-
-    if not pool_costs:
-        return {"available": False, "reason": "no pools planned",
-                "currency": profile.currency, "price_status": profile.price_status}
-    if not all(c["available"] for c in pool_costs):
-        return next(c for c in pool_costs if not c["available"])
-    total = sum((Decimal(c["total"]) for c in pool_costs), Decimal("0"))
-    return {"available": True, "currency": profile.currency,
-            "price_status": profile.price_status,
-            "priced_on": profile.priced_on, "source_url": profile.source_url,
-            "pools": len(pool_costs),
-            "per_pool": [c["total"] for c in pool_costs],
-            "total": str(total), "is_a_quote": False,
-            "note": "sum over the planned pools; an estimate, not a quote"}
 
 
 def write_package(results, outdir, *, inputs: dict | None = None) -> Path:

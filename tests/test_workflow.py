@@ -80,11 +80,6 @@ class TestOrderTask:
         got = w.plan_order(["ACGT" * 30] * 6, HISTORICAL_OPOOL, tmp_path)
         assert got.ok and got.data["pool_count"] == 1
 
-    def test_cost_is_unavailable_without_a_dated_price(self, tmp_path):
-        got = w.plan_order(["ACGT" * 30] * 6, HISTORICAL_OPOOL, tmp_path)
-        assert got.data["cost"]["available"] is False
-        assert "eligible" in got.summary
-
     def test_it_never_implies_vendor_approval(self, tmp_path):
         got = w.plan_order(["ACGT" * 30] * 6, HISTORICAL_OPOOL, tmp_path)
         assert "not obtained" in got.data["vendor_approval"]
@@ -94,20 +89,15 @@ class TestOrderTask:
         assert not got.ok
         assert any("cannot fill even one pool" in f["reason"] for f in got.failures)
 
-    def test_a_multi_pool_order_succeeds_and_costs_the_sum_of_its_pools(self, tmp_path):
+    def test_a_multi_pool_order_succeeds(self, tmp_path):
         """The per-pool maximum was applied to the whole order, refusing every split."""
-        from decimal import Decimal
-
-        from clippr.ordering import PriceTier, ProductProfile
+        from clippr.ordering import ProductProfile
 
         profile = ProductProfile(
-            name="t", vendor="v", region="", currency="EUR",
-            min_oligo_nt=20, max_oligo_nt=100, min_oligos=2, max_oligos=4,
-            price_tiers=(PriceTier(2, 4, Decimal("10")),),
-            priced_on="2026-09-15", price_status="current")
+            name="t", vendor="v", region="",
+            min_oligo_nt=20, max_oligo_nt=100, min_oligos=2, max_oligos=4)
         got = w.plan_order(["ACGT" * 5] * 9, profile, tmp_path)
         assert got.ok and got.data["pool_count"] == 3
-        assert got.data["cost"]["total"] == "30.00"
         assert all(r["eligible"] for r in got.data["per_pool_eligibility"])
 
 

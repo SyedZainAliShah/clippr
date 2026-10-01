@@ -8,22 +8,16 @@ from __future__ import annotations
 
 import csv
 import json
-from decimal import Decimal
 from pathlib import Path
 
-from clippr.ordering import (HISTORICAL_OPOOL, PriceTier, ProductProfile, check_eligibility,
-                             estimate_cost, load_profile, plan_pools, write_order_files)
+from clippr.ordering import (HISTORICAL_OPOOL, ProductProfile, check_eligibility,
+                             load_profile, plan_pools, write_order_files)
 
 
 def profile(**kw) -> ProductProfile:
-    base = dict(name="test", vendor="V", region="EU", currency="EUR",
+    base = dict(name="test", vendor="V", region="EU",
                 min_oligo_nt=20, max_oligo_nt=60, min_oligos=2, max_oligos=4,
-                scales=("50 pmol",),
-                price_tiers=(PriceTier(1, 4, Decimal("100.00")),
-                             PriceTier(5, 10, Decimal("150.00")),
-                             PriceTier(11, None, Decimal("10.00"), per="oligo")),
-                priced_on="2026-09-15", price_status="current",
-                modifications={"phos": {"per_oligo": "1.63"}})
+                scales=("50 pmol",))
     base.update(kw)
     return ProductProfile(**base)
 
@@ -109,78 +103,10 @@ class TestOtherEligibility:
         assert check_eligibility([seq(30)], profile())["eligible_scales"] == []
 
 
-class TestPricingArithmetic:
-    """Every expected total below is worked out by hand from the declared tiers."""
-
-    def test_a_pool_tier_does_not_scale_with_count(self):
-        got = estimate_cost([seq(30)] * 3, profile())
-        assert got["total"] == "100.00"
-
-    def test_the_tier_transition_is_at_the_declared_boundary(self):
-        # tier 1 covers 1-4 at 100.00; tier 2 covers 5-10 at 150.00
-        four = estimate_cost([seq(30)] * 4, profile(max_oligos=20))
-        five = estimate_cost([seq(30)] * 5, profile(max_oligos=20))
-        assert four["total"] == "100.00"
-        assert five["total"] == "150.00"
-
-    def test_a_per_oligo_tier_multiplies(self):
-        # tier 3: 11+ oligos at 10.00 each -> 12 * 10.00 = 120.00
-        got = estimate_cost([seq(30)] * 12, profile(max_oligos=20))
-        assert got["total"] == "120.00"
-
-    def test_modifications_are_priced_per_oligo(self):
-        # 100.00 + 1.63 * 3 = 104.89
-        got = estimate_cost([seq(30)] * 3, profile(), modifications=("phos",))
-        assert got["total"] == "104.89"
-
-    def test_tax_and_shipping_compose_in_the_declared_order(self):
-        # 100.00 + 12.50 shipping = 112.50; 19% tax = 21.375 -> 21.38; total 133.88
-        got = estimate_cost([seq(30)] * 3, profile(),
-                            tax_rate=Decimal("0.19"), shipping=Decimal("12.50"))
-        assert got["total"] == "133.88"
-        assert got["tax_included"] and got["shipping_included"]
-
-    def test_tax_and_shipping_are_never_assumed(self):
-        got = estimate_cost([seq(30)] * 3, profile())
-        assert not got["tax_included"] and not got["shipping_included"]
-
-    def test_rounding_is_half_up_on_the_cent(self):
-        # 100.00 * 0.125 = 12.50 exactly; use a rate that lands on a half cent
-        got = estimate_cost([seq(30)] * 3, profile(), tax_rate=Decimal("0.0725"))
-        # 100.00 * 0.0725 = 7.25 -> total 107.25
-        assert got["total"] == "107.25"
-
-    def test_an_unknown_modification_is_refused_not_ignored(self):
-        got = estimate_cost([seq(30)] * 3, profile(), modifications=("gold plating",))
-        assert not got["available"] and "no rule for modification" in got["reason"]
-
-    def test_a_count_outside_every_tier_is_refused(self):
-        narrow = profile(price_tiers=(PriceTier(5, 6, Decimal("100.00")),), max_oligos=20)
-        got = estimate_cost([seq(30)] * 2, narrow)
-        assert not got["available"] and "no price tier" in got["reason"]
-
-    def test_an_estimate_never_calls_itself_a_quote(self):
-        assert estimate_cost([seq(30)] * 3, profile())["is_a_quote"] is False
-
-
-class TestPriceProvenance:
-    def test_the_historical_profile_refuses_to_price(self):
-        """Historical constants must never surface as a current number."""
-        got = estimate_cost([seq(30)] * 3, HISTORICAL_OPOOL)
-        assert not got["available"]
-        assert got["price_status"] == "historical"
-
+class TestHistoricalProfile:
     def test_the_historical_profile_still_checks_eligibility(self):
-        """The useful half must not depend on a price that has gone stale."""
+        """A stale rule set must still answer the eligibility question."""
         assert check_eligibility([seq(30)] * 3, HISTORICAL_OPOOL)["eligible"]
-
-    def test_an_undated_profile_is_not_usable_for_pricing(self):
-        assert not profile(priced_on=None).prices_usable
-
-    def test_a_dated_estimate_carries_its_date_and_source(self):
-        got = estimate_cost([seq(30)] * 3, profile(source_url="https://example.invalid"))
-        assert got["priced_on"] == "2026-09-15"
-        assert got["source_url"] == "https://example.invalid"
 
 
 class TestPooling:
@@ -260,21 +186,19 @@ class TestOrderFiles:
         plan = plan_pools([{"sequence": seq(30), "design": "a"},
                            {"sequence": seq(30), "design": "b"}], profile())
         paths = write_order_files(plan, profile(), tmp_path)
-        report = json.loads(Path(paths["estimate_report"]).read_text(encoding="utf-8"))
+        report = json.loads(Path(paths["order_plan"]).read_text(encoding="utf-8"))
         assert report["profile"]["limits"]["oligos"] == [2, 4]
-        assert report["profile"]["price_status"] == "current"
 
 
 class TestProfileFile:
-    def test_a_supplied_dated_profile_loads_and_prices(self, tmp_path):
+    def test_a_supplied_profile_loads(self, tmp_path):
         path = tmp_path / "p.json"
         path.write_text(json.dumps({
-            "name": "supplied", "vendor": "V", "region": "EU", "currency": "EUR",
+            "name": "supplied", "vendor": "V", "region": "EU",
             "min_oligo_nt": 20, "max_oligo_nt": 60, "min_oligos": 2, "max_oligos": 8,
-            "price_tiers": [{"min_oligos": 1, "max_oligos": None, "price": "77.77"}],
-            "priced_on": "2026-01-01", "price_status": "current",
             "source_url": "https://example.invalid",
         }), encoding="utf-8")
         loaded = load_profile(path)
-        assert loaded.prices_usable
-        assert estimate_cost([seq(30)] * 3, loaded)["total"] == "77.77"
+        assert loaded.name == "supplied"
+        assert loaded.max_oligos == 8
+        assert check_eligibility([seq(30)] * 3, loaded)["eligible"]

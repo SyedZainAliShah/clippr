@@ -205,7 +205,7 @@ The clean-environment gate builds a wheel, installs it into a throwaway venv wit
 `CLIPPR_CACHE_DIR`, and runs the README's worked example **read out of the README itself**,
 requiring its documented output verbatim. Confirmed: it reproduces
 
-    AAAAUGUGG (9S) -> 302 aa, 906 nt, 4 fragments. Fidelity 0.828. QC PASS. 109.00 EUR (list price).
+    AAAAUGUGG (9S) -> 302 aa, 906 nt, 4 fragments. Fidelity 0.828. QC PASS.
 
 ## 11. Findings from the orchestrator's verification, and what changed
 

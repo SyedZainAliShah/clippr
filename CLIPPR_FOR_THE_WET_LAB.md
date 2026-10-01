@@ -268,8 +268,8 @@ The export targets IDT oPools:
 | oligo length | 40–350 nt |
 | oligos per pool | 2–384 |
 
-A design is split into fragments that fit, then packed into pools. Cost is estimated only when
-a dated price list is supplied — otherwise it reports "unavailable" rather than guessing.
+A design is split into fragments that fit, then packed into pools. Eligibility and pooling are
+checked against the vendor's published rules; no order is placed and no price is quoted.
 
 ---
 
@@ -420,8 +420,9 @@ We do not know, and the tool does not claim to. The PPR code is well established
 recognition is not measured affinity. This is exactly what we want the wet lab to find out.
 
 **"How much does it cost to order?"**
-It estimates only when given a dated price list. Otherwise it reports the pool plan and says
-cost is unavailable, rather than quoting a number that might be a year stale.
+CLIPPR does not price anything. We cannot get quotes, and a stale list price presented as a
+current one is worse than no number, so it reports the pool plan and leaves cost to you and
+your vendor.
 
 **"What do you need from us?"**
 Three things: check the output is the shape you'd actually order; tell us which constraints are

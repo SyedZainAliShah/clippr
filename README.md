@@ -39,7 +39,7 @@ codon_table = json.load(open("kazusa_3055.json", encoding="utf-8"))   # see "Inp
 r = design_oneshot("AAAAUGUGG", codon_table=codon_table, genetic_code=1,
                    check_offtarget=False, outdir="out")
 print(r["summary"])
-# AAAAUGUGG (9S) -> 302 aa, 906 nt, 4 fragments. Fidelity 0.828. QC PASS. 109.00 EUR (list price).
+# AAAAUGUGG (9S) -> 302 aa, 906 nt, 4 fragments. Fidelity 0.828. QC PASS.
 ```
 
 This example passes its codon table explicitly and turns host screening off, so it needs no
@@ -156,14 +156,12 @@ print(lib.summary())
 ```
 library of 50 designs
   fragments      212 across all designs, 54,900 bases
-  pooled cost    109.00 EUR as one pool, versus 5450.00 separately — 5341.00 EUR saved
   QC             48 PASS, 2 WARNING
   closest targets UUACACGUG/ACGUACGUA differ at 5
 ```
 
-An oligo pool is priced per pool, essentially flat across these sizes, so ordering a
-library as one pool rather than fifty is the single largest cost decision in the workflow.
-`write_library` emits a combined order sheet, a vendor-ready oPool CSV, a QC table, one
+Ordering a library as one pool rather than fifty is a single order rather than fifty, and
+the pool plan is built for that. `write_library` emits a combined order sheet, a vendor-ready oPool CSV, a QC table, one
 GenBank per design, and the cross-talk matrix.
 
 ### Cross-talk: two tiers, one gate
@@ -482,8 +480,6 @@ Every constant traces to a primary published source, not to any other implementa
   assembly efficiency.
 - **QC** is a sequence-complexity and feasibility check, not calibrated against vendor
   outcomes.
-- **Cost** is an IDT oPools list price, not a quote, and is flat across pool sizes in this
-  range — it cannot rank designs.
 - **`orthogonal.py` is a capability, not a validated result.** Every other module is checked
   against a 200-design oracle; this one has unit tests only, because no ground truth exists.
 - **Predicted PPR affinity is an unvalidated annotation**, from a P-type table applied to an

@@ -7,9 +7,6 @@ from Bio.Seq import Seq
 
 from clippr.assembly import build_oligos, split_cds
 from clippr.export import (
-    OPOOL_LIST_PRICE_EUR,
-    PHOSPHORYLATION_EUR_PER_OLIGO,
-    opool_quote,
     write_fasta,
     write_gene_fasta,
     write_genbank,
@@ -128,39 +125,3 @@ class TestGenBank:
     def test_destination_noted_as_outside_the_record(self, record):
         assert "outside this record" in record.annotations["comment"]
 
-
-class TestQuote:
-    def test_counts_and_lengths(self, design):
-        _, _, oligos = design
-        q = opool_quote(oligos)
-        assert q["n_oligos"] == len(oligos)
-        assert q["total_bases"] == sum(oligos["oligo_length"])
-        assert q["min_oligo_nt"] == min(oligos["oligo_length"])
-        assert q["max_oligo_nt"] == max(oligos["oligo_length"])
-
-    def test_pool_price_is_flat(self, design):
-        """Measured constant across 200 designs; cost cannot discriminate between them."""
-        _, _, oligos = design
-        assert opool_quote(oligos)["dna_eur"] == OPOOL_LIST_PRICE_EUR
-        assert opool_quote(oligos.head(2))["dna_eur"] == OPOOL_LIST_PRICE_EUR
-
-    def test_phosphorylation_is_per_oligo(self, design):
-        _, _, oligos = design
-        q = opool_quote(oligos)
-        assert q["phospho_eur"] == pytest.approx(
-            PHOSPHORYLATION_EUR_PER_OLIGO * len(oligos), abs=0.01)
-
-    def test_phosphorylation_excluded_unless_requested(self, design):
-        _, _, oligos = design
-        assert opool_quote(oligos)["total_eur"] == OPOOL_LIST_PRICE_EUR
-        withp = opool_quote(oligos, phosphorylate_5prime=True)
-        assert withp["total_eur"] > OPOOL_LIST_PRICE_EUR
-
-    def test_flagged_as_not_a_quote(self, design):
-        _, _, oligos = design
-        assert opool_quote(oligos)["list_price_not_a_quote"] is True
-
-    def test_empty_rejected(self, design):
-        _, _, oligos = design
-        with pytest.raises(ValueError, match="no oligos"):
-            opool_quote(oligos.head(0))

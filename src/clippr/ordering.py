@@ -1,16 +1,8 @@
-"""Order-product profiles: eligibility, pooling and cost estimates, with their limits stated.
+"""Order-product profiles: eligibility and pooling, with their limits stated.
 
 Local product support. **None of this is vendor approval**, and no function here places or
 submits an order. A profile is a written-down reading of a vendor's published rules at a given
 date; the vendor's current documentation is always the authority.
-
-**Prices expire, so they carry a date or they are not offered.** A profile whose
-`priced_on` is absent reports cost as *unavailable* while eligibility, pooling and export
-continue to work — the useful half of this module does not depend on a number that goes stale.
-A price found in some other tool's source is not a source; it is that tool's copy of one.
-
-**Money is `Decimal`.** Binary floats cannot represent 0.01, and a tiered calculation that
-accumulates float error produces an estimate whose last digits are noise.
 
 **Eligibility is judged on the wrapped order sequence**, the thing that would actually be
 synthesised — not on the bare coding sequence. They differ by the enzyme wrapper, which is
@@ -24,30 +16,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
-
-CENT = Decimal("0.01")
-
-
-@dataclass(frozen=True)
-class PriceTier:
-    """One tier: applies while the oligo count is within [min_oligos, max_oligos]."""
-
-    min_oligos: int
-    max_oligos: int | None
-    price: Decimal
-    per: str = "pool"                    # "pool" | "oligo" | "base"
-
-    def cost(self, oligos: int, bases: int) -> Decimal:
-        if self.per == "pool":
-            return self.price
-        if self.per == "oligo":
-            return self.price * oligos
-        if self.per == "base":
-            return self.price * bases
-        raise ValueError(f"unknown price basis {self.per!r}")
-
 
 @dataclass(frozen=True)
 class ProductProfile:
@@ -62,95 +31,66 @@ class ProductProfile:
     name: str
     vendor: str
     region: str
-    currency: str
     min_oligo_nt: int
     max_oligo_nt: int
     min_oligos: int
     max_oligos: int
     scales: tuple[str, ...] = ()
-    price_tiers: tuple[PriceTier, ...] = ()
-    priced_on: str | None = None                 # ISO date the prices were read
     source_url: str | None = None
-    price_status: str = "unavailable"            # "current" | "historical" | "unavailable"
-    modifications: dict = field(default_factory=dict)
     quantity_assumptions: str = ""
     unresolved_rules: tuple[str, ...] = ()
     allowed_bases: str = "ACGT"
 
-    @property
-    def prices_usable(self) -> bool:
-        return bool(self.price_tiers) and self.priced_on is not None
-
     def as_dict(self) -> dict:
         return {
             "name": self.name, "vendor": self.vendor, "region": self.region,
-            "currency": self.currency, "price_status": self.price_status,
-            "priced_on": self.priced_on, "source_url": self.source_url,
+            "source_url": self.source_url,
             "limits": {"oligo_nt": [self.min_oligo_nt, self.max_oligo_nt],
                        "oligos": [self.min_oligos, self.max_oligos],
                        "scales": list(self.scales)},
-            "price_tiers": [{"min_oligos": t.min_oligos, "max_oligos": t.max_oligos,
-                             "price": str(t.price), "per": t.per}
-                            for t in self.price_tiers],
-            "modifications": self.modifications,
             "quantity_assumptions": self.quantity_assumptions,
             "unresolved_rules": list(self.unresolved_rules),
         }
 
 
-#: The figures this package has historically used, kept **as history**.
-#:
-#: 109.00 EUR per pool and 1.63 EUR per oligo for 5' phosphorylation were measured across the
-#: 200-design corpus and documented in `export.py`. They are a list price from an
-#: unrecorded date, not a quote and not fetched from a vendor. `price_status` says
-#: `historical` so nothing downstream can present them as current, and `priced_on` is absent
-#: so `prices_usable` is False: a caller wanting a number must supply a dated table.
+#: A legacy rule set, retained so existing regression tests keep a second profile to
+#: exercise. **Its length limits are stale** -- a 20 nt minimum where the current
+#: published minimum is 40 -- so it must not be used to judge a real order.
 HISTORICAL_OPOOL = ProductProfile(
     name="oPools DNA (historical constants)",
-    vendor="IDT", region="EU", currency="EUR",
+    vendor="IDT", region="EU",
     min_oligo_nt=20, max_oligo_nt=350,
     min_oligos=2, max_oligos=384,
     scales=("50 pmol",),
-    price_tiers=(PriceTier(min_oligos=1, max_oligos=None, price=Decimal("109.00")),),
-    priced_on=None,
     source_url=None,
-    price_status="historical",
-    modifications={"5' phosphorylation": {"per_oligo": "1.63", "currency": "EUR"}},
     quantity_assumptions="one pool, 50 pmol per oligo, as measured across the corpus",
     unresolved_rules=(
         "acceptable-use and sequence-screening terms are not machine-checkable here",
         "secondary-structure and synthesis-difficulty judgements are the vendor's",
-        "region, tax and shipping depend on the account placing the order",
         "the length and count limits here were not re-read from current vendor "
         "documentation and must be confirmed before ordering",
     ),
 )
 
 
-#: Current oPools rules, **separated from price provenance**.
+#: Current oPools rules.
 #:
-#: Rule provenance and price provenance are different things and expire differently. An old
-#: length limit must not stand in for a current rule merely because pricing is switched off:
+#: An old length limit must not stand in for a current rule:
 #: the historical profile's 20 nt minimum passes two 30-base oligos that the current published
 #: minimum of 40 would reject, which is a false positive in the direction that matters.
 #:
 #: Values as read from IDT's published oPools specifications on 2026-09-15 (40-350 bases per
 #: oligo; 2-384 oligos per pool at the 50 pmol scale). **Confirm against the current page
 #: before ordering** -- this is a written-down reading, not a live query, and other scales
-#: carry different count ranges. Prices are deliberately absent, so cost reports unavailable
-#: while eligibility, pooling and export continue to work.
+#: carry different count ranges.
 CURRENT_OPOOL_50PMOL = ProductProfile(
-    name="oPools DNA, 50 pmol (current published rules, unpriced)",
-    vendor="IDT", region="EU", currency="EUR",
+    name="oPools DNA, 50 pmol (current published rules)",
+    vendor="IDT", region="EU",
     min_oligo_nt=40, max_oligo_nt=350,
     min_oligos=2, max_oligos=384,
     scales=("50 pmol",),
-    price_tiers=(),
-    priced_on=None,
     source_url=("https://www.idtdna.com/pages/products/custom-dna-rna/dna-oligos/"
                 "custom-dna-oligos/opools-oligo-pools"),
-    price_status="unavailable",
-    modifications={},
     quantity_assumptions="50 pmol per oligo; other scales have different count ranges",
     unresolved_rules=(
         "rules transcribed from the published specifications on 2026-09-15; confirm against "
@@ -158,27 +98,18 @@ CURRENT_OPOOL_50PMOL = ProductProfile(
         "only the 50 pmol scale is modelled; other scales carry different per-pool counts",
         "acceptable-use and sequence-screening terms are not machine-checkable here",
         "secondary-structure and synthesis-difficulty judgements are the vendor's",
-        "region, tax and shipping depend on the account placing the order",
-        "no price is supplied, so cost is unavailable by design",
     ),
 )
 
 
 def load_profile(path: str | Path) -> ProductProfile:
-    """Read a profile from JSON, including a dated price table a caller supplies."""
+    """Read a profile from JSON."""
     data = json.loads(Path(path).read_text(encoding="utf-8"))
-    tiers = tuple(PriceTier(min_oligos=t["min_oligos"], max_oligos=t.get("max_oligos"),
-                            price=Decimal(str(t["price"])), per=t.get("per", "pool"))
-                  for t in data.get("price_tiers", ()))
     return ProductProfile(
         name=data["name"], vendor=data["vendor"], region=data.get("region", ""),
-        currency=data.get("currency", ""),
         min_oligo_nt=data["min_oligo_nt"], max_oligo_nt=data["max_oligo_nt"],
         min_oligos=data["min_oligos"], max_oligos=data["max_oligos"],
-        scales=tuple(data.get("scales", ())), price_tiers=tiers,
-        priced_on=data.get("priced_on"), source_url=data.get("source_url"),
-        price_status=data.get("price_status", "unavailable"),
-        modifications=data.get("modifications", {}),
+        scales=tuple(data.get("scales", ())), source_url=data.get("source_url"),
         quantity_assumptions=data.get("quantity_assumptions", ""),
         unresolved_rules=tuple(data.get("unresolved_rules", ())),
         allowed_bases=data.get("allowed_bases", "ACGT"))
@@ -245,71 +176,6 @@ def check_eligibility(sequences: list[str], profile: ProductProfile, *,
             "oligos": count, "total_bases": sum(len(s) for s in sequences)}
 
 
-def estimate_cost(sequences: list[str], profile: ProductProfile, *,
-                  modifications: tuple[str, ...] = (),
-                  tax_rate: Decimal | None = None,
-                  shipping: Decimal | None = None) -> dict:
-    """A cost estimate, or an explicit statement that no usable price exists.
-
-    Tax and shipping are **never assumed**. They depend on the account and destination, so
-    they are included only when a caller supplies them, and their absence is reported rather
-    than silently treated as zero.
-    """
-    if not profile.prices_usable:
-        return {"available": False,
-                "reason": (f"profile '{profile.name}' has price_status "
-                           f"'{profile.price_status}' and no priced_on date; supply a dated "
-                           f"price table to obtain an estimate"),
-                "currency": profile.currency, "price_status": profile.price_status}
-
-    count = len(sequences)
-    bases = sum(len(s) for s in sequences)
-    tier = next((t for t in profile.price_tiers
-                 if t.min_oligos <= count and (t.max_oligos is None
-                                               or count <= t.max_oligos)), None)
-    if tier is None:
-        return {"available": False,
-                "reason": f"no price tier covers {count} oligos",
-                "currency": profile.currency, "price_status": profile.price_status}
-
-    subtotal = tier.cost(count, bases)
-    lines = [{"item": "synthesis", "amount": str(subtotal.quantize(CENT, ROUND_HALF_UP))}]
-
-    for name in modifications:
-        rule = profile.modifications.get(name)
-        if rule is None:
-            return {"available": False,
-                    "reason": f"profile has no rule for modification {name!r}",
-                    "currency": profile.currency, "price_status": profile.price_status}
-        amount = Decimal(str(rule["per_oligo"])) * count
-        subtotal += amount
-        lines.append({"item": name, "amount": str(amount.quantize(CENT, ROUND_HALF_UP))})
-
-    total = subtotal
-    if shipping is not None:
-        total += shipping
-        lines.append({"item": "shipping", "amount": str(shipping.quantize(CENT,
-                                                                          ROUND_HALF_UP))})
-    if tax_rate is not None:
-        tax = (total * tax_rate).quantize(CENT, ROUND_HALF_UP)
-        total += tax
-        lines.append({"item": f"tax at {tax_rate}", "amount": str(tax)})
-
-    return {"available": True, "currency": profile.currency,
-            "price_status": profile.price_status, "priced_on": profile.priced_on,
-            "source_url": profile.source_url,
-            "oligos": count, "total_bases": bases,
-            "tier": {"min_oligos": tier.min_oligos, "max_oligos": tier.max_oligos,
-                     "per": tier.per, "price": str(tier.price)},
-            "lines": lines,
-            "total": str(total.quantize(CENT, ROUND_HALF_UP)),
-            "tax_included": tax_rate is not None,
-            "shipping_included": shipping is not None,
-            "is_a_quote": False,
-            "note": ("estimate from a dated profile; not a quote, and not vendor "
-                     "confirmation that the order will be accepted")}
-
-
 def plan_pools(items: list[dict], profile: ProductProfile) -> dict:
     """Group order items into pools that satisfy the profile, preserving every mapping.
 
@@ -372,7 +238,7 @@ def plan_pools(items: list[dict], profile: ProductProfile) -> dict:
 
 
 def write_order_files(plan: dict, profile: ProductProfile, outdir: str | Path) -> dict:
-    """A vendor-shaped sequence file, a pool membership table and a local estimate report."""
+    """A vendor-shaped sequence file, a pool membership table and the plan itself."""
     import csv
 
     out = Path(outdir)
@@ -398,11 +264,11 @@ def write_order_files(plan: dict, profile: ProductProfile, outdir: str | Path) -
                 writer.writerow({**member, "length": len(member["sequence"])})
     paths["pool_membership"] = str(membership)
 
-    report = out / "order_estimate.json"
+    report = out / "order_plan.json"
     report.write_text(json.dumps({"profile": profile.as_dict(), "plan": {
         "feasible": plan.get("feasible"), "pool_count": plan.get("pool_count"),
         "method": plan.get("method"), "optimality": plan.get("optimality"),
         "reason": plan.get("reason")}}, indent=2, sort_keys=True) + "\n",
         encoding="utf-8")
-    paths["estimate_report"] = str(report)
+    paths["order_plan"] = str(report)
     return paths

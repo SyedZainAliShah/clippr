@@ -77,7 +77,6 @@ from .offtarget import architecture_advice, load_genome, scan
 from .policy import DEFAULT_ENZYME_PROFILE, ENZYME_PROFILES, ENZYME_ROLES, enzymes_for
 from .qc import DEFAULT_THRESHOLDS, synthesis_qc
 from .export import (
-    opool_quote,
     write_fasta,
     write_gene_fasta,
     write_genbank,
@@ -134,7 +133,7 @@ __all__ = [
     "table_from_cds_fasta", "table_from_csv", "table_from_genome", "table_from_kazusa",
     "Fragment", "build_oligos", "enzyme_geometry", "reassemble", "split_cds",
     "wrap_fragment",
-    "opool_quote", "write_fasta", "write_gene_fasta", "write_genbank", "write_oligo_csv",
+    "write_fasta", "write_gene_fasta", "write_genbank", "write_oligo_csv",
     "DEFAULT_THRESHOLDS", "synthesis_qc",
     "ORGANISMS", "design_oneshot", "balanced_cuts",
     "LibraryResult", "design_library", "write_library",

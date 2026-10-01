@@ -65,7 +65,7 @@ class TestPipeline:
         assert "AAAAUGUGG" in result["summary"]
 
     def test_every_documented_key_present(self, result):
-        for k in ("summary", "protein", "cds", "oligos", "qc", "fidelity", "cost", "paths"):
+        for k in ("summary", "protein", "cds", "oligos", "qc", "fidelity", "paths"):
             assert k in result
 
 

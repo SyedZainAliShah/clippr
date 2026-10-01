@@ -304,10 +304,9 @@ Derivation and both falsifiers: `validation/experiments/level1_geometry.py`, art
 
 ## 7. Vendor support — RAN, with its limits stated
 
-Prices carry a date or they are not offered. `HISTORICAL_OPOOL` holds this project's
-long-standing 109.00 EUR / 1.63 EUR figures as **historical**: `price_status` blocks them from
-surfacing as current and `priced_on` is absent, so `prices_usable` is False. Eligibility,
-pooling and export work without any price.
+**CLIPPR does not price anything.** Costing was removed outright: we cannot obtain quotes, and
+a stale list price presented as a current one is worse than no number. Eligibility, pooling
+and export are the whole of vendor support, and none of them ever needed a price.
 
 Pooling matches the exhaustive optimum on every case n=2–10 with **zero gap** and refuses
 nothing a valid partition covers — but that is under a flat per-pool tier, and it is not a
