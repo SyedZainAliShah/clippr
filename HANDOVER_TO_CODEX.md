@@ -44,6 +44,17 @@ the purpose of.
 the command that produced it. That badge is the same failure the thread below names: a number
 in a document that nothing recomputed, wrong by 644 and green the whole time.
 
+**Later the same day: the merge, and a proposal that failed review.** `synthesis-policy-profile`
+was fast-forwarded onto `main` (`3100ff5..b6d0f68`) and the clean-install release check re-run,
+taking it to 10/10 with nothing needing a human. `PROPOSAL_TO_CODEX.md` then scoped open issues
+14 and 15 — and its first revision carried six defects, every one of them a number or a
+categorical claim that had never been checked against the thing it described. Codex found all
+six. Revision 2 corrects them in place with the retractions listed at the top, and the two that
+are facts about this repository rather than about the proposal are recorded in item 14 below. The
+headline figure moved from 67% to **51%**. This document already records several numbers that
+shipped unchecked under a green suite; the only new part here is that a proposal is covered by no
+suite at all, so nothing but a reviewer could have caught it.
+
 ---
 
 ## What changed in this pass, in one place
@@ -95,10 +106,10 @@ reverted the following day. The notebook figures below are re-measured, not reca
 
 | | |
 |---|---|
-| branch | `synthesis-policy-profile` at `b33a383`, **8 commits ahead** of `origin/main` (`3100ff5`). Clean fast-forward |
-| commits | `74e4242` · `a7181fe` · `2f936bc` · `35898a1` · `fa98fc6` · `3b737a9` · `44446fe` cost removed · `b33a383` notebook split — all pushed |
+| branch | `synthesis-policy-profile` at `b6d0f68`, **level with `origin/main`**. The merge landed as a server-side fast-forward, `3100ff5..b6d0f68`; open issue 1 is closed |
+| commits | `74e4242` · `a7181fe` · `2f936bc` · `35898a1` · `fa98fc6` · `3b737a9` · `44446fe` cost removed · `b33a383` notebook split · `b6d0f68` handover and notebook step labels — all pushed, and all now on `main` |
 | tests | **927 passed of 927**, 0 failed. Was 949; the 22 that went were the ones asserting the costing feature that was removed |
-| release check | **9 / 10**, 0 failed, **1 needing a human** — the clean-environment install. Its saved evidence went stale when this pass changed package source and the README worked example, so it needs re-running with `--clean-install`. Nothing is broken; the evidence is simply older than the tree |
+| release check | **10 / 10**, 0 failed, **0 needing a human.** Re-run with `--clean-install` after the merge. Check 3 reproduced the README's worked example verbatim from a pip-installed build — `AAAAUGUGG (9S) -> 302 aa, 906 nt, 4 fragments. Fidelity 0.828. QC PASS.` — which is what re-verified the costing removal on both sides at once, since it compares strings |
 | falsification | 10 / 10 reverted defects caught. **Not re-run this pass** — no boundary test was added or changed, and nothing in `tests/test_policy_boundaries.py` was touched |
 | notebooks | **Two.** Designer: 22 cells, 12 code cells run, 0 failed. Inventory: 20 cells, 10 code cells run, 0 failed. Both against a *pip-installed* build from `origin/main`, not the working tree |
 | default behaviour | **unchanged** — every published number reproduces |
@@ -356,14 +367,13 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
 
 **Decisions, not work:**
 
-1. **Merge `synthesis-policy-profile`.** 8 commits ahead of `origin/main`, a clean
-   fast-forward. The notebook is **no longer** byte-identical across the two — this pass
-   rewrote it — so the earlier argument no longer applies. The replacement evidence is direct:
-   both notebooks were executed against a pip-installed build from `origin/main` and passed
-   (12 and 10 code cells, 0 failed), so the merge still cannot break Colab. Not merged because
-   changing `main` is the submitter's call. **Until it lands, the reviewer keeps opening a
-   Colab notebook containing none of the six fixes from `3b737a9`, nor anything from this
-   pass.**
+1. ~~**Merge `synthesis-policy-profile`.**~~ **Closed 2026-10-01.** Merged as a server-side
+   fast-forward, `3100ff5..b6d0f68`, 9 commits. Verified in this order: full suite green
+   *before* main was touched; fast-forward confirmed with
+   `git merge-base --is-ancestor origin/main HEAD`; then the throwaway venv reinstalled from
+   the **new** `main` and both notebooks re-run against it — designer 12 code cells, inventory
+   10, 0 failed. The reviewer now opens a Colab notebook containing the six fixes from
+   `3b737a9` and everything from this pass.
 2. **Whether the default profile changes.** The benchmark is favourable and is **not** evidence
    of vendor acceptance, which is the only thing that matters for an order. Someone must own
    that risk.
@@ -480,16 +490,52 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
     keeping all 40 advisories, so the choice is no longer "conservative or optimised" but
     "refuse or record". It ships out-of-band sequences the strict default refuses to produce.
     That is a judgement about risk, and it is not mine to make.
-14. **Region-based targeting.** The reviewer recommended specifying a region of the target gene
-    rather than a fixed 9/14/19-mer. This is not a convenience: given a bare k-mer the tool
-    cannot distinguish the intended binding site from a genuine off-target, which is precisely
-    what the reviewer asked when a hit landed in ORF1995. The off-target cell can report the
-    hit and advise lengthening, but it cannot answer "is that mine?". Changes the input model,
-    so it is unstarted and should be a decision before it is work.
+14. **Region-based targeting. Scoped and reviewed, not built — `PROPOSAL_TO_CODEX.md`.** The
+    reviewer recommended specifying a region of the target gene rather than a fixed
+    9/14/19-mer. Still true: given a bare k-mer the tool cannot separate the intended binding
+    site from a genuine off-target, which is what the reviewer asked when a hit landed in
+    ORF1995.
+
+    **The first version of that proposal was wrong in six ways and all six were mine.** Codex
+    reviewed it and every finding reproduced. Two are worth carrying here because they are
+    facts about this repository, not about the proposal:
+
+      - **`load_transcripts()` is not a gene dictionary.** 109 annotated features, **100
+        distinct names**; nine names occur twice. `psbA` sits at 48774 (minus strand) and
+        138789 (plus strand) with **byte-identical** extracted sequence — the chloroplast
+        inverted repeat. `Hit` carries neither feature identity nor genomic coordinate, so name
+        plus local offset cannot tell two copies apart. Any occurrence accounting must key on
+        feature identity. My proposal keyed on name, which silently forgave both copies and
+        turned a 51% result into a 67% one.
+      - **The CDS features are coding spans, not UTR-inclusive transcripts**, and `psbA`'s
+        location is five joined segments. So `start + offset` is not a genomic coordinate, and
+        a native-UTR workflow cannot be served from this cache at all — it needs a data source
+        that does not yet exist here.
+
+    What the review settled, against my proposal: the feature does **not** change the input
+    model. `design_oneshot`, `design_library` and `parts.select` already accept a chosen
+    sequence, so a selector sits upstream and hands one over — purely additive. And window
+    selection applies to the **inventory** route too, which the proposal wrongly excluded:
+    every window in a 200 nt sample was kit-available and every window produced a **different
+    pick list**.
 15. **Notebook UX beyond the cut.** The two routes are separated and the prose is down to 1,573
     words, but the designer notebook is still a linear scroll of Colab forms. Grouping inputs
-    and outputs, and making detail collapsible, is unstarted. If a web app is planned it would
-    subsume this, and that ordering should be settled before either is built.
+    and outputs, and making detail collapsible, is unstarted — and depends on whether Step 1
+    stays a sequence box, so it is held behind item 14.
+
+    **Two corrections are not held, because they are wrong in the repository today.** The
+    off-target cell's markdown says an occurrence means "the protein binds there too", which
+    contradicts `offtarget.py`'s own docstring: occurrence is necessary and never sufficient.
+    And the cell prints `expected_by_chance` beside a transcript verdict, when that figure is a
+    **genomic, both-strand** composition null — `report()` already warns in prose that the two
+    read as a contradiction, and an earlier reviewer made exactly that reading.
+
+    On the web app: the ordering argument in the proposal cited **4.70 s / 6.26 s** as the
+    designer route. Those are `chained_routes` in `work/runtime/runtime_profile.json` — the
+    **inventory** chain. The one-shot designer figures are a separate section,
+    `oneshot_synthesis_route`: **0.5221 s** 9S, **14.1180 s** 14S, **204.9769 s** 19S, each
+    n = 1 with screening disabled. The conclusion survives and hardens — 205 s cannot be a
+    synchronous request — but anyone repeating the argument should quote the right table.
 
 ---
 
@@ -514,6 +560,7 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
 
 | | |
 |---|---|
+| `PROPOSAL_TO_CODEX.md` | open issues 14 and 15 scoped, reviewed and corrected — read its revision note before quoting any figure from it |
 | `docs/synthesis_policy.md` | the profile mechanism and the four-arm benchmark |
 | `docs/gc_band_and_constraint_model.md` | the GC measurement, vendor sources and their limits |
 | `docs/reference_implementation_findings.md` | everything established about GRASP Designer |
