@@ -162,7 +162,7 @@ The only cell you have to edit. Everything else runs on what you set here.
 """))
 
 cells.append(code('''
-#@markdown # 1 · What should it bind?
+#@markdown # A · What should it bind?
 #@markdown ---
 #@markdown The RNA sequence your PPR will recognise. **Its length sets the architecture** —
 #@markdown 9, 14 or 19 bases give a 9S, 14S or 19S protein.
@@ -175,7 +175,7 @@ cells.append(code('''
 #@markdown working.
 target_rna = "AAAAUGUGG"  #@param {type:"string"}
 
-#@markdown # 2 · Where will it be expressed?
+#@markdown # B · Where will it be expressed?
 #@markdown ---
 #@markdown Sets the codon usage and the genetic code (nuclear hosts use table 1,
 #@markdown chloroplasts table 11).
@@ -200,7 +200,7 @@ codon_table_file = ""  #@param {type:"string"}
 kazusa_taxid = 0  #@param {type:"integer"}
 genetic_code_override = 0  #@param {type:"integer"}
 
-#@markdown # 3 · How will it be assembled?
+#@markdown # C · How will it be assembled?
 #@markdown ---
 #@markdown Which Type IIS enzyme cuts the fragments out, and which published mis-ligation
 #@markdown table scores the junctions. `BsaI-HFv2` and `BbsI-HF` are the two measured in
@@ -226,7 +226,7 @@ extra_blacklist = ""  #@param {type:"string"}
 destination_level = "level0"  #@param ["level_minus1", "level0", "level1"]
 custom_destination = ""  #@param {type:"string"}
 
-#@markdown # 4 · Anything else
+#@markdown # D · Anything else
 #@markdown ---
 #@markdown **`n_fragments`** — how many pieces to split the gene into. Leave at 0 to let the
 #@markdown length decide; set it only if your vendor has an awkward limit.
@@ -239,7 +239,7 @@ n_fragments = 0  #@param {type:"integer"}
 seed = 42  #@param {type:"integer"}
 write_files = True  #@param {type:"boolean"}
 check_offtarget = True  #@param {type:"boolean"}
-''', title="1 · Your target and host  (edit this)"))
+''', title="Edit your settings"))
 
 # ---------------------------------------------------------------- design + results
 cells.append(md("""
@@ -326,7 +326,7 @@ card = (
     f'{cards}</div></div>{warn}')
 
 display(HTML(card))
-''', title="2 · Design it"))
+''', title="Run the design"))
 
 # ---------------------------------------------------------------- fragments
 cells.append(md("""
@@ -357,7 +357,7 @@ try:
                                          ("font-variant-numeric", "tabular-nums")]}]))
 except ImportError:
     display(table)
-''', title="3 · The fragments to order"))
+''', title="Show the fragments"))
 
 # ---------------------------------------------------------------- audit
 
@@ -397,7 +397,7 @@ else:
     if colab_files:
         for p in result["paths"].values():
             colab_files.download(p)
-''', title="4 · Download the files"))
+''', title="Download the files"))
 
 # ---------------------------------------------------------------- optional extras
 cells.append(md("""
@@ -429,7 +429,7 @@ try:
 except ImportError:
     print("not running on Colab — put the file beside the notebook and give its path "
           "in codon_table_file instead.")
-''', title="Upload a codon table"))
+''', title="Upload from your computer"))
 
 # ---------------------------------------------------------------- off-target
 cells.append(md("""
@@ -481,7 +481,7 @@ if expected is not None:
 print()
 print(f"host: Chlamydomonas reinhardtii chloroplast, {len(genome):,} bp, "
       f"{len(transcripts)} annotated transcripts")
-''', title="Does this target occur in the host?"))
+''', title="Run the host check"))
 
 cells.append(md("""
 ---
@@ -509,7 +509,7 @@ from clippr import parts_report, select_parts
 
 plan = select_parts(target_rna)
 print(parts_report(plan))
-''', title="Build it from parts you own"))
+''', title="Check the kit"))
 
 cells.append(md("""
 ---
@@ -544,11 +544,11 @@ print()
 print(lib.summary())
 print()
 print(lib.crosstalk())
-''', title="Design a whole library"))
+''', title="Run the library design"))
 
 cells.append(code('''
 lib.qc_table()
-''', title="Library QC table"))
+''', title="Show the library QC table"))
 
 cells.append(md("""
 ### DNA shared between members
@@ -567,7 +567,7 @@ will happen, and 50 nt is a rule of thumb rather than a measured constant for th
 
 cells.append(code('''
 print(lib.homology())
-''', title="DNA shared between members"))
+''', title="Measure shared DNA"))
 
 cells.append(md("""
 ### Cross-talk, in two tiers
@@ -603,7 +603,7 @@ if scores:
     print()
     print("A disagreement is a reading recommendation, not a failed design —")
     print("tier A alone decides what this library accepts.")
-''', title="Cross-talk between targets"))
+''', title="Run the cross-talk check"))
 
 
 cells.append(md("""
@@ -640,7 +640,7 @@ if len(rejected) > 8:
     print(f"    … and {len(rejected) - 8} more")
 if not rejected:
     print("    (every achievable overhang was usable at every junction)")
-''', title="Going deeper: the design audit"))
+''', title="Show the audit"))
 
 cells.append(md(f"""
 ---
