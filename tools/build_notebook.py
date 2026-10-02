@@ -166,6 +166,13 @@ cells.append(code('''
 #@markdown ---
 #@markdown The RNA sequence your PPR will recognise. **Its length sets the architecture** —
 #@markdown 9, 14 or 19 bases give a 9S, 14S or 19S protein.
+#@markdown
+#@markdown ⏱️ **Length also sets how long Step 2 takes, and the difference is large.** Measured
+#@markdown once each on the project's own machine, screening off: **9 bases ≈ 0.5 s**,
+#@markdown **14 bases ≈ 14 s**, **19 bases ≈ 3—4 minutes**. The codon optimiser has to route a
+#@markdown longer coding sequence around more fixed junctions and more forbidden enzyme sites,
+#@markdown so the cost climbs far faster than the length does. A 19-mer has not hung — it is
+#@markdown working.
 target_rna = "AAAAUGUGG"  #@param {type:"string"}
 
 #@markdown # 2 · Where will it be expressed?

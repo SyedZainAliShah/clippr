@@ -23,11 +23,30 @@ in. Any host can be used by supplying a codon table.
 
 ## Install
 
+**Nothing to install** — [open the notebook in Colab](https://colab.research.google.com/github/SyedZainAliShah/clippr/blob/main/notebooks/CLIPPR_designer.ipynb). It is form-driven, needs no
+code, and installs the package for you. This is the route to take if you want to see what the
+tool does.
+
+**As a package**, Python 3.10+:
+
 ```bash
 pip install git+https://github.com/SyedZainAliShah/clippr.git
 ```
 
-Python 3.10+. Or skip the install entirely and **[open the notebook in Colab](https://colab.research.google.com/github/SyedZainAliShah/clippr/blob/main/notebooks/CLIPPR_designer.ipynb)** — a form-driven version that needs no code.
+**To reproduce the results below exactly**, use the pinned set rather than the floors in
+`pyproject.toml`. `requirements.txt` records the one dependency combination the test suite was
+actually measured in:
+
+```bash
+python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements.txt   # Linux/macOS: .venv/bin/python
+.venv/Scripts/python -m pip install -e .
+.venv/Scripts/python -m pytest                            # expect 974 passed, 0 failed
+```
+
+Every figure quoted in this README is reproducible from that environment; `docs/verification_commands.md`
+gives one invocation per claim, and **[Verification](#verification)** below says which script
+proves what.
 
 ## A worked example
 
@@ -437,6 +456,25 @@ design_oneshot("AAAAUGUGG", enzyme_profile="moclo_compat")
 The package keeps published fact, assembly mechanics and project choices in separate
 modules (`biology.py`, `assembly_spec.py`, `policy.py`) so a reader can tell what GRASP
 requires from what CLIPPR chose.
+
+## Standards and formats this interoperates with
+
+Everything it emits is a format another tool already reads, and every constraint it enforces
+traces to a published standard rather than to this project's preference.
+
+| | |
+|---|---|
+| **GenBank** | the assembled gene, with every PPR repeat annotated by the base it reads. Opens in SnapGene, Benchling or Biopython |
+| **FASTA** | the gene, and the oligos as a separate multi-record file |
+| **CSV** | the order sheet, in the column layout a synthesis vendor expects |
+| **iGEM RFC[1000]** | the default enzyme profile excludes BsaI, BbsI and SapI, which is what the Type IIS assembly standard requires |
+| **MoClo / Golden Gate** | `moclo_compat` additionally excludes BsmBI to keep later MoClo levels open. Opt-in, because it discards feasible designs to buy compatibility nobody has asked for yet |
+| **Pryor *et al.* 2020 ligation matrices** | junction fidelity is scored against the published mis-ligation counts, not a heuristic of ours |
+| **Kazusa codon usage** | codon tables fetched by NCBI taxonomy id, or supplied as CSV or CDS FASTA |
+| **NCBI nuccore** | host genomes and annotations fetched by accession for off-target screening |
+
+**Not SBOL.** Nothing here emits or consumes it. Saying so plainly is more useful to a team
+deciding whether this fits their stack than a partial implementation would be.
 
 ## Verification
 

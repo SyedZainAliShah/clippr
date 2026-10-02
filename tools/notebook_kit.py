@@ -30,7 +30,12 @@ def code(text, title=None, form=True):
 #: fallback or the version banner should never land in one notebook and not the other.
 _SETUP = '''
 #@markdown Installs the package if it is not already available. Safe to re-run — it never
-#@markdown reinstalls over a working copy.
+#@markdown reinstalls over a working copy. Takes about a minute the first time.
+#@markdown
+#@markdown **If it fails:** run it again — a dropped network call is the usual cause. If it
+#@markdown still fails, use **Runtime → Restart session** and then run it once more, which
+#@markdown clears a half-installed package. Every cell below needs this one to have
+#@markdown succeeded, so do not skip past a red error here.
 REPO = "__REPO__"
 
 try:

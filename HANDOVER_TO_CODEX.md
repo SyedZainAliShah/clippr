@@ -365,6 +365,29 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
 
 ## 7. What is genuinely still open
 
+**Eligibility, and it is not a technical problem:**
+
+0. **The Best Software award requires the code to live on iGEM's GitLab, and ours does not.**
+   The 2026 judge handbook, Chapter 4, "Software", lists this first under *Requirements to
+   check*: "Hosted on iGEM's GitLab. All software must live in the team's official repository.
+   **Code hosted anywhere else is not eligible for evaluation.**" It then says that if any
+   requirement is missing, "the submission has not met the requirements for the award."
+
+   This repository is on GitHub at `SyedZainAliShah/clippr`. Every other hard requirement is
+   now met and checked: `LICENSE` is MIT (OSI-approved), `README.md` says what the tool does,
+   who it is for, how to install it and how to reproduce the results, `requirements.txt` pins
+   the exact dependency set the suite was measured in, the build and run instructions are a
+   plain command sequence, and the repository is **2.4 MB tracked** against a 50 MB limit.
+
+   Moving it is a decision for the team, not a task to start unasked, and it carries a trap
+   worth naming in advance: **both notebooks' Setup cell installs with
+   `pip install git+https://github.com/SyedZainAliShah/clippr.git`**, and the Colab badge URLs
+   and `tools/notebook_kit.py`'s `REPO` constant all point at GitHub too. A migration has to
+   move those together, and `validation/notebook_on_published_build.py` must be re-pointed at
+   the new host or it will keep certifying a notebook against the old one. Mirroring rather
+   than moving keeps Colab working, but the handbook's wording is about where the code *lives*,
+   so a mirror may not satisfy it. Worth asking iGEM rather than guessing.
+
 **Decisions, not work:**
 
 1. ~~**Merge `synthesis-policy-profile`.**~~ **Closed 2026-10-01.** Merged as a server-side
