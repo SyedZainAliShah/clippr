@@ -100,19 +100,6 @@ def _load() -> list[dict]:
     return checks
 
 
-def _measured_at_row(record: dict) -> str:
-    """The commit the figures describe -- from the record, never live HEAD.
-
-    Live HEAD would make this row change on every commit, failing check 11 for a reason
-    unrelated to any measurement. It would also be a false claim: these numbers describe the
-    commit they were measured at, which stops being HEAD as soon as anything else is committed.
-    """
-    head = str(record.get("head", ""))[:7] or "an unrecorded commit"
-    when = str(record.get("when", "an unrecorded time"))
-    return (f"| measured at | commit `{head}`, {when}. Every figure below describes **that** "
-            f"tree, not necessarily the one you have checked out |")
-
-
 def _notebooks_row(checks: list[dict]) -> str:
     parts = []
     for label, name in NOTEBOOKS:
@@ -143,7 +130,6 @@ def _release_row(checks: list[dict]) -> str:
 
 def render() -> str:
     checks = _load()
-    record = json.loads(RECORD.read_text(encoding="utf-8"))
     rows = [
         BEGIN,
         "",
@@ -151,9 +137,15 @@ def render() -> str:
         "`validation/state_table.py`; `release_check.py` check 11 fails when it stops "
         "matching. Edit the measurement, not the number.*",
         "",
+        "*Nothing here carries a timestamp or a commit on purpose: the block is rewritten by "
+        "every release-check run, so volatile values in it would make check 11 fail "
+        "immediately after each run and a green gate unreachable. The guarantee is stronger "
+        "without them — these rows only render while the record's digest over `src/`, `tests/` "
+        "and `release_check.py` matches this tree. `work/release/release_check.json` holds the "
+        "commit and the time.*",
+        "",
         "| | |",
         "|---|---|",
-        _measured_at_row(record),
         f"| tests | **{_detail(checks, '1.')}** — `pytest tests/ -q` |",
         _release_row(checks),
         f"| independent evidence | {_detail(checks, '5.')} |",

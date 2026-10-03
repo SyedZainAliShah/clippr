@@ -38,18 +38,38 @@ drifts. `--write` regenerates the block. Three properties worth knowing:
     `release_check.py`; if the tree computes a different one, the script declines to render and
     says what to re-run. Rendering figures for a tree that no longer exists is the failure it
     exists to prevent, so it will not do it quietly.
-  - **It binds on those three things and not on HEAD.** Binding on HEAD was the first attempt and
-    it was wrong: committing this document moves HEAD without changing a measured number, so the
-    gate would have failed after every commit — and a gate that cries wolf is one somebody
-    switches off.
+  - **It binds on those three things and not on HEAD, and the block carries no timestamp or
+    commit.** This took three attempts, and the same mistake each time: volatile state somewhere
+    that is compared for equality.
+
+    Binding on HEAD was first — committing this document moves HEAD without changing a measured
+    number, so the gate would have failed after every commit. Then the first row read live HEAD,
+    one layer down, with the same effect. Then the row carried the record's timestamp and
+    commit, and **`release_check.py` rewrites that record on every run** — so check 11 failed
+    immediately after every run that produced the numbers it checks, and 11 of 11 was
+    unreachable. The sequence was always run, fail, write, verify.
+
+    A gate that cannot be green is one people learn to ignore, which is worse than not having
+    it. Nothing volatile is in the block now, and the guarantee is stronger without it: the rows
+    render only while the record's digest matches the tree, so the figures necessarily describe
+    the code you have. The commit and the time live in
+    `work/release/release_check.json`.
+
+    Worth knowing how the third one was caught, because it had already been committed: by
+    measuring the process's exit code directly. A `| tail` in the command had been reporting 0
+    for a run that returned 1, so the failure was invisible in the output being read.
   - **Only measurements are generated.** Which commits matter and why, whether the default
     behaviour changed, the falsification result — those are judgements, they sit below the
     markers, and they are labelled as hand-written. Generating a judgement would mean inventing
     one.
 
-It was falsified rather than assumed: with the test count edited to 1200 the verifier exits
-non-zero and prints both the measured and the recorded row; with the record absent it says so;
-with the record bound to a different tree it says that instead. Check 11 fails in the same cases.
+It was falsified rather than assumed: with the test count edited the verifier exits non-zero and
+prints both the measured and the recorded row; with the record absent it says so; with the record
+bound to a different tree it says that instead. Check 11 fails in the same cases and passes on a
+clean table. Two further properties are pinned by measurement rather than argument: the render is
+**identical** after the record's timestamp and commit change, which is what makes a green gate
+reachable; and check 11 still passed across a commit that moved HEAD from `66b3c9f` to
+`42ef308`.
 
 **The release check was failing, and had been since `551c358`.** Check 5 — exported sequences,
 metrics and hashes agree with independent calculations — was reading V5/V6/V7 artefacts stamped
@@ -174,9 +194,10 @@ reverted the following day. The notebook figures below are re-measured, not reca
 
 *Every row below is rendered from measured artefacts by `validation/state_table.py`; `release_check.py` check 11 fails when it stops matching. Edit the measurement, not the number.*
 
+*Nothing here carries a timestamp or a commit on purpose: the block is rewritten by every release-check run, so volatile values in it would make check 11 fail immediately after each run and a green gate unreachable. The guarantee is stronger without them — these rows only render while the record's digest over `src/`, `tests/` and `release_check.py` matches this tree. `work/release/release_check.json` holds the commit and the time.*
+
 | | |
 |---|---|
-| measured at | commit `66b3c9f`, 2026-10-03T01:16:31+00:00. Every figure below describes **that** tree, not necessarily the one you have checked out |
 | tests | **974 passed of 974 collected, 0 failed** — `pytest tests/ -q` |
 | release check | **10 of 10 passed**, 0 failed, **0 needing a human** |
 | independent evidence | V5 digest/ligate: 200/200 reconstructed, 7/7 corrupt controls caught \| V6 constraints: 200/200 satisfy every hard constraint, 0 disagreements with claimed status \| V7 export semantics: 3 designs, 0 semantic problems, 5/5 controls caught |
