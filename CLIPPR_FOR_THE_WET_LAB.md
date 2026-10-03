@@ -378,7 +378,8 @@ selection → assembly-ready substrates → order package. No stubs in the main 
 | Check targets against the host's own genome | **working** |
 | Check library members against each other | **working** — homology and two-tier cross-talk |
 | Produce an orderable package with provenance | **working** — IDT oPools, pooled, hash-verified |
-| Run without installing anything | **working** — Colab, 22/22 cells execute |
+| Run without installing anything | **working** — Colab, two notebooks, every code cell executes |
+| Choose the target window for you, from a region | **working** — give it a gene span and it picks the window with the least off-target evidence against it |
 
 ## Honest limits, stated plainly
 

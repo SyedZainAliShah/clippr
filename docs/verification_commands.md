@@ -224,6 +224,11 @@ hand. The window is a plain RNA target, so it feeds `design_oneshot`, `design_li
 python -c "import sys;sys.path.insert(0,'src');from clippr import SearchSequence,select_window,loci_for_gene,window_report;from clippr.offtarget import load_transcripts;trs=load_transcripts();f=next(t for t in trs if t.name=='rbcL');s=SearchSequence('rbcL_200',f.sequence[:200],origin='native');print(window_report(select_window(s,lengths=(9,),transcripts=trs,intended_loci=loci_for_gene('rbcL',trs),reference='NC_005353.1')))"
 ```
 
+In the designer notebook this is *Pick the target window for me*, under Optional extras. It
+reports without changing anything until `apply_to_target` is ticked, so a *Run all* cannot
+redesign for a window nobody chose, and it prints an explanation rather than raising on a build
+that predates the module.
+
 `origin` is required and never inferred: a designed sequence's intended site is absent from a
 wild-type reference while a native one's is present, which changes what every occurrence means.
 

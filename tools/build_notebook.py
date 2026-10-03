@@ -173,6 +173,10 @@ cells.append(code('''
 #@markdown longer coding sequence around more fixed junctions and more forbidden enzyme sites,
 #@markdown so the cost climbs far faster than the length does. A 19-mer has not hung — it is
 #@markdown working.
+#@markdown
+#@markdown 💡 **Not sure which window of your gene to aim at?** Leave this field alone and use
+#@markdown **Pick the target window for me** under *Optional extras*. Give it a region and it
+#@markdown picks the window inside it with the least off-target evidence against it.
 target_rna = "AAAAUGUGG"  #@param {type:"string"}
 
 #@markdown # B · Where will it be expressed?
@@ -408,6 +412,129 @@ cells.append(md("""
 *Nothing below is needed to place an order.* Use the arrow beside this heading to collapse
 the whole section, or open any single item.
 """))
+
+# ---------------------------------------------------------------- window selection
+cells.append(md("""
+### Pick the target window for me
+
+Give this a **region** — a UTR, a coding span, any stretch you are willing to target anywhere
+within — and it chooses the window inside it with the least off-target evidence against it,
+instead of you picking one by hand.
+
+**Why a region beats a typed target.** A region is longer than the site a PPR reads, so most of
+it is a choice you would otherwise be making silently. On a 200-base stretch of `rbcL`, **98 of
+the 192 possible 9-base windows** carry no other exact occurrence in the annotation, and **all
+187 possible 14-base windows** carry none. Choosing by hand throws that away.
+
+**It also makes the host check mean something.** Given a bare target, the host scan cannot
+separate the site you meant from a coincidence elsewhere in the genome — so a real match and
+your own intended site look identical. Name the host gene your region came from and the intended
+occurrence stops counting against you.
+
+**What it does not do.** It ranks on other-occurrence count only. An exact match is a sequence
+coincidence, not demonstrated binding, and nothing here measures affinity. It does not rank on
+GC or on whether the resulting protein is easy to synthesise — those are properties of the
+design that follows, not of the window.
+
+By default this cell **reports and changes nothing**, so you can see what it would pick before
+committing to it. Tick `apply_to_target` to set `target_rna`, then re-run Step 2.
+"""))
+
+cells.append(code('''
+#@markdown Paste the region to search. Leave it blank and name a host gene below to use that
+#@markdown gene's annotated span instead.
+search_sequence = ""  #@param {type:"string"}
+#@markdown Where the region came from. **Not inferred, because it changes what every occurrence
+#@markdown means:** a designed sequence's intended site is absent from the host reference, while
+#@markdown a native one's is present and will be found by any scan.
+sequence_origin = "native"  #@param ["native", "designed", "unknown"]
+#@markdown Which architectures to consider. Asking for several is allowed — "a 9-mer is not
+#@markdown clean here but a 14-mer is" is a useful answer.
+window_lengths = "9"  #@param ["9", "14", "19", "9, 14", "9, 14, 19"]
+#@markdown The host gene the region comes from, used **only** when the origin is `native`:
+#@markdown occurrences inside it are your intended site rather than off-targets. Blank declares
+#@markdown nothing, which is safe but counts your own gene against you.
+intended_gene = "rbcL"  #@param {type:"string"}
+#@markdown Screen each window against the chloroplast annotation. Off searches the supplied
+#@markdown region only.
+screen_against_host = True  #@param {type:"boolean"}
+#@markdown **Tick this to actually use the chosen window.** Left off, the cell reports what it
+#@markdown would pick and changes nothing — so a *Run all* never silently redesigns for a
+#@markdown target you did not choose.
+apply_to_target = False  #@param {type:"boolean"}
+
+try:
+    from clippr import SearchSequence, loci_for_gene, select_window, window_report
+except ImportError:
+    # A cached install predating targeting.py. Say so; never leave target_rna half-set.
+    print("This build of CLIPPR has no window selection.")
+    print("Use Runtime -> Restart session, re-run Setup, then run this cell again.")
+    print("Nothing else is affected: target_rna from Step 1 is untouched.")
+else:
+    from clippr.offtarget import load_transcripts
+
+    transcripts = load_transcripts()
+    lengths = tuple(int(n) for n in window_lengths.replace(",", " ").split())
+    gene = intended_gene.strip()
+    native = sequence_origin == "native"
+    seq = search_sequence.strip()
+
+    # Blank field plus a gene name: use that gene's span, so the cell is usable without
+    # hunting for a sequence first.
+    if not seq and gene:
+        named = [t for t in transcripts if t.name == gene]
+        if named:
+            seq = named[0].sequence
+            print(f"using the annotated span of {gene}, {len(seq)} bases.")
+            print("Note this is a coding span, not a UTR — the cached annotation has no UTRs.")
+            if len(named) > 1:
+                print(f"{len(named)} annotated features carry the name {gene}; took the first.")
+            print()
+
+    if not seq:
+        if gene:
+            # A typo here would otherwise read as "you gave me nothing".
+            print(f"No annotated feature is named {gene}, so there is no span to search.")
+            print("Check the spelling, or paste a region into search_sequence instead.")
+        else:
+            print("Nothing to search. Paste a region into search_sequence, or name a gene in")
+            print("intended_gene to use its annotated span.")
+    else:
+        if gene and not native:
+            print(f"origin is {sequence_origin!r}, so {gene} is NOT declared as intended: a")
+            print("sequence that is not the host's own cannot have an intended site in the")
+            print("host reference. Every occurrence found below is a genuine off-target.")
+            print()
+        source = SearchSequence(identifier=gene or "supplied", sequence=seq,
+                                origin=sequence_origin)
+        loci = loci_for_gene(gene, transcripts) if (gene and native) else ()
+        selection = select_window(
+            source, lengths=lengths,
+            transcripts=transcripts if screen_against_host else None,
+            intended_loci=loci,
+            reference="NC_005353.1" if screen_against_host else None)
+        print(window_report(selection))
+        print()
+        if not selection.found:
+            print("target_rna is unchanged — no window qualified, which is an answer and not")
+            print("a failure. Try a longer window length, or a wider region.")
+        else:
+            if selection.chosen.intended:
+                # The host check does not know what was declared, so it will flag this window.
+                print(f"Expect the host check below to report this window as occurring in "
+                      f"{gene}.")
+                print("That occurrence is the site you declared intended, and the count above")
+                print("already excludes it. The two cells are not disagreeing: this one was")
+                print("told where your site is and that one was not.")
+                print()
+            if apply_to_target:
+                target_rna = selection.chosen.sequence
+                print(f"target_rna is now {target_rna}. Re-run Step 2 to design for it.")
+            else:
+                print(f"target_rna is still {target_rna} — nothing was changed. Tick")
+                print("apply_to_target above and re-run this cell to design for")
+                print(f"{selection.chosen.sequence} instead.")
+''', title="Choose a window from a region"))
 
 # ---------------------------------------------------------------- upload a codon table
 cells.append(md("""
