@@ -214,6 +214,36 @@ internal overhang is supplied twice, once by the part on each side, and scoring 
 given makes every junction compete with a perfect copy of itself — 0.0039 instead of 0.9940 on
 the example above.
 
+## Keeping the handover's State table measured
+
+Three figures in `HANDOVER_TO_CODEX.md` have been wrong while every test was green: the tests
+badge read 283 against a real 949, the State table read 927 against a measured 974, and the
+release check read 10 of 10 against a real 8 of 10. Each was typed once by someone who had just
+measured it, and never recomputed.
+
+So the measured rows are rendered, not typed.
+
+```bash
+python validation/state_table.py
+```
+
+Verifies, and exits non-zero naming every row that drifted. `release_check.py` runs it as
+check 11, so a stale table fails the release gate rather than waiting to be noticed.
+
+```bash
+python validation/state_table.py --write
+```
+
+Rewrites the block from `work/release/release_check.json`. It refuses when that record was
+produced over a different `src/` and `tests/` than the tree holds, because rendering figures for
+a tree that no longer exists is the failure it exists to prevent. It binds on those two folders
+rather than on HEAD deliberately: a handover or docs commit moves HEAD without changing a single
+measured number, and a gate that fires on every commit is a gate someone switches off.
+
+Rows that are a judgement -- which commits matter and why, whether the default behaviour
+changed -- stay hand-written below the markers, because generating a judgement would mean
+inventing one.
+
 ## Target window selection
 
 Choose which window of a supplied sequence a PPR should read, instead of naming the target by

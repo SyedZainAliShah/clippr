@@ -308,6 +308,18 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _inputs_fingerprint() -> str:
+    sys.path.insert(0, str(ROOT / "validation"))
+    from state_table import inputs_fingerprint
+
+    return inputs_fingerprint()
+
+
+def _git_head() -> str:
+    return subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(ROOT),
+                          capture_output=True, text=True).stdout.strip()
+
+
 def _package_source_sha256() -> str:
     sys.path.insert(0, str(ROOT / "src"))
     from clippr.manifest import source_fingerprint
@@ -436,7 +448,22 @@ def check_handoff() -> dict:
                    + (f"; missing {absent}" if absent else ""))
 
 
+def check_state_table() -> dict:
+    """11. The handover's State table is rendered from measurements, not typed from memory."""
+    script = ROOT / "validation" / "state_table.py"
+    if not script.is_file():
+        return _result("11. handover State table is measured", "MANUAL", None,
+                       "validation/state_table.py is absent")
+    proc = subprocess.run([str(PYTHON), str(script)], capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", cwd=str(ROOT))
+    first = (proc.stdout or proc.stderr or "").strip().splitlines()
+    return _result("11. handover State table is measured", "RAN", proc.returncode == 0,
+                   first[0] if first else "state_table.py produced no output")
+
+
 def main() -> int:
+    from datetime import datetime, timezone
+
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--clean-install", action="store_true",
                     help="build a wheel and run the README example in a throwaway venv")
@@ -466,8 +493,24 @@ def main() -> int:
 
     WORK.mkdir(parents=True, exist_ok=True)
     out = WORK / "release_check.json"
-    out.write_text(json.dumps({"checks": checks}, indent=2) + "\n", encoding="utf-8")
+    # Bind the record to the tree. Without these, anything reading it later cannot tell
+    # whether the numbers still describe this commit.
+    out.write_text(json.dumps(
+        {"when": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+         "head": _git_head(),
+         "package_source_sha256": _package_source_sha256(),
+         "inputs_sha256": _inputs_fingerprint(),
+         "checks": checks}, indent=2) + "\n", encoding="utf-8")
     print(f"\nwrote {out}")
+
+    # Deliberately after the write: check 11 verifies the handover against the record this
+    # run just produced, so it cannot pass by reading a stale one.
+    state = check_state_table()
+    mark = {True: "PASS", False: "FAIL", None: "NEEDS A HUMAN"}[state["ok"]]
+    print(f"\n  [{state['evidence']:6s}] {state['check']}  {mark}")
+    print(f"           {state['detail']}")
+    if state["ok"] is not True:
+        failed = failed + [state]
     return 1 if failed else 0
 
 

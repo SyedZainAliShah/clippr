@@ -1,7 +1,73 @@
-# Handover to Codex — 2026-09-17, revised 2026-09-28 and 2026-10-01
+# Handover to Codex — 2026-09-17, revised 2026-09-28, 2026-10-01 and 2026-10-03
 
 Everything done since the GC-policy review, what it settled, and what is genuinely still open.
 Written to be read by someone who has the repository and none of the conversation.
+
+## What changed on 2026-10-03
+
+**Window selection is reachable.** `targeting.py` landed in `551c358` and no notebook mentioned
+it, so the reviewer's headline recommendation was built, tested and invisible for two days. The
+reason it was held back — the package must reach `main` or the cell breaks every Colab session —
+**had already cleared** when `main` fast-forwarded past it, and nothing noticed. The designer
+notebook now carries *Pick the target window for me* under Optional extras, and Step 1's target
+field points at it.
+
+Two defects the cell's first run exposed, both fixed before it was committed:
+
+  - **It assigned `target_rna`, so a plain *Run all* silently redesigned for a window nobody
+    chose.** Caught by reading the harness log: the off-target cell downstream was reporting on
+    `GGUUCCACA` rather than the `AAAAUGUGG` typed in Step 1. The report now always prints and
+    the assignment is behind `apply_to_target`, off by default.
+  - **The next cell contradicted it.** Window selection excludes the declared intended
+    occurrence; the host check is given a bare target and knows nothing about intent, so for the
+    same sequence one cell said "0 other occurrences" and the other said "OCCURS IN A
+    TRANSCRIPT". Both are right. Reading them back to back is exactly the confusion the reviewer
+    reported, so the window cell now predicts the host check's verdict and says why they differ.
+
+**The State table is no longer written by hand.** Four figures in this document have now been
+wrong while everything was green: the tests badge read 283 against a real 949, the State table
+read 927 against a measured 974, the release check read 10 of 10 against a real 8 of 10, and the
+notebook row read 22 cells against 30. Every one was typed by someone who had just measured it.
+Resolving to be more careful was already the intention each time, so that is not the fix.
+
+`validation/state_table.py` renders the measured rows from `work/release/release_check.json` and
+the notebooks, and `release_check.py` runs it as **check 11**, which fails when the document
+drifts. `--write` regenerates the block. Three properties worth knowing:
+
+  - **It refuses rather than guessing.** The record carries a digest over `src/`, `tests/` and
+    `release_check.py`; if the tree computes a different one, the script declines to render and
+    says what to re-run. Rendering figures for a tree that no longer exists is the failure it
+    exists to prevent, so it will not do it quietly.
+  - **It binds on those three things and not on HEAD.** Binding on HEAD was the first attempt and
+    it was wrong: committing this document moves HEAD without changing a measured number, so the
+    gate would have failed after every commit — and a gate that cries wolf is one somebody
+    switches off.
+  - **Only measurements are generated.** Which commits matter and why, whether the default
+    behaviour changed, the falsification result — those are judgements, they sit below the
+    markers, and they are labelled as hand-written. Generating a judgement would mean inventing
+    one.
+
+It was falsified rather than assumed: with the test count edited to 1200 the verifier exits
+non-zero and prints both the measured and the recorded row; with the record absent it says so;
+with the record bound to a different tree it says that instead. Check 11 fails in the same cases.
+
+**The release check was failing, and had been since `551c358`.** Check 5 — exported sequences,
+metrics and hashes agree with independent calculations — was reading V5/V6/V7 artefacts stamped
+with package source `aff4c8de0052` against a tree computing `0c2a6f79b788`. They were last
+regenerated in `44446fe`, and `src/` changed twice after that. Nothing was wrong with any design:
+all three validators pass on the current source, and they were **re-run rather than re-stamped**.
+
+The measured state before this pass was **8 of 10, 1 failed, 1 needing a human**, against a State
+table recording **10 of 10 with 0 needing a human**. The staleness detector worked perfectly
+throughout; nobody ran it. This is the same shape as the 927-against-974 test count two rows
+above, and as the 283 badge before that.
+
+**The degradation path was tested against a genuinely stale install, not a simulated one.** The
+`.sim` virtualenv happened to hold a build from after the costing removal and before
+`targeting.py` — precisely the version split that broke Colab in §7 item 9. The cell printed its
+explanation and the notebook still ran 13 of 13 with 0 failed. It was then reinstalled from
+`main` and the real path verified. This is the first time that failure mode has been reproduced
+on a real artefact rather than reasoned about.
 
 ## What changed on 2026-10-01
 
@@ -104,14 +170,29 @@ reverted the following day. The notebook figures below are re-measured, not reca
 
 **State**
 
+<!-- STATE:BEGIN generated by validation/state_table.py -- do not edit by hand -->
+
+*Every row below is rendered from measured artefacts by `validation/state_table.py`; `release_check.py` check 11 fails when it stops matching. Edit the measurement, not the number.*
+
 | | |
 |---|---|
-| branch | `synthesis-policy-profile` at `b6d0f68`, **level with `origin/main`**. The merge landed as a server-side fast-forward, `3100ff5..b6d0f68`; open issue 1 is closed |
-| commits | `74e4242` · `a7181fe` · `2f936bc` · `35898a1` · `fa98fc6` · `3b737a9` · `44446fe` cost removed · `b33a383` notebook split · `b6d0f68` handover and notebook step labels — all pushed, and all now on `main` |
-| tests | **927 passed of 927**, 0 failed. Was 949; the 22 that went were the ones asserting the costing feature that was removed |
-| release check | **10 / 10**, 0 failed, **0 needing a human.** Re-run with `--clean-install` after the merge. Check 3 reproduced the README's worked example verbatim from a pip-installed build — `AAAAUGUGG (9S) -> 302 aa, 906 nt, 4 fragments. Fidelity 0.828. QC PASS.` — which is what re-verified the costing removal on both sides at once, since it compares strings |
+| measured at | commit `66b3c9f`, 2026-10-03T01:16:31+00:00. Every figure below describes **that** tree, not necessarily the one you have checked out |
+| tests | **974 passed of 974 collected, 0 failed** — `pytest tests/ -q` |
+| release check | **10 of 10 passed**, 0 failed, **0 needing a human** |
+| independent evidence | V5 digest/ligate: 200/200 reconstructed, 7/7 corrupt controls caught \| V6 constraints: 200/200 satisfy every hard constraint, 0 disagreements with claimed status \| V7 export semantics: 3 designs, 0 semantic problems, 5/5 controls caught |
+| notebooks | Designer: **30 cells (14 code)**. Inventory: **20 cells (11 code)**. Execution: no deferred experiment advertised; every cell executed (13 cells executed, 0 failed) |
+| architecture coverage | 200 designs {'9S': 100, '14S': 50, '19S': 50}, registered 200 {'9S': 100, '14S': 50, '19S': 50}, status complete, 0 failures |
+| runtime | 19.6 min for 200 designs, configuration retained: ['seed', 'matrix', 'enzyme_profile', 'destination', 'genetic_code', 'dependencies', 'codon_table_effective_sha256'] |
+
+<!-- STATE:END -->
+
+**Written by hand, because each is a judgement rather than a measurement.** Anything that *is* a measurement belongs above, where it cannot go stale without `release_check.py` check 11 failing.
+
+| | |
+|---|---|
+| commits | `74e4242` · `a7181fe` · `2f936bc` · `35898a1` · `fa98fc6` · `3b737a9` · `44446fe` cost removed · `b33a383` notebook split · `b6d0f68` handover and step labels · `bba754f` region proposal · `e1a09a7` off-target wording · `117b8b6` · `551c358` **`targeting.py`** · `bdfd13c` collapsible sections · `814c26e` judge-handbook audit · `d0999bc` · `66b3c9f` **window selection wired** — all pushed, all on `main` |
 | falsification | 10 / 10 reverted defects caught. **Not re-run this pass** — no boundary test was added or changed, and nothing in `tests/test_policy_boundaries.py` was touched |
-| notebooks | **Two.** Designer: 22 cells, 12 code cells run, 0 failed. Inventory: 20 cells, 10 code cells run, 0 failed. Both against a *pip-installed* build from `origin/main`, not the working tree |
+| stale-build degradation | **verified on a real artefact.** Designer notebook run against an installed build predating `targeting.py`: window selection printed its explanation, 13 ran, 0 failed. The version split that broke Colab now degrades instead |
 | default behaviour | **unchanged** — every published number reproduces |
 
 ---
@@ -525,8 +606,18 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
     `parts.select` consume it unchanged — nothing's signature moved, which is the review's
     finding that this need not touch the public API at all.
 
-    **What is deliberately out.** No notebook control: the package must reach `main` first, or
-    the cell breaks every Colab session, which is §7 item 9. No native-UTR retrieval — the
+    **Now reachable from the notebook.** *Pick the target window for me*, under Optional
+    extras in the designer notebook, with `search_sequence`, `sequence_origin`,
+    `window_lengths`, `intended_gene` and `screen_against_host`. Blank `search_sequence` plus a
+    gene name falls back to that gene's annotated span, labelled a coding span rather than a
+    UTR. A host gene is declared intended **only** when the origin is `native`, because a
+    designed construct cannot have an intended site in a wild-type reference and declaring one
+    would absolve real off-targets. The assignment to `target_rna` is behind `apply_to_target`,
+    off by default, so a *Run all* cannot redesign for a window nobody chose. The import is
+    guarded and a build without `targeting` says so instead of raising — tested against an
+    install that genuinely predates it.
+
+    **What is still deliberately out.** No native-UTR retrieval — the
     cached annotation holds coding spans, not UTRs. No target generation. No GC or overhang term
     in the ranking; selection ranks on other-occurrence count alone, and the shorter-then-earlier
     tie-break is a cost and determinism argument that `select_window`'s docstring says is not
@@ -636,6 +727,7 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
 | `tests/test_policy_boundaries.py` | the regressions pinning each of your six findings |
 | `validation/falsify_boundaries.py` | proof those regressions are not vacuous — run it |
 | `validation/notebook_on_published_build.py` | runs the notebook against a pip-installed build, which is the only test that can catch a notebook/package version split |
+| `validation/state_table.py` | renders this document's State table from measured artefacts and fails when it drifts. `release_check.py` check 11. The three figures it exists to prevent are named in its docstring |
 | `CLIPPR_FOR_THE_WET_LAB.md` | the briefing written for biologists — the metric glossary in Part 3 is the plainest statement of what every number means |
 
 **Reproduction:** every experiment above writes a JSON artefact under `work/`, and every
