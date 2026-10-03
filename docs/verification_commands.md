@@ -235,10 +235,12 @@ python validation/state_table.py --write
 ```
 
 Rewrites the block from `work/release/release_check.json`. It refuses when that record was
-produced over a different `src/` and `tests/` than the tree holds, because rendering figures for
-a tree that no longer exists is the failure it exists to prevent. It binds on those two folders
-rather than on HEAD deliberately: a handover or docs commit moves HEAD without changing a single
-measured number, and a gate that fires on every commit is a gate someone switches off.
+produced over a different `src/`, `tests/` or `release_check.py` than the tree holds, because
+rendering figures for a tree that no longer exists is the failure it exists to prevent. Line
+endings are normalised in that digest: this repository declares `* text=auto eol=lf` while many
+files check out as CRLF, so hashing raw bytes bound the record to one machine. It binds on those
+three rather than on HEAD deliberately: a handover or docs commit moves HEAD without changing a
+single measured number, and a gate that fires on every commit is a gate someone switches off.
 
 Rows that are a judgement -- which commits matter and why, whether the default behaviour
 changed -- stay hand-written below the markers, because generating a judgement would mean

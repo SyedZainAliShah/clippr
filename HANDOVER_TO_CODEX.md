@@ -24,6 +24,33 @@ Two defects the cell's first run exposed, both fixed before it was committed:
     TRANSCRIPT". Both are right. Reading them back to back is exactly the confusion the reviewer
     reported, so the window cell now predicts the host check's verdict and says why they differ.
 
+**A review of this session's work found a regression that had already shipped, and three more
+defects in the gate itself.** Recorded because the pattern is the useful part: every one was a
+piece of volatile or unavailable state placed somewhere that is compared for equality.
+
+  - **A fresh clone failed the suite.** The notebook's tests badge was read from
+    `work/release/release_check.json`; `work/` is gitignored and `tests/test_notebook.py` asserts
+    the committed notebook is byte-identical to what the generator produces. Reproduced by hiding
+    the record. It was also non-convergent, because the badge number *is* check 1's own count and
+    the suite runs before the record is written: adding one test turned the next `pytest` run red
+    with nothing in the working tree changed. `TESTS` is a committed constant again and **check
+    12** fails when it drifts.
+  - **The inputs digest hashed raw bytes**, while `.gitattributes` declares `* text=auto eol=lf`
+    and 45 of 79 tracked files sit CRLF here. `git checkout .` or any Linux clone changed the
+    digest with no code altered. Normalised, length-delimited, and sorted on the posix path
+    rather than on `Path`, whose ordering is case-folded on Windows only.
+  - **Check 11 was not counted**, so the tally printed "10 of 10 passed; 0 failed" directly above
+    its own FAIL line. Appending it then made the release-check row carry check 11's own verdict,
+    which depends on that row, so the gate oscillated. The row now covers the eleven checks whose
+    verdicts are independent of it; the record keeps all twelve. Proven by two consecutive runs
+    both reporting **12 of 12 passed, exit 0**.
+  - **A notebook `except ImportError` reported a missing Biopython** as "this build has no window
+    selection", with a remedy that cannot install a dependency. The import is unguarded now and
+    the guard is `hasattr(clippr, "select_window")`.
+
+Four of ten review angles were lost to a rate limit, so the sweep is incomplete: the line-by-line,
+removed-behaviour, conventions and claims-versus-code angles did not finish. Worth re-running.
+
 **The State table is no longer written by hand.** Four figures in this document have now been
 wrong while everything was green: the tests badge read 283 against a real 949, the State table
 read 927 against a measured 974, the release check read 10 of 10 against a real 8 of 10, and the
@@ -199,8 +226,8 @@ reverted the following day. The notebook figures below are re-measured, not reca
 | | |
 |---|---|
 | tests | **974 passed of 974 collected, 0 failed** — `pytest tests/ -q` |
-| release check | **8 of 10 passed**, **1 failed** (5. independent agreement), **1 needing a human** (3. clean-environment install) |
-| independent evidence | V5 digest/ligate: STALE -- computed under package source 0c2a6f79b788, current is c76dc3cafb93 \| V6 constraints: STALE -- computed under package source 0c2a6f79b788, current is c76dc3cafb93 \| V7 export semantics: STALE -- computed under package source 0c2a6f79b788, current is c76dc3cafb93 |
+| release check | **11 of 11 passed**, 0 failed, **0 needing a human**. Check 11 gates this table itself and is excluded here to keep the two from being circular — the record holds it |
+| independent evidence | V5 digest/ligate: 200/200 reconstructed, 7/7 corrupt controls caught \| V6 constraints: 200/200 satisfy every hard constraint, 0 disagreements with claimed status \| V7 export semantics: 3 designs, 0 semantic problems, 5/5 controls caught |
 | notebooks | Designer: **30 cells (14 code)**. Inventory: **20 cells (11 code)**. Execution: no deferred experiment advertised; every cell executed (13 cells executed, 0 failed) |
 | architecture coverage | 200 designs {'9S': 100, '14S': 50, '19S': 50}, registered 200 {'9S': 100, '14S': 50, '19S': 50}, status complete, 0 failures |
 | runtime | 19.6 min for 200 designs, configuration retained: ['seed', 'matrix', 'enzyme_profile', 'destination', 'genetic_code', 'dependencies', 'codon_table_effective_sha256'] |

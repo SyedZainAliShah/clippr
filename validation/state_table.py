@@ -59,23 +59,35 @@ def inputs_fingerprint() -> str:
     figures wrong is `src/`, `tests/` and `release_check.py` itself, so those are what bind.
     """
     h = hashlib.sha256()
-    files = [path for folder in ("src", "tests")
-             for path in sorted((ROOT / folder).rglob("*.py"))
-             if "__pycache__" not in path.parts]
+    # Sorted on the posix relative path, not on Path, whose ordering is case-folded on
+    # Windows and case-sensitive on POSIX -- a second source of cross-platform divergence.
+    files = sorted((path for folder in ("src", "tests")
+                    for path in (ROOT / folder).rglob("*.py")),
+                   key=lambda q: q.relative_to(ROOT).as_posix())
     # The stored details are this script's output, so a change to it means the record no
     # longer describes what the checks would now report. state_table.py is excluded on
     # purpose: verification renders fresh and compares, so a renderer change cannot go
     # stale -- hashing it would only force a re-run to adjust a caption.
     files.append(ROOT / "validation" / "release_check.py")
     for path in files:
-        h.update(path.relative_to(ROOT).as_posix().encode())
-        h.update(path.read_bytes())
+        rel = path.relative_to(ROOT).as_posix()
+        body = path.read_bytes().replace(b"\r\n", b"\n")
+        # Line endings are normalised because `.gitattributes` declares `* text=auto eol=lf`
+        # while this working tree checks many files out as CRLF. Hashing raw bytes bound the
+        # record to one machine's endings, so `git checkout .` or any Linux clone invalidated
+        # it with no code changed. Lengths are written in so `relpath || body` cannot be
+        # re-partitioned into a different file set that hashes the same.
+        h.update(f"{len(rel)}:{rel}:{len(body)}:".encode())
+        h.update(body)
     return h.hexdigest()
 
 
 def _cell(text: str) -> str:
     """Make text safe inside a table cell. Check 5 joins its validators with " | "."""
-    return text.replace("|", "\\|").strip()
+    # Newlines too: check 7's failure detail carries a raw stderr tail, and one embedded
+    # newline turns a row into body text and silently ends the table.
+    flat = " ".join(text.split())
+    return flat.replace("|", "\\|")
 
 
 def _detail(checks: list[dict], prefix: str) -> str:
@@ -121,6 +133,13 @@ def _notebooks_row(checks: list[dict]) -> str:
 
 
 def _release_row(checks: list[dict]) -> str:
+    """Every check except the one that gates this row.
+
+    Including check 11 would be circular: its result depends on whether this row matches, and
+    this row would then depend on its result, so the two could never agree. The record keeps
+    all twelve; the row reports the eleven whose verdicts are independent of it.
+    """
+    checks = [c for c in checks if not c["check"].startswith("11.")]
     passed = sum(1 for c in checks if c["ok"] is True)
     failed = [c["check"] for c in checks if c["ok"] is False]
     manual = [c["check"] for c in checks if c["ok"] is None]
@@ -131,7 +150,8 @@ def _release_row(checks: list[dict]) -> str:
         verdict += f", **{len(manual)} needing a human** ({'; '.join(manual)})"
     if not failed and not manual:
         verdict += ", 0 failed, **0 needing a human**"
-    return f"| release check | {_cell(verdict)} |"
+    return (f"| release check | {_cell(verdict)}. Check 11 gates this table itself and is "
+            f"excluded here to keep the two from being circular — the record holds it |")
 
 
 def render() -> str:

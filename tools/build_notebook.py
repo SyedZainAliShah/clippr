@@ -11,38 +11,18 @@ from notebook_kit import REPO, code, colab_url, md, setup_cell, write_notebook
 OUT = Path("notebooks/CLIPPR_designer.ipynb")
 NAME = "CLIPPR_designer.ipynb"
 COLAB = colab_url(NAME)
-def measured_tests() -> int | None:
-    """The test count from the last release check, or None when nothing measured one.
-
-    Typed here as a constant it went stale twice: 283 against a real 949, then 927 against a
-    measured 974. The comment above it asked the next person to re-measure, which is the
-    framing this project keeps finding does not work.
-    """
-    import json
-    import re
-
-    # Anchored to the repo, not the cwd: a relative path here fails silently by
-    # dropping the badge, which is the failure mode this function exists to stop.
-    record = Path(__file__).resolve().parents[1] / "work" / "release" / "release_check.json"
-    if not record.is_file():
-        return None
-    for check in json.loads(record.read_text(encoding="utf-8")).get("checks", []):
-        if check["check"].startswith("1."):
-            found = re.search(r"(\d+) passed", check["detail"])
-            return int(found.group(1)) if found else None
-    return None
-
-
 INVENTORY_COLAB = colab_url("CLIPPR_inventory.ipynb")
 DIAGRAM = Path("notebooks/pipeline.svg")
-TESTS = measured_tests()
+#: The measured count, committed so the notebook is reproducible from the repository alone.
+#: `release_check.py` check 12 fails when this does not equal what the suite reports, so it
+#: cannot drift unnoticed -- reading it from `work/` instead made a fresh clone fail
+#: `tests/test_notebook.py`, because that directory is gitignored.
+TESTS = 974
 #: Served from the repository rather than inlined -- see pipeline_svg().
 DIAGRAM_URL = f"https://raw.githubusercontent.com/{REPO}/main/{DIAGRAM.as_posix()}"
 
 
-#: No badge at all when nothing measured a count. A wrong number is worse than a missing one.
-TESTS_BADGE = ("" if TESTS is None else
-               f"[![Tests](https://img.shields.io/badge/tests-{TESTS}%20passing-1a7f5a.svg)]"
+TESTS_BADGE = (f"[![Tests](https://img.shields.io/badge/tests-{TESTS}%20passing-1a7f5a.svg)]"
                f"(https://github.com/{REPO})")
 
 cells = []
@@ -159,7 +139,7 @@ cells.append(md(f"""
 
 <div align="center">
 
-<img src="{DIAGRAM_URL}" alt="CLIPPR pipeline: a target RNA passes through ppr, arelf, overhangs, codons, assembly and qc to become orderable DNA fragments" width="100%" style="max-width:980px">
+<img src="{DIAGRAM_URL}" alt="CLIPPR pipeline: a target RNA passes through ppr, a joint choice of cuts and overhangs, codon optimisation, assembly and qc to become orderable DNA fragments, with a fallback from codons to a different split" width="100%" style="max-width:980px">
 
 </div>
 
@@ -469,9 +449,10 @@ within — and it chooses the window inside it with the least off-target evidenc
 instead of you picking one by hand.
 
 **Why a region beats a typed target.** A region is longer than the site a PPR reads, so most of
-it is a choice you would otherwise be making silently. On a 200-base stretch of `rbcL`, **98 of
-the 192 possible 9-base windows** carry no other exact occurrence in the annotation, and **all
-187 possible 14-base windows** carry none. Choosing by hand throws that away.
+it is a choice you would otherwise be making silently. On a 200-base stretch of `rbcL`, with the
+whole feature declared intended as this cell declares it, **99 of the 192 possible 9-base
+windows** carry no other exact occurrence in the annotation, and **all 187 possible 14-base
+windows** carry none. Choosing by hand throws that away.
 
 **It also makes the host check mean something.** Given a bare target, the host scan cannot
 separate the site you meant from a coincidence elsewhere in the genome — so a real match and
@@ -495,8 +476,9 @@ search_sequence = ""  #@param {type:"string"}
 #@markdown means:** a designed sequence's intended site is absent from the host reference, while
 #@markdown a native one's is present and will be found by any scan.
 sequence_origin = "native"  #@param ["native", "designed", "unknown"]
-#@markdown Which architectures to consider. Asking for several is allowed — "a 9-mer is not
-#@markdown clean here but a 14-mer is" is a useful answer.
+#@markdown Which architectures to consider. Note that ranking puts fewest-occurrences first and
+#@markdown **shorter second**, so whenever a clean 9-mer exists a combined option returns one;
+#@markdown ask for 14 or 19 on its own to see what that architecture offers.
 window_lengths = "9"  #@param ["9", "14", "19", "9, 14", "9, 14, 19"]
 #@markdown The host gene the region comes from, used **only** when the origin is `native`:
 #@markdown occurrences inside it are your intended site rather than off-targets. Blank declares
@@ -510,14 +492,16 @@ screen_against_host = True  #@param {type:"boolean"}
 #@markdown target you did not choose.
 apply_to_target = False  #@param {type:"boolean"}
 
-try:
-    from clippr import SearchSequence, loci_for_gene, select_window, window_report
-except ImportError:
-    # A cached install predating targeting.py. Say so; never leave target_rna half-set.
+import clippr  # unguarded: a broken install should show its real traceback, not be excused
+
+if not hasattr(clippr, "select_window"):
+    # Only the one case this guard is for: a build predating targeting.py. Anything else --
+    # a missing Biopython, a half-installed package -- must raise and say what it is.
     print("This build of CLIPPR has no window selection.")
     print("Use Runtime -> Restart session, re-run Setup, then run this cell again.")
     print("Nothing else is affected: target_rna from Step 1 is untouched.")
 else:
+    from clippr import SearchSequence, loci_for_gene, select_window, window_report
     from clippr.offtarget import load_transcripts
 
     transcripts = load_transcripts()
@@ -532,8 +516,12 @@ else:
         named = [t for t in transcripts if t.name == gene]
         if named:
             seq = named[0].sequence
-            print(f"using the annotated span of {gene}, {len(seq)} bases.")
-            print("Note this is a coding span, not a UTR — the cached annotation has no UTRs.")
+            kind = named[0].kind
+            print(f"using the annotated span of {gene}, {len(seq)} bases ({kind}).")
+            # Stated from the feature, not assumed: TRANSCRIBED_TYPES also allows rRNA, tRNA,
+            # ncRNA and friends, and calling a tRNA a coding span is simply false.
+            print(f"Note this is the annotated {kind} span, not a UTR — the cached annotation")
+            print("carries no UTRs.")
             if len(named) > 1:
                 print(f"{len(named)} annotated features carry the name {gene}; took the first.")
             print()
@@ -548,13 +536,27 @@ else:
             print("intended_gene to use its annotated span.")
     else:
         if gene and not native:
-            print(f"origin is {sequence_origin!r}, so {gene} is NOT declared as intended: a")
-            print("sequence that is not the host's own cannot have an intended site in the")
-            print("host reference. Every occurrence found below is a genuine off-target.")
+            print(f"origin is {sequence_origin!r}, so {gene} is NOT declared as intended.")
+            print("Intent is only declared for a native region, because a designed sequence")
+            print("has no intended site in a wild-type reference. If this region IS the host's")
+            print("own, set sequence_origin to 'native' so your site stops counting against you.")
             print()
-        source = SearchSequence(identifier=gene or "supplied", sequence=seq,
-                                origin=sequence_origin)
+        pasted = bool(search_sequence.strip())
         loci = loci_for_gene(gene, transcripts) if (gene and native) else ()
+        if gene and native and not loci:
+            # Silently declaring nothing here rejects every window in the user's own gene and
+            # then advises a longer window, which cannot help. Name the real cause.
+            print(f"No annotated feature is named {gene} — the name is matched exactly and is")
+            print("case-sensitive. Nothing is declared as intended, so occurrences inside your")
+            print("own gene will count against every window. Check the spelling.")
+            print()
+        elif pasted and loci:
+            print(f"Declaring {gene} as the intended site for the sequence you pasted. If that")
+            print(f"region is not from {gene}, clear intended_gene — otherwise real off-target")
+            print(f"occurrences inside {gene} are discounted as your own site.")
+            print()
+        source = SearchSequence(identifier=(gene if (gene and not pasted) else "supplied"),
+                                sequence=seq, origin=sequence_origin)
         selection = select_window(
             source, lengths=lengths,
             transcripts=transcripts if screen_against_host else None,
@@ -565,22 +567,25 @@ else:
         if not selection.found:
             print("target_rna is unchanged — no window qualified, which is an answer and not")
             print("a failure. Try a longer window length, or a wider region.")
-        else:
+        elif apply_to_target:
+            target_rna = selection.chosen.sequence
             if selection.chosen.intended:
-                # The host check does not know what was declared, so it will flag this window.
+                # Only now is this true: the host check reads target_rna, which just changed.
                 print(f"Expect the host check below to report this window as occurring in "
                       f"{gene}.")
                 print("That occurrence is the site you declared intended, and the count above")
                 print("already excludes it. The two cells are not disagreeing: this one was")
                 print("told where your site is and that one was not.")
                 print()
-            if apply_to_target:
-                target_rna = selection.chosen.sequence
-                print(f"target_rna is now {target_rna}. Re-run Step 2 to design for it.")
-            else:
-                print(f"target_rna is still {target_rna} — nothing was changed. Tick")
-                print("apply_to_target above and re-run this cell to design for")
-                print(f"{selection.chosen.sequence} instead.")
+            print(f"target_rna is now {target_rna}.")
+            print()
+            print("RE-RUN STEPS 2, 3 AND 4. Any fragment table or download from an earlier run")
+            print("is for the previous target and is now out of date — including in a Run all,")
+            print("where those steps ran before this cell.")
+        else:
+            was = globals().get("target_rna", "(not set yet — run Step 1)")
+            print(f"target_rna is still {was} — nothing was changed. Tick apply_to_target")
+            print(f"above and re-run this cell to design for {selection.chosen.sequence}.")
 ''', title="Choose a window from a region"))
 
 # ---------------------------------------------------------------- upload a codon table

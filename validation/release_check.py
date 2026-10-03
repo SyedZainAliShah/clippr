@@ -316,8 +316,16 @@ def _inputs_fingerprint() -> str:
 
 
 def _git_head() -> str:
-    return subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(ROOT),
-                          capture_output=True, text=True).stdout.strip()
+    """HEAD, or a stated absence. Never raises: this runs inside the record write, after the
+    whole suite, so an exception here would discard the entire run's evidence."""
+    try:
+        out = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(ROOT),
+                             capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"unavailable: {type(exc).__name__}"
+    if out.returncode != 0:
+        return "unavailable: not a git checkout"
+    return out.stdout.strip() or "unavailable: empty rev-parse"
 
 
 def _package_source_sha256() -> str:
@@ -448,6 +456,32 @@ def check_handoff() -> dict:
                    + (f"; missing {absent}" if absent else ""))
 
 
+def check_badge_count(run: subprocess.CompletedProcess, collected: int) -> dict:
+    """12. The notebook's tests badge equals the count the suite actually reports.
+
+    The badge is a committed constant so notebook generation stays reproducible from the
+    repository alone. That makes it capable of going stale, which is what this check is for:
+    it read 283 against a real 949, then 927 against a measured 974, both times for long
+    enough to reach users.
+    """
+    import re as _re
+
+    source = (ROOT / "tools" / "build_notebook.py").read_text(encoding="utf-8")
+    declared = _re.search(r"^TESTS = (\d+)$", source, _re.M)
+    if not declared:
+        return _result("12. notebook tests badge is current", "RAN", False,
+                       "tools/build_notebook.py has no `TESTS = <int>` line to check")
+    passed = _re.search(r"(\d+) passed", run.stdout)
+    if not passed or run.returncode != 0:
+        return _result("12. notebook tests badge is current", "MANUAL", None,
+                       "the suite reported no usable count, so the badge cannot be checked")
+    shown, measured = int(declared.group(1)), int(passed.group(1))
+    return _result("12. notebook tests badge is current", "RAN", shown == measured,
+                   f"badge says {shown}, suite reports {measured}"
+                   + ("" if shown == measured
+                      else f" -- set TESTS = {measured} in tools/build_notebook.py and rebuild"))
+
+
 def check_state_table() -> dict:
     """11. The handover's State table is rendered from measurements, not typed from memory."""
     script = ROOT / "validation" / "state_table.py"
@@ -476,42 +510,51 @@ def main() -> int:
     checks = [check_tests(suite, collected), check_integration_coverage(suite),
               check_clean_install(args.clean_install), check_architectures(),
               check_independent_agreement(), check_optional_inputs(), check_notebook(),
-              check_claim_labels(), check_runtime_table(), check_handoff()]
+              check_claim_labels(), check_runtime_table(), check_handoff(),
+              check_badge_count(suite, collected)]
 
+    # Check 11 reads the record this run writes, so it runs after the write -- but it is
+    # appended to `checks` and the record rewritten, so the tally, the record and the
+    # generated row all describe eleven checks. Reporting "10 of 10" above a FAIL line was
+    # the generator committing the sin it exists to prevent.
     width = max(len(c["check"]) for c in checks)
     for c in checks:
         mark = {True: "PASS", False: "FAIL", None: "NEEDS A HUMAN"}[c["ok"]]
         print(f"  [{c['evidence']:6s}] {c['check']:<{width}}  {mark}")
         print(f"           {' ' * width}  {c['detail']}")
 
-    failed = [c for c in checks if c["ok"] is False]
-    manual = [c for c in checks if c["ok"] is None]
-    print(f"\n{sum(1 for c in checks if c['ok'])} of {len(checks)} passed; "
-          f"{len(failed)} failed; {len(manual)} need a human")
-    if manual:
-        print("  A check this script cannot evaluate is not a passed check.")
-
     WORK.mkdir(parents=True, exist_ok=True)
     out = WORK / "release_check.json"
     # Bind the record to the tree. Without these, anything reading it later cannot tell
     # whether the numbers still describe this commit.
-    out.write_text(json.dumps(
-        {"when": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-         "head": _git_head(),
-         "package_source_sha256": _package_source_sha256(),
-         "inputs_sha256": _inputs_fingerprint(),
-         "checks": checks}, indent=2) + "\n", encoding="utf-8")
+    record = {"when": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+              "head": _git_head(),
+              "package_source_sha256": _package_source_sha256(),
+              "inputs_sha256": _inputs_fingerprint(),
+              "checks": checks}
+    out.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     print(f"\nwrote {out}")
 
     # Deliberately after the write: check 11 verifies the handover against the record this
     # run just produced, so it cannot pass by reading a stale one.
     state = check_state_table()
     mark = {True: "PASS", False: "FAIL", None: "NEEDS A HUMAN"}[state["ok"]]
-    print(f"\n  [{state['evidence']:6s}] {state['check']}  {mark}")
-    print(f"           {state['detail']}")
-    if state["ok"] is not True:
-        failed = failed + [state]
-    return 1 if failed else 0
+    print(f"  [{state['evidence']:6s}] {state['check']:<{width}}  {mark}")
+    print(f"           {' ' * width}  {state['detail']}")
+
+    checks.append(state)
+    failed = [c for c in checks if c["ok"] is False]
+    manual = [c for c in checks if c["ok"] is None]
+    print(f"\n{sum(1 for c in checks if c['ok'] is True)} of {len(checks)} passed; "
+          f"{len(failed)} failed; {len(manual)} need a human")
+    if manual:
+        print("  A check this script cannot evaluate is not a passed check.")
+
+    # Rewritten so the record names eleven checks. This does not re-stale the block: the
+    # binding is the inputs digest, and `_release_row` is rendered from this final list.
+    record["checks"] = checks
+    out.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    return 1 if failed or manual else 0
 
 
 if __name__ == "__main__":
