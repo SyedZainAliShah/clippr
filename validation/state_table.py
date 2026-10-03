@@ -1,9 +1,10 @@
 """Generate the handover's State table from measured artefacts, so a stale figure cannot ship.
 
-Three figures in `HANDOVER_TO_CODEX.md` have now been wrong while every test was green: the
-tests badge read 283 against a real 949, the State table read **927** against a measured
-**974**, and the release check read **10 of 10** against a real **8 of 10**. Each was written
-once by hand, by someone who had just measured it, and never recomputed afterwards.
+Five figures in this project have now been wrong while every test was green: the tests badge
+read 283 against a real 949 and later 927 against a measured 974, the State table read 927
+against that same 974, its notebook row read 22 cells against 30, and the release check read
+**10 of 10** against a real **8 of 10**. Each was written once by hand, by someone who had just
+measured it, and never recomputed afterwards.
 
 Writing them more carefully is not a fix -- that was already the intention every time. So the
 measured rows are no longer written by hand. This reads `work/release/release_check.json` and
@@ -16,10 +17,16 @@ not.
 behaviour changed, which commits matter and why -- stays hand-written outside the markers,
 because generating a judgement would mean inventing one.
 
-**The input must bind to this tree.** `release_check.json` carries the commit and the package
-source fingerprint it was produced under. If either has moved, this refuses rather than
-rendering numbers for a tree that no longer exists, which is exactly the failure it exists to
-prevent.
+**The input must bind to this tree.** `release_check.json` carries a digest over `src/`,
+`tests/` and `release_check.py` -- the three things that can make a measured figure wrong. If
+the tree computes a different one, this refuses rather than rendering numbers for a tree that no
+longer exists, which is exactly the failure it exists to prevent.
+
+It binds on those and **not** on the commit, although the record carries one. A handover or docs
+commit moves HEAD without changing a single measured number, and a gate that fires on every
+commit is a gate someone switches off. Nothing volatile reaches the rendered block either: the
+record is rewritten by every release-check run, so a timestamp in the output would fail the gate
+immediately after each run and make a green release check unreachable.
 
     python validation/state_table.py            # verify; non-zero if the handover is stale
     python validation/state_table.py --write    # rewrite the block from measured values
@@ -29,7 +36,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -11,15 +11,39 @@ from notebook_kit import REPO, code, colab_url, md, setup_cell, write_notebook
 OUT = Path("notebooks/CLIPPR_designer.ipynb")
 NAME = "CLIPPR_designer.ipynb"
 COLAB = colab_url(NAME)
+def measured_tests() -> int | None:
+    """The test count from the last release check, or None when nothing measured one.
+
+    Typed here as a constant it went stale twice: 283 against a real 949, then 927 against a
+    measured 974. The comment above it asked the next person to re-measure, which is the
+    framing this project keeps finding does not work.
+    """
+    import json
+    import re
+
+    # Anchored to the repo, not the cwd: a relative path here fails silently by
+    # dropping the badge, which is the failure mode this function exists to stop.
+    record = Path(__file__).resolve().parents[1] / "work" / "release" / "release_check.json"
+    if not record.is_file():
+        return None
+    for check in json.loads(record.read_text(encoding="utf-8")).get("checks", []):
+        if check["check"].startswith("1."):
+            found = re.search(r"(\d+) passed", check["detail"])
+            return int(found.group(1)) if found else None
+    return None
+
+
 INVENTORY_COLAB = colab_url("CLIPPR_inventory.ipynb")
 DIAGRAM = Path("notebooks/pipeline.svg")
-#: Measured, not recalled: the sum of `pytest --collect-only -q` on 2026-10-01.
-#: Re-measure when tests are added or removed. A badge nothing recomputes goes stale,
-#: and this one read 283 for long enough to be wrong by 644.
-TESTS = 927
+TESTS = measured_tests()
 #: Served from the repository rather than inlined -- see pipeline_svg().
 DIAGRAM_URL = f"https://raw.githubusercontent.com/{REPO}/main/{DIAGRAM.as_posix()}"
 
+
+#: No badge at all when nothing measured a count. A wrong number is worse than a missing one.
+TESTS_BADGE = ("" if TESTS is None else
+               f"[![Tests](https://img.shields.io/badge/tests-{TESTS}%20passing-1a7f5a.svg)]"
+               f"(https://github.com/{REPO})")
 
 cells = []
 
@@ -39,18 +63,22 @@ def pipeline_svg():
     markdown sanitiser removes inline <svg> entirely, so an inlined diagram renders as
     nothing at all.
     """
+    # One box per thing the code actually does. `arelf` is deliberately absent: it is an
+    # anchor for reporting cut positions, not a stage. Cuts and overhangs share a box
+    # because _plan_fragments chooses them together, which is the design's central idea.
     stages = [
-        ("ppr", "RNA -> protein"),
-        ("arelf", "where to cut"),
-        ("overhangs", "will it join?"),
-        ("codons", "make it real"),
-        ("assembly", "fragments"),
-        ("qc", "worth ordering?"),
+        ("ppr", "RNA -> protein", 112),
+        ("cuts + overhangs", "chosen together", 150),
+        ("codons", "locked, then optimised", 140),
+        ("assembly", "fragments", 112),
+        ("qc", "worth ordering?", 112),
     ]
-    x0, box_w, gap, y = 96, 118, 16, 34
+    x0, gap, y = 96, 16, 34
     parts = []
-    for i, (name, sub) in enumerate(stages):
-        x = x0 + i * (box_w + gap)
+    spans = {}
+    x = x0
+    for i, (name, sub, box_w) in enumerate(stages):
+        spans[name] = (x, box_w)
         parts.append(
             f'<rect x="{x}" y="{y}" width="{box_w}" height="52" rx="4" fill="none" '
             f'stroke="{INK}" stroke-opacity=".5"/>'
@@ -64,8 +92,22 @@ def pipeline_svg():
             ax = x + box_w + 3
             parts.append(f'<path d="M{ax} {y + 26} l9 0 m-3 -3 l3 3 l-3 3" fill="none" '
                          f'stroke="{INK}" stroke-opacity=".6" stroke-width="1.3"/>')
+        x += box_w + gap
+    end_x = x - gap
 
-    end_x = x0 + len(stages) * (box_w + gap) - gap
+    # The fallback. Measured at 13 of 50 19S targets in design.py's own comment: a locked
+    # overhang can create a forbidden site no synonymous codon can remove, and the cure is a
+    # different split. Drawn, because a straight line said this cannot happen.
+    jx, jw = spans["cuts + overhangs"]
+    cx, cw = spans["codons"]
+    loop_y = y + 68
+    parts.append(
+        f'<path d="M{cx + cw / 2} {y + 52} L{cx + cw / 2} {loop_y} L{jx + jw / 2} {loop_y} '
+        f'L{jx + jw / 2} {y + 56} m-3 4 l3 -4 l3 4" fill="none" stroke="{INK}" '
+        f'stroke-opacity=".45" stroke-width="1.2" stroke-dasharray="3 2.5"/>'
+        f'<text x="{(jx + jw / 2 + cx + cw / 2) / 2}" y="{loop_y + 13}" text-anchor="middle" '
+        f'font-family="ui-sans-serif,system-ui" font-size="10" fill="{INK}" '
+        f'fill-opacity=".62">no sequence satisfies them? take the next split</text>')
     # Right margin sized to the widest right-hand label ("4-7 fragments" at 12.5px),
     # which overflowed a 96px margin and was clipped.
     right_margin = 120
@@ -73,11 +115,12 @@ def pipeline_svg():
              f'fill="{INK}" fill-opacity=".85"')
     return (
         f'<?xml version="1.0" encoding="UTF-8"?>'
-        f'<svg viewBox="0 0 {end_x + right_margin} 122" '
-        f'width="{end_x + right_margin}" height="122" '
+        f'<svg viewBox="0 0 {end_x + right_margin} 150" '
+        f'width="{end_x + right_margin}" height="150" '
         f'xmlns="http://www.w3.org/2000/svg" '
-        f'role="img" aria-label="CLIPPR pipeline: target RNA through six stages to '
-        f'orderable DNA">'
+        f'role="img" aria-label="CLIPPR pipeline: a target RNA passes through ppr, a joint '
+        f'choice of cuts and overhangs, codon optimisation, assembly and QC to become '
+        f'orderable DNA fragments, with a fallback from codons to a different split">'
         f'<text x="0" y="{y + 21}" {label}>target</text>'
         f'<text x="0" y="{y + 36}" font-family="ui-monospace,monospace" font-size="12.5" '
         f'fill="{INK}">AAAAUGUGG</text>'
@@ -87,7 +130,11 @@ def pipeline_svg():
         f'<text x="{end_x + 14}" y="{y + 21}" {label}>order</text>'
         f'<text x="{end_x + 14}" y="{y + 36}" font-family="ui-sans-serif,system-ui" '
         f'font-size="12.5" fill="{INK}">4-7 fragments</text>'
-        f'<text x="{x0}" y="112" font-family="ui-sans-serif,system-ui" font-size="10.5" '
+        f'<text x="0" y="{y + 50}" font-family="ui-sans-serif,system-ui" font-size="9.5" '
+        f'fill="{INK}" fill-opacity=".6">typed, or chosen</text>'
+        f'<text x="0" y="{y + 61}" font-family="ui-sans-serif,system-ui" font-size="9.5" '
+        f'fill="{INK}" fill-opacity=".6">from a region</text>'
+        f'<text x="{x0}" y="140" font-family="ui-sans-serif,system-ui" font-size="10.5" '
         f'fill="{INK}" fill-opacity=".7">'
         f'overhangs are chosen before the sequence is optimised, then locked into it'
         f'</text>'
@@ -104,7 +151,7 @@ cells.append(md(f"""
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]({COLAB})
 [![License: MIT](https://img.shields.io/badge/License-MIT-1a7f5a.svg)](https://github.com/{REPO}/blob/main/LICENSE)
-[![Tests](https://img.shields.io/badge/tests-{TESTS}%20passing-1a7f5a.svg)](https://github.com/{REPO})
+{TESTS_BADGE}
 
 **iGEM Marburg 2026**
 
@@ -781,7 +828,7 @@ cells.append(md(f"""
 | **2 · Design it** | target to protein, then cuts and overhangs chosen **before** the coding sequence is optimised, so the optimiser cannot rewrite the bases the junctions depend on |
 | **3 · Fragments** | the oligo table you order |
 | **4 · Files** | FASTA, GenBank and the oligo CSV |
-| *Optional extras* | host occurrence check, the deposited-kit route, a whole library, cross-talk |
+| *Optional extras* | **choosing the target window from a region**, host occurrence check, the deposited-kit route, a whole library, cross-talk |
 | *Going deeper* | every overhang considered at every junction, and why each was kept or ruled out |
 
 **Predicted fidelity** is from published ligation-count matrices (Pryor *et al.* 2020), not a measured efficiency in your hands. **QC** is a sequence-complexity check, not calibrated against vendor outcomes. No sequence from this project has been synthesised.

@@ -221,8 +221,8 @@ def design_oneshot(
     needs one repeat per base. Pass a 9, 14 or 19 base target to get 9S, 14S or 19S.
 
     Returns the protein, the coding sequence, the oligo table, the QC verdict, the
-    predicted ligation fidelity, a cost estimate and -- when `outdir` is given -- the
-    paths written.
+    predicted ligation fidelity and -- when `outdir` is given -- the paths written. No cost
+    estimate: pricing was removed in 44446fe because we cannot obtain quotes.
 
     `avoid_sequences` forbids specific DNA verbatim, and `lock_prefix` fixes the first bases
     of the coding sequence to a given synonymous encoding. Both exist so

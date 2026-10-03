@@ -199,8 +199,8 @@ reverted the following day. The notebook figures below are re-measured, not reca
 | | |
 |---|---|
 | tests | **974 passed of 974 collected, 0 failed** — `pytest tests/ -q` |
-| release check | **10 of 10 passed**, 0 failed, **0 needing a human** |
-| independent evidence | V5 digest/ligate: 200/200 reconstructed, 7/7 corrupt controls caught \| V6 constraints: 200/200 satisfy every hard constraint, 0 disagreements with claimed status \| V7 export semantics: 3 designs, 0 semantic problems, 5/5 controls caught |
+| release check | **8 of 10 passed**, **1 failed** (5. independent agreement), **1 needing a human** (3. clean-environment install) |
+| independent evidence | V5 digest/ligate: STALE -- computed under package source 0c2a6f79b788, current is c76dc3cafb93 \| V6 constraints: STALE -- computed under package source 0c2a6f79b788, current is c76dc3cafb93 \| V7 export semantics: STALE -- computed under package source 0c2a6f79b788, current is c76dc3cafb93 |
 | notebooks | Designer: **30 cells (14 code)**. Inventory: **20 cells (11 code)**. Execution: no deferred experiment advertised; every cell executed (13 cells executed, 0 failed) |
 | architecture coverage | 200 designs {'9S': 100, '14S': 50, '19S': 50}, registered 200 {'9S': 100, '14S': 50, '19S': 50}, status complete, 0 failures |
 | runtime | 19.6 min for 200 designs, configuration retained: ['seed', 'matrix', 'enzyme_profile', 'destination', 'genetic_code', 'dependencies', 'codon_table_effective_sha256'] |
