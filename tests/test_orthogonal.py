@@ -106,3 +106,54 @@ class TestReport:
     def test_crosstalk_report_renders(self):
         ts = design_orthogonal_set(4, length=9, seed=0, iterations=300)
         assert crosstalk_report(ts.targets).count("[") >= 4
+
+
+class TestWeightedMetricDomain:
+    """The optional weighted metric covers positions 1-10 and nothing else.
+
+    `POSITION_WEIGHTS.get(i + 1, 0.0)` gave every later position weight zero, so two
+    14-mers differing only after position 10 scored weighted distance 0 against uniform
+    distance 4, and the 19-mer pair 0 against 9. A reassuring zero for targets nobody
+    measured is worse than a refusal.
+    """
+
+    def test_fourteen_mers_differing_only_past_position_ten(self):
+        a, b = "A" * 14, "A" * 10 + "U" * 4
+        from clippr.orthogonal import _weights, distance
+        assert distance(a, b, _weights(14, "uniform")) == 4
+        with pytest.raises(ValueError, match="positions 1-10"):
+            _weights(14, "weighted")
+
+    def test_nineteen_mers_differing_only_past_position_ten(self):
+        a, b = "A" * 19, "A" * 10 + "U" * 9
+        from clippr.orthogonal import _weights, distance
+        assert distance(a, b, _weights(19, "uniform")) == 9
+        with pytest.raises(ValueError, match="positions 1-10"):
+            _weights(19, "weighted")
+
+    def test_a_refusal_is_not_a_silent_downgrade_to_uniform(self):
+        from clippr.orthogonal import _weights
+        with pytest.raises(ValueError):
+            _weights(14, "weighted")
+
+    def test_nine_positions_still_work(self):
+        from clippr.orthogonal import _weights
+        w = _weights(9, "weighted")
+        assert len(w) == 9 and sum(w) == pytest.approx(9.0)
+
+    def test_ten_positions_are_the_boundary_and_are_allowed(self):
+        from clippr.orthogonal import _weights, WEIGHTED_METRIC_MAX_LENGTH
+        assert WEIGHTED_METRIC_MAX_LENGTH == 10
+        assert len(_weights(10, "weighted")) == 10
+
+    def test_a_short_weight_vector_is_refused_rather_than_zipped(self):
+        """`zip` stops at the shortest argument, so this compared a prefix silently."""
+        from clippr.orthogonal import distance
+        with pytest.raises(ValueError, match="weight vector"):
+            distance("AAAAAAAAA", "AAAAAAAAU", [1.0] * 4)
+
+    def test_negative_and_non_finite_weights_are_refused(self):
+        from clippr.orthogonal import distance
+        for bad in ([1.0, -1.0, 1.0], [1.0, float("inf"), 1.0], [1.0, float("nan"), 1.0]):
+            with pytest.raises(ValueError, match="finite and non-negative"):
+                distance("AAA", "AUA", bad)

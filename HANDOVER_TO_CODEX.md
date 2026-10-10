@@ -41,9 +41,11 @@ piece of volatile or unavailable state placed somewhere that is compared for equ
     rather than on `Path`, whose ordering is case-folded on Windows only.
   - **Check 11 was not counted**, so the tally printed "10 of 10 passed; 0 failed" directly above
     its own FAIL line. Appending it then made the release-check row carry check 11's own verdict,
-    which depends on that row, so the gate oscillated. The row now covers the eleven checks whose
-    verdicts are independent of it; the record keeps all twelve. Proven by two consecutive runs
-    both reporting **12 of 12 passed, exit 0**.
+    which depends on that row, so the gate oscillated. The row covers the checks whose verdicts
+    are independent of it; the record keeps them all. With checks 12 and 13 added that is twelve
+    in the row and thirteen in the record. Proven by two consecutive runs both reporting
+    **12 of 12 passed, exit 0** in the row and **13 of 13** in the record, and by a separate
+    read-only `state_table.py` exiting 0 afterwards.
   - **A notebook `except ImportError` reported a missing Biopython** as "this build has no window
     selection", with a remedy that cannot install a dependency. The import is unguarded now and
     the guard is `hasattr(clippr, "select_window")`.
@@ -225,9 +227,9 @@ reverted the following day. The notebook figures below are re-measured, not reca
 
 | | |
 |---|---|
-| tests | **974 passed of 974 collected, 0 failed** — `pytest tests/ -q` |
-| release check | **11 of 11 passed**, 0 failed, **0 needing a human**. Check 11 gates this table itself and is excluded here to keep the two from being circular — the record holds it |
-| independent evidence | V5 digest/ligate: 200/200 reconstructed, 7/7 corrupt controls caught \| V6 constraints: 200/200 satisfy every hard constraint, 0 disagreements with claimed status \| V7 export semantics: 3 designs, 0 semantic problems, 5/5 controls caught |
+| tests | **1108 passed of 1108 collected, 0 failed** — `pytest tests/ -q` |
+| release check | **12 of 12 passed**, 0 failed, **0 needing a human**. Check 11 gates this table itself and is excluded here to keep the two from being circular — the record holds it |
+| independent evidence | V5 digest/ligate: 200/200 reconstructed, 7/7 corrupt controls caught \| V6 constraints: 200/200 satisfy the V6 coding-sequence constraints, 0 disagreements with claimed status \| V7 export semantics: 3 designs, 0 semantic problems, 5/5 controls caught |
 | notebooks | Designer: **30 cells (14 code)**. Inventory: **20 cells (11 code)**. Execution: no deferred experiment advertised; every cell executed (13 cells executed, 0 failed) |
 | architecture coverage | 200 designs {'9S': 100, '14S': 50, '19S': 50}, registered 200 {'9S': 100, '14S': 50, '19S': 50}, status complete, 0 failures |
 | runtime | 19.6 min for 200 designs, configuration retained: ['seed', 'matrix', 'enzyme_profile', 'destination', 'genetic_code', 'dependencies', 'codon_table_effective_sha256'] |

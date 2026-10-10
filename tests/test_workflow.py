@@ -12,6 +12,8 @@ from clippr.ordering import HISTORICAL_OPOOL
 TABLE_S1 = Path(__file__).resolve().parents[1] / "data" / "grasp_supp" / "Table S1.xlsx"
 CODON_TABLE = Path(__file__).resolve().parents[1] / "data" / "codon_tables" / "kazusa_3055.json"
 TARGETS = ["AAAAUGUGG", "UUACACGUGCGUAC"]
+INVENTORY = str(Path(__file__).resolve().parents[1]
+                / "work" / "phaseb" / "inventory_recoded.json")
 
 
 @pytest.fixture(scope="module")
@@ -318,3 +320,97 @@ class TestOrderRejectsContractBreaches:
         got = w.order_items_for(tmp_path / "inv.json", tmp_path / "items")
         assert not got.ok
         assert any(f["stage"] == "synthesis" for f in got.failures)
+
+
+class TestDefaultCodonTableResolution:
+    """`_resolve_table(None)` on an installed wheel.
+
+    It read `Path(__file__).parents[2] / "data" / "codon_tables"`, which is the repository
+    root in a checkout and the interpreter's `Lib` directory once installed -- the mistake
+    `paths.py` exists to document. Every existing test passed `codon_table=` explicitly, so
+    none of them executed this branch.
+    """
+
+    def test_the_default_comes_from_the_cache_loader_not_a_path(self, monkeypatch, table):
+        """Pins the contract, not the implementation: no filesystem path is derived here."""
+        calls = []
+
+        def fake(*args, **kwargs):
+            calls.append((args, kwargs))
+            return table
+
+        monkeypatch.setattr("clippr.codons.table_from_kazusa", fake)
+        resolved = w._resolve_table(None)
+        assert calls, "the default must come from the cache loader"
+        assert resolved
+
+    def test_the_source_derives_no_data_path_from_the_package_location(self):
+        """A `parents[N] / "data"` lookup is how this broke; reject it at the source."""
+        source = (Path(w.__file__)).read_text(encoding="utf-8")
+        assert 'parents[2] / "data"' not in source.replace("\n", " ")
+        assert "codon_tables" not in source or "table_from_kazusa" in source
+
+    def test_an_unavailable_table_names_the_cache_and_the_explicit_route(self, monkeypatch):
+        def unavailable(*args, **kwargs):
+            raise OSError("no cached table and no network")
+
+        monkeypatch.setattr("clippr.codons.table_from_kazusa", unavailable)
+        with pytest.raises(FileNotFoundError) as excinfo:
+            w._resolve_table(None)
+        message = str(excinfo.value)
+        assert "cache" in message.lower()
+        assert "codon_table=" in message
+
+    def test_a_programming_error_is_not_reported_as_a_missing_input(self, monkeypatch):
+        """Narrow catching: a bug must not be dressed up as an absent optional input."""
+        def broken(*args, **kwargs):
+            raise RuntimeError("a genuine defect")
+
+        monkeypatch.setattr("clippr.codons.table_from_kazusa", broken)
+        with pytest.raises(RuntimeError):
+            w._resolve_table(None)
+
+    def test_a_nested_table_is_completed_under_the_declared_code(self, monkeypatch):
+        seen = []
+
+        def spy(tbl, code):
+            seen.append(code)
+            return tbl
+
+        monkeypatch.setattr("clippr.codons.complete_table", spy)
+        w._resolve_table({"*": {"TAA": 1.0}}, 11)
+        assert seen == [11], "completing under a code the caller did not declare"
+
+
+class TestJointRouteGeneticCode:
+    """The joint route records a genetic code but does not propagate it end to end.
+
+    `explore_interfaces` forwarded `genetic_code` to the search through `**kwargs` while
+    completing the table under a hardcoded 1, so a non-standard code produced a front whose
+    binding and whose table disagreed. This release refuses it rather than honouring it
+    partially; the one-shot route's own genetic-code support is unaffected.
+    """
+
+    def test_exploration_refuses_a_non_standard_code(self, tmp_path, table):
+        result = w.explore_interfaces(INVENTORY, ["AAAAUGUGG"], table, tmp_path,
+                                      max_evaluations=2, genetic_code=11)
+        assert result.ok is False
+        assert "code 1 only" in result.summary
+        assert not list(tmp_path.glob("*.json")), "nothing may be written on refusal"
+
+    def test_selection_refuses_a_front_that_declares_one(self, tmp_path):
+        front = tmp_path / "front.json"
+        front.write_text(json.dumps({
+            "binding": {"genetic_code": 11, "k": 20}, "observed_front": [],
+            "incumbent": None, "recommended": None, "targets": ["AAAAUGUGG"]}),
+            encoding="utf-8")
+        out = tmp_path / "selected"
+        result = w.select_interface(INVENTORY, str(front), str(out))
+        assert result.ok is False
+        assert "genetic code 11" in result.summary
+        assert not (out / "inventory.json").exists(), "no inventory may be published"
+
+    def test_code_one_is_still_accepted(self, tmp_path, table):
+        result = w.explore_interfaces(INVENTORY, ["AAAAUGUGG"], table, tmp_path,
+                                      max_evaluations=2, genetic_code=1)
+        assert result.ok is True

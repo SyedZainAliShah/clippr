@@ -31,8 +31,10 @@ confirmation.
 and 59-61% because one targets E. coli and the other Chlamydomonas. Neither is defective;
 that is the organism. Cut-points drawn from the combined distribution would flag every
 correct Chlamydomonas sequence. The GC and homopolymer gates here are synthesis-feasibility
-limits instead, and they fire on neither population -- which is the right behaviour for a
-gate whose job is to catch sequences no vendor will make, not to rank ordinary ones.
+limits instead, and they fire on neither population -- which is the behaviour intended for
+a gate meant to catch implausible sequences rather than rank ordinary ones. No vendor was
+asked: these are engineering thresholds read from published guidance, and nothing here has
+been checked against an actual synthesis acceptance or refusal.
 """
 from __future__ import annotations
 
@@ -52,7 +54,7 @@ BLACKLIST_ENZYMES: tuple[str, ...] = _C.enzymes_for()
 #: it guards a real synthesis failure this corpus happens not to produce.
 DEFAULT_THRESHOLDS: dict[str, float] = {
     # discriminating -- calibrated
-    "longest_repeat_warn": 25,      # p63; direct repeats past ~25 nt trouble most vendors
+    "longest_repeat_warn": 25,      # p63; long direct repeats are a documented synthesis risk
     "longest_repeat_fail": 50,      # p91
     "repeat_fraction_warn": 0.10,   # p54
     "repeat_fraction_fail": 0.50,   # p75

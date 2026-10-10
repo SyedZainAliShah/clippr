@@ -7,7 +7,11 @@ network, rather than failing a whole suite offline.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+
+from clippr import design, offtarget, qc
 
 from clippr.offtarget import (
     Transcript,
@@ -91,14 +95,19 @@ class TestTiers:
         assert r["n_transcript"] == 0
         assert "genomic DNA only" in r["verdict"]
 
-    def test_absent_is_absent(self):
+    def test_absent_names_the_reference_rather_than_the_host(self):
+        """An exact-match scan of one annotation cannot speak for the whole host."""
         r = scan("GGGGGGGGGGGG", TOY, TOY_TRANSCRIPTS)
-        assert r["verdict"] == "not found in the host"
+        assert r["verdict"] == "no exact match in the supplied reference"
+        assert "not found in the host" not in r["verdict"]
 
     def test_report_keeps_the_tiers_separate(self):
         text = report([scan("CCCCGGGG", TOY, TOY_TRANSCRIPTS)])
         assert "transcript" in text and "genomic" in text
-        assert "not sufficient" in text, "the caveat must travel with the number"
+        assert "predicts no binding affinity" in text, "the caveat must travel with the number"
+        assert "mismatch-tolerant interactions are not assessed" in text
+        assert "necessary for an off-target" not in text, (
+            "that wording implies absence of a match excludes interaction")
 
 
 class TestExpectation:
@@ -161,3 +170,53 @@ class TestRealGenome:
         genome, trs = host
         r = scan("AAAGCGGCACUUGUGAAGU", genome, trs)
         assert r["n_genomic"] == 0 and r["n_transcript"] == 0
+
+
+class TestScreeningClaimsStayInScope:
+    """The counts were right; the recommended interpretation was not.
+
+    "A longer target is the reliable fix: 14-nt and 19-nt targets do not occur" is
+    universal and false -- `UUUAUAUUCCCGAA` occurs four times in the pinned annotation.
+    "There is no RNA for a PPR to bind at those loci" cannot be established by an
+    exact-match scan of an incomplete annotation.
+    """
+
+    def test_a_transcript_hit_does_not_promise_longer_targets_are_absent(self):
+        source = Path(design.__file__).read_text(encoding="utf-8")
+        assert "19-nt targets do not occur" not in source
+        assert "reliable fix" not in source
+
+    def test_a_transcript_hit_tells_the_user_to_screen_the_candidate(self):
+        source = Path(design.__file__).read_text(encoding="utf-8")
+        assert "screen the actual candidate" in source
+
+    def test_a_genomic_only_hit_does_not_claim_there_is_no_rna(self):
+        source = Path(design.__file__).read_text(encoding="utf-8")
+        assert "no RNA for a PPR to bind" not in source
+        assert "not assessed" in source
+
+    def test_the_absence_verdict_names_the_reference_it_searched(self):
+        verdict = scan("GGGGGGGGGGGG", TOY, TOY_TRANSCRIPTS)["verdict"]
+        assert "supplied reference" in verdict
+        assert "not found in the host" not in verdict
+
+    def test_qc_makes_no_claim_about_what_vendors_refuse(self):
+        source = Path(qc.__file__).read_text(encoding="utf-8")
+        assert "no vendor will make" not in source
+        assert "trouble most vendors" not in source
+
+
+class TestLongTargetCounterexample:
+    """The integration check that falsifies the removed universal claim."""
+
+    def test_a_fourteen_mer_does_occur_in_the_annotation(self):
+        try:
+            genome = offtarget.load_genome()
+            transcripts = offtarget.load_transcripts()
+        except Exception as exc:                        # noqa: BLE001 - reported, not hidden
+            pytest.skip(f"pinned reference unavailable: {type(exc).__name__}: {exc}")
+        hit = offtarget.scan("UUUAUAUUCCCGAA", genome, transcripts)
+        assert hit["n_transcript"] > 0, (
+            "the counterexample that falsifies 'longer targets do not occur' must still "
+            "occur in the pinned reference; if the reference changed, re-derive it")
+        assert hit["verdict"] == "OCCURS IN A TRANSCRIPT"

@@ -224,3 +224,72 @@ class TestWhatIsStillNotCovered:
         assert spec.DESTINATION_OVERHANGS["level1"] == ("GGAG", "CGCT")
         assert spec.ASSEMBLY_STAGES["level1"]["destination"] is None
         assert spec.ASSEMBLY_STAGES["level1"]["flanks_from_product"] is True
+
+
+class TestFlatRoleListsCannotEstablishTopology:
+    """End multiplicities are a degree test, and degree cannot see connectivity.
+
+    The control is an open path plus a disjoint cycle: exactly two ends appear once and
+    nothing appears more than twice, so the old `chain_ok` test called it a single closed
+    chain. It is two components.
+    """
+
+    DISCONNECTED = {
+        "ppr_blocks": ["AAAA", "AAAC"],
+        "final_cassette": ["AAAC", "AAAG"],
+        "linker": ["CCCC", "CCCG"],
+        "editing_domain": ["CCCG", "CCCT"],
+        "bridge": ["CCCT", "CCCC"],
+    }
+
+    def _call(self, roles, evidence="synthetic control; not a biological assembly"):
+        from clippr.assembly_spec import level1_participants
+        return level1_participants(roles["ppr_blocks"], roles=roles, evidence=evidence)
+
+    def test_a_path_plus_a_disjoint_cycle_is_not_complete(self):
+        r = self._call(self.DISCONNECTED)
+        assert r["participants_established"] is False
+        assert r["topology"] == "unverified"
+        assert r["scored"] is None
+
+    def test_the_degree_test_still_passes_and_is_reported_as_a_diagnostic(self):
+        """Keeping it visible is the point: it passes, and it proves nothing."""
+        r = self._call(self.DISCONNECTED)
+        assert r["degree_consistent_with_a_chain"] is True
+        assert r["participants_established"] is False
+
+    def test_evidence_prose_cannot_establish_completeness(self):
+        r = self._call(self.DISCONNECTED, evidence="all participants confirmed by the team")
+        assert r["participants_established"] is False
+
+    def test_a_genuinely_chain_shaped_input_is_still_unverified(self):
+        """Even a connected chain lacks fragment identity and orientation."""
+        chain = {"ppr_blocks": ["AAAA", "AAAC"], "linker": ["AAAC", "AAAG"],
+                 "editing_domain": ["AAAG", "AAAT"], "bridge": ["AAAT", "ACAA"],
+                 "final_cassette": ["ACAA", "ACAC"]}
+        r = self._call(chain)
+        assert r["degree_consistent_with_a_chain"] is True
+        assert r["participants_established"] is False
+        assert "orientation" in r["why_incomplete"]
+
+    def test_missing_roles_are_still_reported(self):
+        r = self._call({"ppr_blocks": ["AAAA", "AAAC"]})
+        assert r["roles_missing"]
+        assert r["participants_established"] is False
+
+    def test_malformed_ends_are_still_reported(self):
+        roles = dict(self.DISCONNECTED, bridge=["CCCT", "XX"])
+        r = self._call(roles)
+        assert r["malformed_ends"] == ["XX"]
+        assert r["participants_established"] is False
+
+    def test_the_readiness_api_does_not_reach_the_scorer(self, tmp_path, monkeypatch):
+        """Spy on the scorer: an unverified topology must never be scored."""
+        from clippr import workflow as w
+        called = []
+        monkeypatch.setattr("clippr.overhangs.set_fidelity",
+                            lambda *a, **k: called.append(a) or 1.0)
+        result = w.level1_readiness(["AAAA", "AAAC"], tmp_path,
+                                    roles=self.DISCONNECTED, evidence="synthetic control")
+        assert result.data["participants_established"] is False
+        assert not called, "the scorer was reached for an unverified topology"

@@ -14,6 +14,8 @@ the longest fragment, not the average.
 """
 from __future__ import annotations
 
+import hashlib as _hashlib
+
 
 from collections.abc import Mapping
 from pathlib import Path
@@ -198,6 +200,156 @@ def _overhang_decisions(protein, cuts, chosen, profile) -> list[OverhangDecision
     return out
 
 
+FINAL_ARTIFACT_SCHEMA = 1
+
+
+def final_artifact_report(oligos, enzyme: str = "BsaI", profile=None,
+                          enzymes=None) -> dict:
+    """Judge the sequences that will actually be ordered, not the coding span.
+
+    Scope is `wrapped_oligos`: each `oligo_sequence_5to3` after wrapping, checked through
+    `substrates.synthesis_findings` with this route's own intended-site records. Translation
+    is not rechecked here -- it is a property of the coding span, which `qc` covers.
+
+    Status is `pass`, `warning` or `fail`. A missing check is reported as `not_assessed`
+    rather than counted as a pass.
+    """
+    from . import substrates as _sub
+    from .assembly import wrapper_intended_sites
+    from .synthesis_profile import resolve
+
+    from .substrates import rc as _rc
+    from .assembly import enzyme_geometry as _geometry
+
+    policy = resolve(profile)
+    rows = oligos.to_dict("records") if oligos is not None and len(oligos) else []
+    fragments, hard, advisory, unassessed = [], [], [], []
+
+    if not rows:
+        # An empty table is not a clean table. This used to return "pass".
+        return {
+            "schema": FINAL_ARTIFACT_SCHEMA, "scope": "wrapped_oligos", "enzyme": enzyme,
+            "policy": policy.name, "policy_rules": _policy_rules(policy, enzymes),
+            "status": "not_assessed", "hard": [], "advisory": [],
+            "not_assessed": ["no oligo rows were supplied, so nothing was checked"],
+            "fragments": [],
+            "means": "nothing was assessed; this is not a pass",
+        }
+
+    for row in rows:
+        sequence = (row.get("oligo_sequence_5to3") or "").strip()
+        payload = (row.get("payload_5to3") or "").strip()
+        row_enzyme = row.get("wrap_enzyme") or enzyme
+        ident = row.get("order_fragment_id")
+        missing = []
+        if not sequence:
+            missing.append("no oligo_sequence_5to3")
+        if not payload:
+            missing.append("no payload_5to3, so the construction sites cannot be located")
+        elif payload not in sequence:
+            missing.append("the declared payload is not inside the ordered sequence")
+        if missing:
+            entry = {"order_fragment_id": ident, "length_nt": len(sequence),
+                     "hard": [], "advisory": [], "intended_sites_located": False,
+                     "not_assessed": missing}
+            fragments.append(entry)
+            unassessed += [f"{ident}: {m}" for m in missing]
+            continue
+
+        intended = wrapper_intended_sites(payload, row_enzyme)
+        # Derived offsets are where the sites *should* be. Check they are there: a
+        # fabricated wrapper with no recognition site at all reported them as located.
+        site, _spacer, _oh = _geometry(row_enzyme)
+        absent = [f"{nm} {strand} site missing at {at}"
+                  for nm, strand, at in intended
+                  if sequence[at:at + len(site)] != (site if strand == "forward"
+                                                     else _rc(site))]
+        findings = _sub.synthesis_findings(sequence, policy, intended_sites=intended,
+                                           enzymes=enzymes)
+        entry = {
+            "order_fragment_id": ident,
+            "length_nt": len(sequence),
+            "sha256": _hashlib.sha256(sequence.encode()).hexdigest(),
+            "hard": findings["hard"] + absent,
+            "advisory": findings["target"],
+            "intended_sites_located": not absent,
+        }
+        fragments.append(entry)
+        hard += [f"{ident}: {m}" for m in entry["hard"]]
+        advisory += [f"{ident}: {m}" for m in findings["target"]]
+
+    status = ("fail" if hard else
+              "not_assessed" if unassessed else
+              "warning" if advisory else "pass")
+    return {
+        "schema": FINAL_ARTIFACT_SCHEMA,
+        "scope": "wrapped_oligos",
+        "enzyme": enzyme,
+        "policy": policy.name,
+        "policy_rules": _policy_rules(policy, enzymes),
+        "status": status,
+        "hard": hard,
+        "advisory": advisory,
+        "not_assessed": unassessed,
+        "fragments": fragments,
+        "means": ("the ordered sequences satisfy the declared software checks under this "
+                  "policy; not vendor acceptance and not biological safety"),
+    }
+
+
+#: The only final-artifact verdicts that may be ordered. Named once and read everywhere,
+#: because the project previously carried two predicates: `status != "fail"` in the library
+#: and a stricter conjunction in `design_oneshot`. `not_assessed` sat between them, so one
+#: path refused it and the other wrote it a normal order sheet.
+ORDERABLE_STATUSES = ("pass", "warning")
+
+
+def synthesis_readiness(result: dict) -> tuple[bool, list[str]]:
+    """The one authoritative readiness verdict, with its reasons.
+
+    Judged from the recorded evidence rather than from a `synthesis_ready` flag, which a
+    caller may have copied, edited or carried over from an earlier verdict: a flag that
+    disagrees with the record is itself a reason to refuse. Absent, unrecognised and
+    self-contradictory information are all refusals, never defaults to acceptance.
+    """
+    why: list[str] = []
+    report = result.get("final_artifacts")
+    if not isinstance(report, dict) or "status" not in report:
+        why.append("no final-artifact assessment was recorded")
+    else:
+        status = report.get("status")
+        if status not in ORDERABLE_STATUSES:
+            why.append(f"the final-artifact status is {status!r}, not one of "
+                       f"{', '.join(ORDERABLE_STATUSES)}")
+        if report.get("hard"):
+            why.append(f"{len(report['hard'])} hard policy breach(es) on the ordered "
+                       f"sequences: {report['hard'][0]}")
+
+    if "constraints_ok" not in result:
+        why.append("no optimiser constraint result was recorded")
+    elif not result["constraints_ok"]:
+        why.append("the codon optimiser could not satisfy every constraint")
+
+    ready = not why
+    flag = result.get("synthesis_ready")
+    if flag is not None and bool(flag) != ready:
+        why.append(f"the recorded synthesis_ready={bool(flag)} disagrees with the "
+                   f"assessment on file")
+        ready = False
+    return ready, why
+
+
+def _policy_rules(policy, enzymes=None) -> dict:
+    """The numeric rules actually applied. A policy name does not identify a custom one."""
+    from . import constants as _C
+
+    return {"local_gc": list(policy.local_gc), "window": policy.window,
+            "global_gc": list(policy.global_gc) if policy.global_gc else None,
+            "max_homopolymer": policy.max_homopolymer,
+            "forbidden_sites": sorted(enzymes) if enzymes
+            else sorted(_C.enzymes_for(_C.DEFAULT_ENZYME_PROFILE))}
+
+
 def design_oneshot(
     target_rna: str,
     organism: str = "c_reinhardtii_nuclear",
@@ -303,7 +455,39 @@ def design_oneshot(
         dest[0], *overhangs, _rc(dest[1])]
 
     paths: dict[str, str] = {}
-    if outdir is not None:
+    # Judged on the sequences that will be ordered, before any of them is written. An
+    # insert can pass its own GC band while the appended junction and wrapper push the
+    # ordered oligo outside it.
+    final_artifacts = final_artifact_report(oligos, enzyme=enzyme,
+                                            enzymes=C.enzymes_for(enzyme_profile))
+    # The export route and the reported verdict come from one predicate. Routing on
+    # `status == "fail"` alone sent `not_assessed` down the normal path while the
+    # conjunction below reported it unready, so the files and the flag disagreed.
+    ready, not_ready_because = synthesis_readiness(
+        {"final_artifacts": final_artifacts, "constraints_ok": opt["constraints_ok"]})
+
+    if outdir is not None and not ready:
+        # A hard breach must not leave a full set of normal order files behind. The
+        # diagnostic route keeps the sequences for inspection and names them as failed.
+        # Everything is still written, because a rejected design is worth inspecting -- but
+        # every filename and key says REJECTED, and no normal order-file key exists, so a
+        # downstream step cannot pick these up as orderable.
+        with _stage(timings, "export"):
+            out = Path(outdir)
+            out.mkdir(parents=True, exist_ok=True)
+            stem = f"clippr_{target_rna}_REJECTED"
+            paths = {
+                "diagnostic_oligo_csv": str(write_oligo_csv(oligos,
+                                                            out / f"{stem}_oligos.csv")),
+                "diagnostic_oligo_fasta": str(write_fasta(oligos,
+                                                          out / f"{stem}_oligos.fasta")),
+                "diagnostic_gene_fasta": str(write_gene_fasta(
+                    cds, target_rna, out / f"{stem}_gene.fasta", architecture)),
+                "diagnostic_genbank": str(write_genbank(
+                    cds, fragments, target_rna, out / f"{stem}.gb", genetic_code, enzyme,
+                    destination)),
+            }
+    elif outdir is not None:
         with _stage(timings, "export"):
             out = Path(outdir)
             stem = f"clippr_{target_rna}"
@@ -352,15 +536,19 @@ def design_oneshot(
         warnings.append(
             f"this target occurs inside {offtarget['n_transcript']} annotated host "
             f"transcript(s) ({genes}), in the sense orientation — RNA a PPR could bind "
-            f"as well as your construct. A longer target is the reliable fix: 14-nt and "
-            f"19-nt targets do not occur. Occurrence is necessary for an off-target "
-            f"interaction, not sufficient; no binding affinity is predicted."
+            f"as well as your construct. A longer target often reduces exact matches, "
+            f"but screen the actual candidate against the chosen reference rather than "
+            f"assuming absence; longer targets are not guaranteed to be absent. This "
+            f"counts exact sequence matches only: it predicts no binding affinity, and "
+            f"mismatch-tolerant interactions are not assessed, so it does not bound the "
+            f"set of possible off-targets in either direction."
         )
     elif offtarget and offtarget.get("n_genomic"):
         warnings.append(
-            f"this target occurs {offtarget['n_genomic']}x in host genomic DNA but in no "
-            f"annotated transcript, so there is no RNA for a PPR to bind at those loci. "
-            f"Worth noting, not acting on."
+            f"this target occurs {offtarget['n_genomic']}x in host genomic DNA and in no "
+            f"annotated transcript of the supplied reference. That is an absence of "
+            f"evidence in one annotation, not an absence of RNA: unannotated transcripts "
+            f"and other interaction mechanisms are not assessed."
         )
     backbone = set_fidelity([dest[0], _rc(dest[1])], matrix)
     if backbone < 0.95:
@@ -370,10 +558,14 @@ def design_oneshot(
             f"limit here, not the junctions we chose."
         )
 
+    # The final verdict is part of the one-line summary. "QC PASS" alone was true of a
+    # design the final-artifact check rejects, and it was the whole printed outcome.
     summary = (
         f"{target_rna} ({architecture}) -> {len(protein)} aa, {len(cds)} nt, "
-        f"{len(oligos)} fragments. Fidelity {fidelity:.3f}. QC {qc['status']}."
-    )
+        f"{len(oligos)} fragments. Fidelity {fidelity:.3f}. "
+        f"Coding-span QC {qc['status']}. "
+        + ("Orderable under the declared software checks."
+           if ready else f"NOT ORDERABLE (final artifacts: {final_artifacts['status']})."))
 
     audit = DesignAudit(
         target_rna=d["target_rna"],
@@ -389,6 +581,9 @@ def design_oneshot(
         fidelity_ceiling=backbone,
         constraints_satisfied=bool(opt["constraints_ok"]),
         qc_status=qc["status"],
+        final_status=final_artifacts["status"],
+        synthesis_ready=ready,
+        not_ready_because=tuple(not_ready_because),
         offtarget_status=offtarget_status,
         findings=tuple(warnings),
     )
@@ -407,6 +602,15 @@ def design_oneshot(
         "fragments": fragments,
         "oligos": oligos,
         "qc": qc,
+        # The coding span's complexity check and the final ordered sequence's policy check
+        # are separate results with different scopes; neither substitutes for the other.
+        "final_artifacts": final_artifacts,
+        # The same verdict that chose the export route above, so a file set and a flag
+        # cannot disagree. Named so it cannot be read as more than it is.
+        "synthesis_ready": ready,
+        "not_ready_because": not_ready_because,
+        "synthesis_ready_means": ("the declared software checks passed on the ordered "
+                                  "sequences; not vendor acceptance, not biological safety"),
         "offtarget": offtarget,
         "fidelity": fidelity,
         "constraints_ok": opt["constraints_ok"],

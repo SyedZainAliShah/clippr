@@ -100,7 +100,18 @@ def inspect_exports(design: dict, problems: list[str]) -> dict:
     thing proves nothing about the real thing.
     """
     target = design["target_rna"]
-    paths = {k: Path(v) for k, v in design["paths"].items()}
+    # A design rejected by the final-artifact contract exports under `diagnostic_` keys with
+    # REJECTED filenames, so nothing downstream can mistake it for orderable. The file
+    # semantics are identical and still worth checking, so the prefix is normalised here and
+    # the rejection itself is asserted separately below.
+    raw = design["paths"]
+    rejected = any(k.startswith("diagnostic_") for k in raw)
+    paths = {k.removeprefix("diagnostic_"): Path(v) for k, v in raw.items()}
+    if rejected:
+        if any(k in raw for k in ("oligo_csv", "oligo_fasta")):
+            problems.append(f"{target}: a rejected design exposed a normal order-file key")
+        if not all("REJECTED" in str(v) for v in raw.values()):
+            problems.append(f"{target}: a diagnostic export is not named REJECTED")
     cds, oligos = design["cds"], design["oligos"]
     note = f"{target}"
 
@@ -213,7 +224,10 @@ def damaged_annotation_controls(design: dict) -> list[tuple[str, bool]]:
     """
     from Bio.SeqFeature import SimpleLocation
 
-    genbank = Path(design["paths"]["genbank"])
+    # Same normalisation as `inspect_exports`: a rejected design keys its files under
+    # `diagnostic_`.
+    _paths = {k.removeprefix("diagnostic_"): v for k, v in design["paths"].items()}
+    genbank = Path(_paths["genbank"])
     saved = genbank.read_bytes()
     results = []
     try:
@@ -241,6 +255,13 @@ def damaged_annotation_controls(design: dict) -> list[tuple[str, bool]]:
 
 
 def main() -> int:
+    import argparse
+
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--out", default=None,
+                    help=("write the record here instead of the shared work/independent "
+                          "path, so a release bundle can hold its own immutable copy"))
+    args = ap.parse_args()
     table = json.loads((ROOT / "data" / "codon_tables" / "kazusa_3055.json")
                        .read_text(encoding="utf-8"))
     outdir = Path(tempfile.mkdtemp())
@@ -266,7 +287,8 @@ def main() -> int:
         print(f"   {name:48s} {'detected' if detected else 'NOT DETECTED'}")
 
 
-    out = ROOT / "work" / "independent" / "v7_export_semantics.json"
+    out = (Path(args.out) if getattr(args, "out", None)
+           else ROOT / "work" / "independent" / "v7_export_semantics.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(
         {"provenance": provenance(__file__),

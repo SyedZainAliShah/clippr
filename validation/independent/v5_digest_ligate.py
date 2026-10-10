@@ -241,6 +241,10 @@ def main() -> int:
     ap.add_argument("--jsonl", default=str(ROOT / "work" / "independent"
                                         / "corpus200_pinned.jsonl"))
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--out", default=None,
+                    help=("write the record here instead of the shared "
+                          "work/independent path, so a release bundle can "
+                          "hold its own immutable copy"))
     args = ap.parse_args()
 
     rows = load_designs(args.jsonl)
@@ -293,7 +297,8 @@ def main() -> int:
             detected += 1
         print(f"   {name:44s} {verdict}")
 
-    out = ROOT / "work" / "independent" / "v5_digest_ligate.json"
+    out = (Path(args.out) if getattr(args, "out", None)
+           else ROOT / "work" / "independent" / "v5_digest_ligate.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(
         {"provenance": provenance(__file__, args.jsonl),

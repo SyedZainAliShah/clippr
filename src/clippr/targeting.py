@@ -218,6 +218,8 @@ class Selection:
     alternatives: tuple[TargetWindow, ...] = ()
     rejected: tuple[tuple[TargetWindow, str], ...] = ()
     reference: str = ""
+    #: Content fingerprint of the annotation screened. None when none was.
+    reference_binding: dict | None = None
     lengths: tuple[int, ...] = ()
     intended_declared: bool = False
     tie_count: int = 0
@@ -227,6 +229,64 @@ class Selection:
     @property
     def found(self) -> bool:
         return self.chosen is not None
+
+
+REFERENCE_BINDING_SCHEMA = 1
+
+
+def reference_binding(transcripts: Sequence[Transcript], label: str = "") -> dict:
+    """A content fingerprint of the annotation actually screened.
+
+    Hashes the ordered feature payload, because every part of it changes what a scan finds
+    or what an identity means: order fixes `feature:{index}:{name}`, and name, kind, strand,
+    start and sequence all affect the result. Duplicate features are kept -- collapsing them
+    is how a gene name came to stand for two loci.
+
+    The label is recorded beside the hash, never instead of it. An accession can stay the
+    same while the content changes.
+    """
+    h = hashlib.sha256()
+    h.update(f"{REFERENCE_BINDING_SCHEMA}\x1f".encode())
+    for i, t in enumerate(transcripts):
+        for field in (str(i), t.name, t.kind, str(t.strand), str(t.start),
+                      _rna(t.sequence)):
+            h.update(field.encode())
+            h.update(b"\x1f")
+    return {
+        "schema": REFERENCE_BINDING_SCHEMA,
+        "label": label or "unnamed reference",
+        "features": len(transcripts),
+        "payload_sha256": h.hexdigest(),
+        "coordinate_convention": COORDINATE_CONVENTION,
+        "identity_scheme": ("feature:{index}:{name}, stable only within this bound "
+                            "snapshot; reordering the annotation invalidates saved indices"),
+    }
+
+
+def verify_reference_binding(saved: dict | None,
+                             transcripts: Sequence[Transcript]) -> dict:
+    """Compare a saved selection's binding with a reference in hand.
+
+    Returns `{"status": ..., "detail": ...}`. `unverified` is for records written before
+    bindings existed: they stay readable, but they cannot claim to describe this reference.
+    """
+    if not saved:
+        return {"status": "unverified",
+                "detail": ("this record carries no reference binding, so it cannot be "
+                           "matched to an annotation; it is historical evidence only")}
+    current = reference_binding(transcripts, saved.get("label", ""))
+    if saved.get("schema") != current["schema"]:
+        return {"status": "unreadable",
+                "detail": (f"binding schema {saved.get('schema')!r} cannot be compared "
+                           f"with schema {current['schema']}")}
+    if saved.get("payload_sha256") == current["payload_sha256"]:
+        return {"status": "match", "detail": "the annotation screened is this one"}
+    return {"status": "mismatch",
+            "detail": (f"this reference has {current['features']} features hashing to "
+                       f"{current['payload_sha256'][:12]}; the record screened "
+                       f"{saved.get('features')} hashing to "
+                       f"{str(saved.get('payload_sha256'))[:12]}. Saved index-based "
+                       f"intended loci cannot be reused against it.")}
 
 
 def feature_identity(index: int, transcript: Transcript) -> str:
@@ -346,8 +406,10 @@ def select_window(source: SearchSequence, lengths: Sequence[int],
     # never consulted into its own provenance.
     if transcripts is None:
         ref = "none -- supplied sequence only"
+        binding = None
     else:
         ref = reference if reference is not None else "supplied annotation"
+        binding = reference_binding(transcripts, ref)
     notes: list[str] = []
     if transcripts is None:
         notes.append("no reference annotation was screened -- occurrences are from the "
@@ -358,7 +420,7 @@ def select_window(source: SearchSequence, lengths: Sequence[int],
                      "therefore count against it")
 
     if not candidates:
-        return Selection(chosen=None, reference=ref, lengths=wanted,
+        return Selection(chosen=None, reference=ref, reference_binding=binding, lengths=wanted,
                          intended_declared=bool(loci), notes=tuple(notes),
                          reason=f"the supplied sequence is {len(source.rna)} nt, shorter than "
                                 f"every requested window length {wanted}")
@@ -374,7 +436,8 @@ def select_window(source: SearchSequence, lengths: Sequence[int],
                                 f"{' ...' if n > 3 else ''}"))
 
     if not ok:
-        return Selection(chosen=None, alternatives=(), rejected=tuple(rejected), reference=ref,
+        return Selection(chosen=None, alternatives=(), rejected=tuple(rejected),
+                         reference=ref, reference_binding=binding,
                          lengths=wanted, intended_declared=bool(loci), notes=tuple(notes),
                          reason=f"no window of {wanted} in {source.identifier} has "
                                 f"{max_other_occurrences} or fewer other exact occurrences; "
@@ -389,7 +452,7 @@ def select_window(source: SearchSequence, lengths: Sequence[int],
 
     notes.extend(ok[0].multiply_intended)
     return Selection(chosen=ok[0], alternatives=tuple(ok[1:1 + keep_alternatives]),
-                     rejected=tuple(rejected), reference=ref, lengths=wanted,
+                     rejected=tuple(rejected), reference=ref, reference_binding=binding, lengths=wanted,
                      intended_declared=bool(loci), tie_count=ties, notes=tuple(notes))
 
 

@@ -41,7 +41,7 @@ actually measured in:
 python -m venv .venv
 .venv/Scripts/python -m pip install -r requirements.txt   # Linux/macOS: .venv/bin/python
 .venv/Scripts/python -m pip install -e .
-.venv/Scripts/python -m pytest                            # expect 974 passed, 0 failed
+.venv/Scripts/python -m pytest                            # expect 1108 passed, 0 failed
 ```
 
 Every figure quoted in this README is reproducible from that environment; `docs/verification_commands.md`
@@ -58,13 +58,22 @@ codon_table = json.load(open("kazusa_3055.json", encoding="utf-8"))   # see "Inp
 r = design_oneshot("AAAAUGUGG", codon_table=codon_table, genetic_code=1,
                    check_offtarget=False, outdir="out")
 print(r["summary"])
-# AAAAUGUGG (9S) -> 302 aa, 906 nt, 4 fragments. Fidelity 0.828. QC PASS.
+# AAAAUGUGG (9S) -> 302 aa, 906 nt, 4 fragments. Fidelity 0.828. Coding-span QC PASS. NOT ORDERABLE (final artifacts: fail).
 ```
 
 This example passes its codon table explicitly and turns host screening off, so it needs no
 network and downloads nothing. Screening stays on by default in the full workflow — the
 design above simply reports `off-target  not assessed — screening disabled` rather than
 implying a clean screen.
+
+**Read the two verdicts separately.** `Coding-span QC PASS` is the coding sequence's own
+complexity check. `NOT ORDERABLE` is the verdict on the sequences that would actually be
+ordered — the entry overhang plus the coding slice plus the enzyme wrapper — and this design
+fails it, with a local GC window at 0.660 against a 0.65 ceiling. That is the current honest
+outcome of the de novo route: all 200 saved corpus designs are rejected the same way under
+this policy. The files are still written, under `diagnostic_` keys with `REJECTED` in every
+filename, so the sequences can be inspected. They are not an order. The reusable-inventory
+route does produce an order plan today — see `RELEASE_STATUS_2026-10-10.md`.
 
 ### Inputs, and what the first run needs
 
@@ -163,7 +172,7 @@ at.
 
 ## Designing a whole library
 
-Fifty regulators is not fifty designs in fifty folders — it is one order sheet.
+Fifty regulators is not fifty designs in fifty folders — it is one order, if they pass.
 
 ```python
 from clippr import design_library
@@ -173,15 +182,27 @@ print(lib.summary())
 ```
 
 ```
-library of 50 designs
-  fragments      212 across all designs, 54,900 bases
-  QC             48 PASS, 2 WARNING
-  closest targets UUACACGUG/ACGUACGUA differ at 5
+library of 3 designs
+  fragments      12 across all designs, 3,114 bases
+  synthesis      0 of 3 designs are orderable, 3 not orderable
+  coding-span QC 3 PASS  (the CDS only, not the ordered sequences)
+  closest targets AAAAUGUGG/UUACACGUG differ at 7, GCUAAAGAC/UUACACGUG differ at 7
+  NOT ORDERABLE AAAAUGUGG: the final-artifact status is 'fail', not one of pass, warning
+  NOT ORDERABLE GCUAAAGAC: the final-artifact status is 'fail', not one of pass, warning
+  NOT ORDERABLE UUACACGUG: the final-artifact status is 'fail', not one of pass, warning
 ```
 
-Ordering a library as one pool rather than fifty is a single order rather than fifty, and
-the pool plan is built for that. `write_library` emits a combined order sheet, a vendor-ready oPool CSV, a QC table, one
-GenBank per design, and the cross-talk matrix.
+That is the real current output, not an illustration. **Under the strict policy the de novo
+route produces nothing orderable**, because the GC band is enforced on the coding span while
+the ordered fragment also carries the entry overhang and the enzyme wrapper — see the
+quickstart note above and `RELEASE_STATUS_2026-10-10.md`. The coding-span QC genuinely
+passes; the two verdicts have different scopes and both are reported.
+
+Ordering a library as one pool rather than fifty is a single order rather than fifty, and the
+pool plan is built for that. `write_library` emits a combined order sheet, a vendor-ready
+oPool CSV, a QC table, one GenBank per design, and the cross-talk matrix — **for the accepted
+designs**. A library containing a rejection instead gets `library_REJECTED_oligos.csv` and
+`library_REJECTED_reasons.json`, and no order sheet.
 
 ### Cross-talk: two tiers, one gate
 

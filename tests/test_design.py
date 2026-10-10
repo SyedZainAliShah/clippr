@@ -216,10 +216,28 @@ class TestOutputs:
         assert result["paths"] == {}
 
     def test_outdir_writes_every_artefact(self, tmp_path):
+        """Four files either way; which keys they carry depends on the final-artifact check.
+
+        A design whose ordered oligos breach the declared policy still writes everything,
+        because a rejection is worth inspecting -- but under `diagnostic_` keys and
+        REJECTED filenames, so nothing downstream can mistake it for orderable.
+        """
         r = design_oneshot("AAAAUGUGG", codon_table=TOY_TABLE, outdir=tmp_path)
-        assert set(r["paths"]) == {"oligo_csv", "oligo_fasta", "gene_fasta", "genbank"}
+        normal = {"oligo_csv", "oligo_fasta", "gene_fasta", "genbank"}
+        diagnostic = {"diagnostic_" + k for k in normal}
+        assert set(r["paths"]) in (normal, diagnostic)
+        assert (set(r["paths"]) == normal) is (r["final_artifacts"]["status"] != "fail")
         for p in r["paths"].values():
             assert (tmp_path / p.split("\\")[-1].split("/")[-1]).exists()
+
+    def test_a_hard_final_artifact_breach_publishes_no_orderable_key(self, tmp_path):
+        """The gate that matters: a failing design must not expose a normal order-file key."""
+        r = design_oneshot("AAAAUGUGG", codon_table=TOY_TABLE, outdir=tmp_path)
+        if r["final_artifacts"]["status"] != "fail":
+            pytest.skip("this target passes the final-artifact contract here")
+        assert not any(k in r["paths"] for k in ("oligo_csv", "oligo_fasta"))
+        assert r["synthesis_ready"] is False
+        assert all("REJECTED" in v for v in r["paths"].values())
 
     def test_backbone_warning_names_the_real_limit(self, result):
         """Level 0's destination pair caps fidelity; the warning must say so."""

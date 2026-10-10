@@ -162,6 +162,22 @@ def wrap_fragment(
     return f"{five_arm}{payload.upper()}{three_arm}"
 
 
+def wrapper_intended_sites(payload: str, enzyme: str = DEFAULT_ENZYME,
+                           five_pad: str = PAD_5,
+                           three_pad: str = PAD_3) -> tuple[tuple[str, str, int], ...]:
+    """The two sites `wrap_fragment` builds, as (enzyme, strand, offset) records.
+
+    Derived from the same arms `wrap_fragment` assembles rather than from constants a
+    caller restates, so the records cannot drift from the sequence they describe. The 3'
+    arm is reverse-complemented whole, which puts its site on the reverse strand at the
+    spacer's offset inside that arm.
+    """
+    site, spacer, _ = enzyme_geometry(enzyme)
+    five_arm_len = len(five_pad) + len(site) + spacer
+    return ((enzyme, "forward", len(five_pad)),
+            (enzyme, "reverse", five_arm_len + len(payload) + spacer))
+
+
 def build_oligos(
     cds: str,
     cuts: Sequence[int],

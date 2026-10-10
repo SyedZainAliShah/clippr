@@ -17,12 +17,14 @@ shared at least 59 nt before anything was done about it. `LibraryResult.homology
 """
 from __future__ import annotations
 
+import json
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from .crosstalk import report as two_tier_report
-from .design import design_oneshot
+from .design import design_oneshot, synthesis_readiness
 from .orthogonal import crosstalk_report, distance
 
 
@@ -37,15 +39,51 @@ class LibraryResult:
     def targets(self) -> list[str]:
         return list(self.designs)
 
-    def oligos(self):
-        """Every fragment in the library as one table, ready to send to a vendor."""
+    @staticmethod
+    def _ready(result: dict) -> bool:
+        """One authoritative verdict, shared with `design_oneshot`.
+
+        This used to trust `synthesis_ready` when present and fall back to
+        `status != "fail"` when not, which admitted `not_assessed` and any unrecognised
+        status. The predicate now lives in one place and reads the evidence.
+        """
+        return synthesis_readiness(result)[0]
+
+    @property
+    def accepted(self) -> dict[str, dict]:
+        """Designs that passed the final-artifact contract."""
+        return {t: r for t, r in self.designs.items() if self._ready(r)}
+
+    @property
+    def rejected(self) -> dict[str, dict]:
+        """Designs that were produced and must not be ordered."""
+        return {t: r for t, r in self.designs.items() if not self._ready(r)}
+
+    def rejection_reasons(self) -> dict[str, list[str]]:
+        """Why each rejected design may not be ordered, from the shared predicate."""
+        out = {}
+        for target, r in self.rejected.items():
+            why = synthesis_readiness(r)[1]
+            out[target] = why or ["rejected without a recorded reason"]
+        return out
+
+    def oligos(self, include_rejected: bool = False):
+        """Fragments ready to send to a vendor.
+
+        Rejected designs are excluded by default. They used to be concatenated in with the
+        rest, which is how a design carrying `synthesis_ready=False` reached a normal order
+        sheet. Pass `include_rejected=True` only for a diagnostic export.
+        """
         import pandas as pd
 
+        source = self.designs if include_rejected else self.accepted
         frames = []
-        for target, r in self.designs.items():
+        for target, r in source.items():
             df = r["oligos"].copy()
             df.insert(0, "target_rna", target)
             df.insert(1, "architecture", r["architecture"])
+            if include_rejected:
+                df.insert(2, "synthesis_ready", self._ready(r))
             frames.append(df)
         if not frames:
             return pd.DataFrame()
@@ -64,7 +102,13 @@ class LibraryResult:
                 "protein_aa": len(r["protein"]),
                 "cds_nt": len(r["cds"]),
                 "fragments": len(r["oligos"]),
-                "qc": qc["status"],
+                # `qc` scored the coding span only, so a rejected design showed "PASS"
+                # with nothing beside it. The scope is now in the column name and the
+                # final verdict travels in the same row.
+                "cds_qc": qc["status"],
+                "final_artifacts": (r.get("final_artifacts") or {}).get(
+                    "status", "not_recorded"),
+                "synthesis_ready": self._ready(r),
                 "gc_pct": qc["gc_pct"],
                 "repeated_kmer_fraction": qc["repeated_kmer_fraction"],
                 "longest_repeat": qc["longest_repeat"],
@@ -142,14 +186,22 @@ class LibraryResult:
             f"  fragments      {c['n_oligos']} across all designs, "
             f"{c['total_bases']:,} bases",
         ]
+        # The orderable count first. A summary that led with "QC 1 PASS" read as
+        # success on a library whose every design was refused.
+        lines.append(f"  synthesis      {len(self.accepted)} of {len(self.designs)} "
+                     f"designs are orderable"
+                     + (f", {len(self.rejected)} not orderable" if self.rejected else ""))
         if not qc.empty:
-            counts = qc["qc"].value_counts().to_dict()
-            lines.append("  QC             "
-                         + ", ".join(f"{v} {k}" for k, v in counts.items()))
+            counts = qc["cds_qc"].value_counts().to_dict()
+            lines.append("  coding-span QC "
+                         + ", ".join(f"{v} {k}" for k, v in counts.items())
+                         + "  (the CDS only, not the ordered sequences)")
         close = self.closest_pairs(3)
         if close:
             lines.append("  closest targets "
                          + ", ".join(f"{a}/{b} differ at {d}" for a, b, d in close))
+        for t, why in self.rejection_reasons().items():
+            lines.append(f"  NOT ORDERABLE {t}: {why[0]}")
         for t, err in self.failed.items():
             lines.append(f"  FAILED {t}: {err}")
         return "\n".join(lines)
@@ -185,6 +237,8 @@ def write_library(lib: LibraryResult, outdir: str | Path) -> dict[str, str]:
     out.mkdir(parents=True, exist_ok=True)
     paths: dict[str, str] = {}
 
+    # Accepted designs only. A normal order sheet must not contain a design the
+    # final-artifact contract rejected.
     oligos = lib.oligos()
     if not oligos.empty:
         p = out / "library_order_sheet.csv"
@@ -197,6 +251,18 @@ def write_library(lib: LibraryResult, outdir: str | Path) -> dict[str, str]:
         p = out / "library_opool.csv"
         pool.to_csv(p, index=False)
         paths["opool"] = str(p)
+
+    # Rejected designs are kept and named, never silently dropped.
+    if lib.rejected:
+        rejected = lib.oligos(include_rejected=True)
+        rejected = rejected[~rejected["synthesis_ready"]]
+        p = out / "library_REJECTED_oligos.csv"
+        rejected.to_csv(p, index=False)
+        paths["rejected_oligos"] = str(p)
+        p = out / "library_REJECTED_reasons.json"
+        p.write_text(json.dumps(lib.rejection_reasons(), indent=2, sort_keys=True) + "\n",
+                     encoding="utf-8")
+        paths["rejected_reasons"] = str(p)
 
     qc = lib.qc_table()
     if not qc.empty:
@@ -222,10 +288,24 @@ def write_library(lib: LibraryResult, outdir: str | Path) -> dict[str, str]:
     from . import manifest as _manifest
 
     failures = [{"target": t, "reason": why} for t, why in sorted(lib.failed.items())]
+    # Coverage, not just crashes. `completion` counted `lib.failed` alone, so a library
+    # whose every design was correctly refused still shipped a manifest saying "complete"
+    # with an empty failure list.
+    rejections = [{"target": t, "reasons": why}
+                  for t, why in sorted(lib.rejection_reasons().items())]
+    unassessed = sum(1 for r in lib.rejected.values()
+                     if (r.get("final_artifacts") or {}).get("status")
+                     not in ("fail", "pass", "warning"))
+    coverage = {"requested": len(lib.designs) + len(lib.failed),
+                "accepted": len(lib.accepted), "rejected": len(lib.rejected),
+                "not_assessed": unassessed, "failed": len(lib.failed)}
     if lib.designs:
         record = _manifest.build(list(lib.designs.values()),
-                                 completion="complete" if not failures else "partial",
+                                 completion=("complete" if not failures and not rejections
+                                             else "partial"),
                                  failures=failures)
+        record["synthesis_coverage"] = coverage
+        record["rejections"] = rejections
     else:
         # Every target failed, so there is no codon table or enzyme profile that ran and
         # nothing to describe in `inputs`. The run still needs a provenance record: a
@@ -234,6 +314,7 @@ def write_library(lib: LibraryResult, outdir: str | Path) -> dict[str, str]:
         record = {"schema_version": _manifest.SCHEMA_VERSION,
                   "route": "synthesis", "completion": "failed",
                   "software": _manifest._software(), "designs": [],
-                  "failures": failures}
+                  "failures": failures, "synthesis_coverage": coverage,
+                  "rejections": rejections}
     paths["manifest"] = str(_manifest.write(record, out / "manifest.json"))
     return paths

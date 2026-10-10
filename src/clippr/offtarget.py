@@ -201,7 +201,9 @@ def scan(target: str, genome: str | None = None,
     elif in_dna:
         verdict = "in genomic DNA only, not in an annotated transcript"
     else:
-        verdict = "not found in the host"
+        # Not "not found in the host": this scanned one annotation for exact matches.
+        # An absent match is absence of evidence in that reference, not absence of RNA.
+        verdict = "no exact match in the supplied reference"
 
     return {
         "target": target,
@@ -278,6 +280,7 @@ def report(results: list[dict]) -> str:
                      "copies under one")
         lines.append("name, so a single name can stand for more than one place.")
     lines.append("")
-    lines.append("Sequence occurrence is necessary for an off-target interaction, not "
-                 "sufficient. No binding affinity is predicted here.")
+    lines.append("This counts exact sequence matches. It predicts no binding affinity, and")
+    lines.append("mismatch-tolerant interactions are not assessed, so neither a match nor")
+    lines.append("its absence bounds the set of possible off-targets.")
     return "\n".join(lines)

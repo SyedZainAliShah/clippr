@@ -189,19 +189,28 @@ class TestCompletenessIsAContractNotACitation:
              "bridge": ["CACG", "TTCG"], "final_cassette": ["TTCG", "CGCT"]}
     BLOCKS = ["AATG", "CTTC"]
 
-    def test_an_otherwise_complete_set_is_refused_for_the_citation_alone(self):
+    def test_a_missing_citation_is_still_reported(self):
         got = assembly_spec.level1_participants(self.BLOCKS, roles=self.CHAIN)
         assert got["participants_established"] is False
-        assert got["why_incomplete"] == (
-            "no evidence supplied naming where these participants came from")
+        assert "no evidence supplied" in got["why_incomplete"]
 
-    def test_the_same_set_with_a_citation_is_complete(self):
-        """The contract has to be satisfiable, or refusing everything would pass every test."""
+    def test_a_citation_cannot_establish_completeness_from_a_flat_list(self):
+        """Replaces a test that asserted the inference R7 removed.
+
+        It previously checked that the same set *with* a citation is complete, on the
+        reasoning that a contract must be satisfiable. The contract is satisfiable -- just
+        not from this input. A flat role map records no fragment identity, orientation or
+        acceptor context, so connectivity cannot be derived from it however it is cited.
+        Satisfiability is pinned where completeness is genuinely establishable, in
+        `test_level1.py`'s level-0 reaction from `compile_target`.
+        """
         got = assembly_spec.level1_participants(self.BLOCKS, roles=self.CHAIN,
                                                 evidence="Pryor 2020, Table 2")
-        assert got["participants_established"] is True
-        assert got["why_incomplete"] is None
+        assert got["participants_established"] is False
+        assert got["topology"] == "unverified"
+        assert got["scored"] is None
         assert got["roles_missing"] == []
+        assert "orientation" in got["why_incomplete"]
 
 
 # ---------------------------------------------------------- F1: export honours what it is given
@@ -352,11 +361,18 @@ class TestLevel1ReadinessIsReachableAndScoresCorrectly:
         assert got.data["scored"] is None, "an incomplete reaction must never be scored"
         assert got.failures[0]["stage"] == "participants"
 
-    def test_a_complete_reaction_is_scored(self, tmp_path):
+    def test_a_chain_shaped_list_is_still_refused_and_unscored(self, tmp_path):
+        """Was `test_a_complete_reaction_is_scored`.
+
+        The readiness API is still reachable, which is what this class exists to pin. What
+        changed is that no flat role list reaches the scorer, because none of them can
+        establish the physical reaction.
+        """
         got = w.level1_readiness(self.BLOCKS, tmp_path / "complete", roles=self.CHAIN,
                                  evidence="Pryor 2020, Table 2")
-        assert got.ok is True
-        assert got.data["scored"]["fidelity"] > 0.99
+        assert got.ok is False
+        assert got.data["scored"] is None
+        assert got.data["participants_established"] is False
 
     def test_fidelity_is_scored_over_distinct_junctions_not_contributed_ends(self, tmp_path):
         """The error this task shipped for about ten minutes, and why it is worth a test.
@@ -369,16 +385,22 @@ class TestLevel1ReadinessIsReachableAndScoresCorrectly:
         """
         from clippr.overhangs import set_fidelity
 
-        got = w.level1_readiness(self.BLOCKS, tmp_path / "distinct", roles=self.CHAIN,
-                                 evidence="Pryor 2020, Table 2")
-        scored = got.data["scored"]
-        assert scored["junctions"] == sorted(set(scored["junctions"])), "duplicates crept back"
-        assert scored["contributed_ends"] > len(scored["junctions"])
-        assert scored["fidelity"] == pytest.approx(set_fidelity(scored["junctions"]))
-
+        # Asserted on the scorer directly: `level1_readiness` no longer scores a flat role
+        # list, so the old route to this number is gone, but the arithmetic it protected is
+        # unchanged and still worth pinning.
         every_end = ["AATG", "CTTC", "CTTC", "GTGA", "GTGA", "CACG",
                      "CACG", "TTCG", "TTCG", "CGCT"]
+        distinct = sorted(set(every_end))
+        assert len(every_end) > len(distinct), "the fixture must contain contributed pairs"
         assert set_fidelity(every_end) < 0.01, "the wrong calculation is no longer wrong"
+        assert set_fidelity(distinct) > 0.99, "the right calculation is still right"
+
+        # And the refusal above must not have been bought by removing the scorer.
+        got = w.level1_readiness(self.BLOCKS, tmp_path / "distinct", roles=self.CHAIN,
+                                 evidence="Pryor 2020, Table 2")
+        assert got.data["scored"] is None
+        assert got.data["topology"] == "unverified"
+        assert "orientation" in got.data["why_incomplete"]
 
     def test_the_artefact_records_the_refusal_too(self, tmp_path):
         """A refusal is an outcome worth keeping: it says what to go and find."""

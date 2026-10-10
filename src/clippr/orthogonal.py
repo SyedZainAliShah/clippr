@@ -60,10 +60,26 @@ class TargetSet:
         return "\n".join(lines)
 
 
+#: Positions the source assay measured. `POSITION_WEIGHTS` covers 1-10 and nothing else,
+#: so a longer target silently scored its later positions at zero: two 14-mers differing
+#: only after position 10 had weighted distance 0 against uniform distance 4, and the 19-mer
+#: pair 0 against 9. That is a hole in the evidence, not a measurement of similarity.
+WEIGHTED_METRIC_MAX_LENGTH = max(POSITION_WEIGHTS)
+
+
 def _weights(length: int, metric: str) -> list[float]:
     if metric == "uniform":
         return [1.0] * length
     if metric == "weighted":
+        if length > WEIGHTED_METRIC_MAX_LENGTH:
+            raise ValueError(
+                f"the weighted metric covers positions 1-{WEIGHTED_METRIC_MAX_LENGTH} and "
+                f"this target is {length} long, so positions "
+                f"{WEIGHTED_METRIC_MAX_LENGTH + 1}-{length} would contribute nothing and "
+                f"two targets differing only there would score 0. The weights come from a "
+                f"ten-position editing assay and are experimental even within that range; "
+                f"no weights exist for the later positions and none are invented here. "
+                f"Use metric='uniform', which is the default and the supported route.")
         w = [POSITION_WEIGHTS.get(i + 1, 0.0) for i in range(length)]
         total = sum(w) or 1.0
         return [x * length / total for x in w]      # normalise so scales are comparable
@@ -71,9 +87,24 @@ def _weights(length: int, metric: str) -> list[float]:
 
 
 def distance(a: str, b: str, w: list[float]) -> float:
-    """Weighted Hamming distance between two equal-length targets."""
+    """Weighted Hamming distance between two equal-length targets.
+
+    The weight vector is checked rather than zipped. `zip` stops at the shortest argument,
+    so a short vector silently compared a prefix and reported it as the whole distance.
+    """
     if len(a) != len(b):
         raise ValueError("targets must be the same length")
+    if len(w) != len(a):
+        raise ValueError(
+            f"weight vector has {len(w)} entries for targets of length {len(a)}; a "
+            f"mismatched vector would compare only a prefix and report it as the whole "
+            f"distance")
+    bad = [i for i, wi in enumerate(w, 1)
+           if not isinstance(wi, (int, float)) or wi != wi or wi in (float("inf"),
+                                                                     float("-inf"))
+           or wi < 0]
+    if bad:
+        raise ValueError(f"weights must be finite and non-negative; positions {bad} are not")
     return sum(wi for x, y, wi in zip(a, b, w) if x != y)
 
 

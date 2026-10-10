@@ -58,13 +58,25 @@ def design_for_synthesis(targets, codon_table, outdir, **kwargs) -> WorkflowResu
     library = design_library(targets, outdir=None, codon_table=codon_table, **kwargs)
     artefacts = write_library(library, out) if library.designs else {}
     failures = [{"target": t, "reason": why} for t, why in sorted(library.failed.items())]
+    # A design that was produced and then rejected is not a success. It used to be counted
+    # as one, because `ok` only asked whether anything had thrown.
+    reasons = library.rejection_reasons()
+    failures += [{"target": t, "stage": "final_artifacts", "reason": "; ".join(why)}
+                 for t, why in sorted(reasons.items())]
+    requested = len(list(targets))
+    accepted = len(library.accepted)
     return WorkflowResult(
         task="design_for_synthesis",
-        ok=bool(library.designs) and not failures,
-        summary=(f"{len(library.designs)} of {len(list(targets))} targets designed; "
-                 f"{len(failures)} failed"),
+        ok=bool(accepted) and not failures,
+        summary=(f"{accepted} of {requested} targets are synthesis ready; "
+                 f"{len(library.rejected)} rejected by the final-artifact contract, "
+                 f"{len(library.failed)} failed to design"),
         artefacts={k: str(v) for k, v in artefacts.items()},
-        data={"designed": sorted(library.designs)}, failures=failures)
+        data={"designed": sorted(library.designs),
+              "accepted": sorted(library.accepted),
+              "rejected": sorted(library.rejected),
+              "rejection_reasons": reasons,
+              "requested": requested}, failures=failures)
 
 
 def load_and_compile(inventory_path, targets, outdir, fusion_site: str = "AATG"
@@ -168,6 +180,11 @@ def optimise_collection(inventory_path, codon_table, outdir, *, mode: str = "gre
               "budget_exhausted": result.budget_exhausted})
 
 
+#: Why the joint route refuses a non-standard genetic code rather than honouring it.
+JOINT_GENETIC_CODE_REASON = (
+    "the joint inventory route does not propagate a non-standard genetic code through recoding, evaluation and export, so honouring it here would report objectives computed under a different code than the one declared. Re-run the search under genetic code 1, or use the one-shot route, which supports other codes directly.")
+
+
 def explore_interfaces(inventory_path, targets, codon_table, outdir,
                        profile=None, **kwargs) -> WorkflowResult:
     """Task 5 — explore junction/codon trade-offs and return the observed front.
@@ -178,10 +195,21 @@ def explore_interfaces(inventory_path, targets, codon_table, outdir,
     from . import inventories as inv, joint_search as js
     from .codons import complete_table
 
+    # Forwarded to js.search through **kwargs, so it reaches the recorded binding; the
+    # table was completed under a fixed 1 regardless, which recorded one code and used
+    # another.
+    genetic_code = kwargs.get("genetic_code", 1)
+    if genetic_code != 1:
+        return WorkflowResult(
+            task="explore_interfaces", ok=False,
+            summary=(f"genetic code {genetic_code} requested; this workflow supports "
+                     f"code 1 only"),
+            failures=[{"stage": "context", "reason": JOINT_GENETIC_CODE_REASON}])
+
     out = Path(outdir)
     out.mkdir(parents=True, exist_ok=True)
     library = inv.load(Path(inventory_path))
-    table = complete_table(codon_table, 1)
+    table = complete_table(codon_table, genetic_code)
     result = js.search(library, list(targets), table, profile=profile, **kwargs)
 
     written = out / "interface_front.json"
@@ -233,16 +261,27 @@ def select_interface(inventory_path, front_path, outdir, *, choice: str = "recom
     library = inv.load(Path(inventory_path))
     front = _json.loads(Path(front_path).read_text(encoding="utf-8"))
 
+    # Scoring knobs come from the front that recorded them. Validating a k=10 front with the
+    # default k=20 refused a perfectly valid search, and `allow_mismatch=True` is not the
+    # answer -- that suppresses the check rather than honouring the context.
+    #
+    # Read before any context-dependent work: the table used to be completed under a fixed
+    # genetic code 1 on the line above this, before the front's own code had been read.
+    binding = front.get("binding") or {}
+    genetic_code = binding.get("genetic_code", 1)
+    if genetic_code != 1:
+        return WorkflowResult(
+            task="select_interface", ok=False,
+            summary=(f"front declares genetic code {genetic_code}; this workflow supports "
+                     f"code 1 only"),
+            failures=[{"stage": "binding", "reason": JOINT_GENETIC_CODE_REASON}])
+
     # A front's objective values were measured against one inventory under one context. The
     # same assignment will happily rebuild against a *different* inventory -- the overhang
     # names exist in both -- and every reported number then describes the wrong DNA. This
     # once returned the recoded run's adaptation of 0.672749 for deposited sequences that
     # actually score 0.219935.
-    table = _resolve_table(codon_table)
-    # Scoring knobs come from the front that recorded them. Validating a k=10 front with the
-    # default k=20 refused a perfectly valid search, and `allow_mismatch=True` is not the
-    # answer -- that suppresses the check rather than honouring the context.
-    binding = front.get("binding") or {}
+    table = _resolve_table(codon_table, genetic_code)
     # The synthesis policy travels with the front for the same reason k does: a
     # candidate rechecked under a different policy is a candidate nobody measured.
     recorded_profile = binding.get("synthesis_profile")
@@ -251,7 +290,6 @@ def select_interface(inventory_path, front_path, outdir, *, choice: str = "recom
 
         profile = _profile_from_dict(recorded_profile)
     k = binding.get("k", 20)
-    genetic_code = binding.get("genetic_code", 1)
     matrix = binding.get("matrix", "BsaI-HFv2")
     destination = binding.get("destination", "level0")
     mismatches = js.binding_mismatches(binding, library, table,
@@ -368,6 +406,8 @@ def level1_readiness(block_subset, outdir, *, roles=None, evidence: str = "",
     participants = spec.level1_participants(block_subset, roles=roles, evidence=evidence)
 
     scored = None
+    # False from a flat role list by construction, so the scorer is not reached. A
+    # partial-set calculation must never be labelled full-reaction fidelity.
     if participants["participants_established"]:
         # The **distinct** junctions, not every contributed end. Each internal overhang is
         # supplied twice -- once by the part on each side -- and scoring the list as given
@@ -402,21 +442,43 @@ def level1_readiness(block_subset, outdir, *, roles=None, evidence: str = "",
         data={"participants_established": participants["participants_established"],
               "roles_required": participants["roles_required"],
               "roles_missing": participants["roles_missing"],
-              "evidence": participants["evidence"], "scored": scored},
+              "evidence": participants["evidence"], "scored": scored,
+              # Exposed so a caller can see why nothing was scored without parsing
+              # the failure list.
+              "topology": participants.get("topology"),
+              "why_incomplete": participants.get("why_incomplete"),
+              "degree_consistent_with_a_chain": participants.get(
+                  "degree_consistent_with_a_chain"),},
         failures=([] if scored else
                   [{"stage": "participants", "reason": participants["why_incomplete"]}]))
 
 
-def _resolve_table(codon_table):
-    """The completed codon table, defaulting to the shipped Chlamydomonas one."""
-    from .codons import complete_table
+def _resolve_table(codon_table, genetic_code: int = 1):
+    """The completed codon table, defaulting to the cached Chlamydomonas one.
+
+    Resolution goes through `codons.table_from_kazusa`, which honours `CLIPPR_CACHE_DIR` and
+    a checkout's own `data/`. This used `parents[2]`, which is the repository root in a
+    checkout and the interpreter's `Lib` directory in an installed wheel -- the mistake
+    `paths.py` exists to document. No test that passes a table explicitly can see it.
+
+    `genetic_code` completes a nested table under the code the caller declared. Completing
+    under a fixed 1 while the caller recorded another code reinterprets its codons silently.
+    """
+    from .codons import CACHE, complete_table, table_from_kazusa
 
     if codon_table is None:
-        path = (Path(__file__).resolve().parents[2] / "data" / "codon_tables"
-                / "kazusa_3055.json")
-        codon_table = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            codon_table = table_from_kazusa()
+        except (OSError, ValueError, ImportError) as exc:
+            # Narrow on purpose: a programming error here must not be reported as a
+            # missing optional input.
+            raise FileNotFoundError(
+                f"no default codon table is available ({type(exc).__name__}: {exc}). The "
+                f"cache directory is {CACHE}; populate it with one online run, point "
+                f"CLIPPR_CACHE_DIR at a populated cache, or pass codon_table= explicitly "
+                f"and record its hash.") from exc
     if codon_table and isinstance(next(iter(codon_table.values())), dict):
-        return complete_table(codon_table, 1)
+        return complete_table(codon_table, genetic_code)
     return codon_table
 
 

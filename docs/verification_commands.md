@@ -93,16 +93,17 @@ python validation/independent/v7_export_semantics.py
 
 ## Ordering
 
-**Evaluate oPools eligibility, price and pool plans**
+**Evaluate oPools eligibility and pool plans**
 
 ```bash
-python -c "import sys,json;sys.path.insert(0,'src');from pathlib import Path;from clippr import workflow as w;from clippr.ordering import CURRENT_OPOOL_50PMOL;i=w.order_items_for('work/phaseb/inventory_recoded.json','out/items');items=json.loads(Path(i.artefacts['order_items']).read_text());r=w.plan_order(items,CURRENT_OPOOL_50PMOL,'out/order');print(r.summary);print(r.data['cost'])"
+python -c "import sys,json;sys.path.insert(0,'src');from pathlib import Path;from clippr import workflow as w;from clippr.ordering import CURRENT_OPOOL_50PMOL;i=w.order_items_for('work/phaseb/inventory_recoded.json','out/items');items=json.loads(Path(i.artefacts['order_items']).read_text());r=w.plan_order(items,CURRENT_OPOOL_50PMOL,'out/order');print(r.summary);print(r.data['eligibility']['eligible'], r.data['pool_count'], r.data['optimality']);print(r.data['vendor_approval'])"
 ```
 
 `CURRENT_OPOOL_50PMOL` carries the published rules (40–350 nt, 2–384 oligos per pool at
-50 pmol) with **no prices**, so cost reports unavailable. `HISTORICAL_OPOOL` is kept for the
-older figures and is labelled historical. Supply a dated profile through `load_profile` for an
-estimate. No order is placed by any command here.
+50 pmol). **Costing was removed in `44446fe`** because we cannot obtain quotes, so there is no
+`cost` field to print; a recipe that read one is how Gate F came to fail with `KeyError`.
+`plan_order` reports eligibility, per-pool eligibility, pool count, an optimality status and
+`vendor_approval`, which stays "not obtained". No order is placed by any command here.
 
 ```bash
 python validation/experiments/phasee_gate.py --out work/phasee
@@ -150,11 +151,11 @@ Count from the collection total and the summary line, never from progress dots.
 | C | `python validation/experiments/phasec_gate.py --max-proposals 168` | `work/phasec/gate_c.json` |
 | D | `python validation/experiments/phased_gate.py` | `work/phased/gate_d.json` |
 | E | `python validation/experiments/phasee_gate.py` | `work/phasee/gate_e.json` |
-| F | `python validation/experiments/phasef_gate.py` | `work/phasef/gate_f.json` |
+| F | `python validation/experiments/phasef_gate.py --out work/phasef` (add `--keep-environment` for a release run) | `work/phasef/gate_f.json`, plus the relocated `package/`, the wheel and the kept environment |
 | oracle | `python validation/experiments/matched_oracle_benchmark.py` | `work/oracle/matched_benchmark.json` |
 | level 1 | `python validation/experiments/level1_geometry.py` | `work/level1/geometry.json` |
-| policy | `python -m pytest tests/test_synthesis_profile.py` | 20 regressions; asserts 0.618830 strict and 0.819921 broad |
-| fitness | python -m pytest tests/test_synthesis_fitness.py | 19 regressions; pins that repeat_burden is zero at k=20,16,12,10 |
+| policy | `python -m pytest tests/test_synthesis_profile.py` | asserts 0.618830 strict and 0.819921 broad; the count is whatever the suite reports |
+| fitness | python -m pytest tests/test_synthesis_fitness.py | pins that repeat_burden is zero at k=20,16,12,10 |
 | runtime | python validation/experiments/runtime_profile.py | work/runtime/runtime_profile.json; isolated stage medians **and** measured end-to-end chain times under two policies |
 | regressions are not vacuous | python validation/falsify_boundaries.py | reverts each policy repair in a scratch worktree and checks the boundary suite goes red; exits non-zero if any defect leaves it green |
 | the notebook runs on the build users install | see below | 21/21 cells against a pip-installed CLIPPR; the in-tree notebook harness cannot catch a version split |
@@ -186,8 +187,14 @@ python -m venv .sim
 ```
 
 ```bash
-.sim/Scripts/python validation/notebook_on_published_build.py . notebooks/CLIPPR_designer.ipynb
+.sim/Scripts/python validation/notebook_on_published_build.py   --notebook notebooks/CLIPPR_designer.ipynb   --workdir work/sim_designer --out work/sim_designer.json   --expect "result['final_artifacts']['status'] == 'fail'"   --expect "result['synthesis_ready'] is False"
 ```
+
+The positional form this file used to show was replaced: the harness now takes named
+arguments, refuses a working directory it does not own, and requires at least one declared
+postcondition, because a run that executed cleanly without producing its expected result
+used to pass. The full invocation for both notebooks, with the inventory notebook's required
+Table S1 input, is in section 8 of `RELEASE_STATUS_2026-10-10.md`.
 
 On Linux or macOS the interpreter is `.sim/bin/python`. `ipython` is installed because Colab
 has it and some cells call `display()`; without it the harness reports failures a real Colab

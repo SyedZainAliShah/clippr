@@ -176,6 +176,10 @@ def main() -> int:
     ap.add_argument("--jsonl", default=str(ROOT / "work" / "independent"
                                         / "corpus200_pinned.jsonl"))
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--out", default=None,
+                    help=("write the record here instead of the shared "
+                          "work/independent path, so a release bundle can "
+                          "hold its own immutable copy"))
     args = ap.parse_args()
 
     rows = load_designs(args.jsonl)
@@ -212,7 +216,8 @@ def main() -> int:
           f"{sum(1 for d in dup if d == 0)}/{len(dup)}; GC min {gc[0]} median "
           f"{gc[len(gc) // 2]} max {gc[-1]}")
 
-    out = ROOT / "work" / "independent" / "v6_constraints.json"
+    out = (Path(args.out) if getattr(args, "out", None)
+           else ROOT / "work" / "independent" / "v6_constraints.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(
         {"provenance": provenance(__file__, args.jsonl),

@@ -17,7 +17,7 @@ DIAGRAM = Path("notebooks/pipeline.svg")
 #: `release_check.py` check 12 fails when this does not equal what the suite reports, so it
 #: cannot drift unnoticed -- reading it from `work/` instead made a fresh clone fail
 #: `tests/test_notebook.py`, because that directory is gitignored.
-TESTS = 974
+TESTS = 1108
 #: Served from the repository rather than inlined -- see pipeline_svg().
 DIAGRAM_URL = f"https://raw.githubusercontent.com/{REPO}/main/{DIAGRAM.as_posix()}"
 
@@ -155,7 +155,7 @@ repeat reads exactly one RNA base** through two specificity residues:
 
 So the protein is a deterministic function of your target — no catalogue to search. Give it
 nine bases and you get a nine-repeat protein, a synthesisable coding sequence, a Golden Gate
-assembly plan, and the fragments to order.
+assembly plan, and the fragments it would order if they passed the final check.
 
 **Four steps.** Run **0 · Setup** once, edit **1**, then run **2**, **3** and **4** in order.
 Everything under *Optional extras* can be skipped — open one when you want that check.
@@ -306,7 +306,14 @@ result = design_oneshot(
 
 qc = result["qc"]
 TONE = {"PASS": "#1a7f5a", "WARNING": "#9a6b1f", "FAIL": "#a8402c"}
-tone = TONE.get(qc["status"], "#6b7b75")
+
+# The badge is the SYNTHESIS verdict, not the coding-span QC. It used to read the CDS
+# status, so a design the final-artifact check rejects showed a green PASS and the
+# rejection appeared nowhere on the card.
+ready = result["synthesis_ready"]
+verdict = "READY TO ORDER" if ready else "NOT ORDERABLE"
+tone = TONE["PASS"] if ready else TONE["FAIL"]
+why = result.get("not_ready_because") or []
 
 
 def _stat(label, value, hint=""):
@@ -331,11 +338,26 @@ cards = "".join([
     _stat("fragments", len(result["oligos"]),
           "cuts at " + ", ".join(str(c) for c in result["cuts"])),
     _stat("fidelity", f'{result["fidelity"]:.3f}', "predicted, not measured"),
-    _stat("GC", f'{qc["gc_pct"]:.1f}%',
-          f'windows {qc["gc_window_min"]:.0f}–{qc["gc_window_max"]:.0f}%'),
-    _stat("repeats", f'{qc["repeated_kmer_fraction"]:.1%}',
+    _stat("GC, coding span", f'{qc["gc_pct"]:.1f}%',
+          f'CDS windows {qc["gc_window_min"]:.0f}–{qc["gc_window_max"]:.0f}%'),
+    _stat("repeats, coding span", f'{qc["repeated_kmer_fraction"]:.1%}',
           f'longest {qc["longest_repeat"]} nt'),
+    _stat("coding-span QC", qc["status"], "the CDS only"),
+    _stat("final artifacts", result["final_artifacts"]["status"],
+          "the sequences that would be ordered"),
 ])
+
+# The reason the design was refused, in the place a reader looks first.
+refusal = "" if ready else (
+    f'<div style="border-left:3px solid {TONE["FAIL"]};padding:.6em .9em;'
+    f'margin-top:.7em;font-size:13px;line-height:1.5">'
+    f'<b>This design must not be ordered.</b> The coding sequence passed its own checks; '
+    f'the sequences that would actually be ordered did not.<ul style="margin:.4em 0 0;'
+    f'padding-left:1.2em">'
+    + "".join(f"<li>{w}</li>" for w in why)
+    + '</ul><div style="margin-top:.5em;opacity:.75">Files are still written for '
+      'inspection, under <code>diagnostic_</code> keys with <code>REJECTED</code> in '
+      'every filename. They are not an order.</div></div>')
 
 warn = "".join(
     f'<div style="border-left:3px solid {TONE["WARNING"]};padding:.5em .9em;'
@@ -351,19 +373,21 @@ card = (
     f'<span style="font-family:ui-monospace,monospace;font-size:16px;font-weight:600">'
     f'{result["target_rna"]}</span>'
     f'<span style="background:{tone};color:#fff;font-size:11px;font-weight:700;'
-    f'letter-spacing:.07em;padding:.2em .7em;border-radius:99px">{qc["status"]}</span>'
+    f'letter-spacing:.07em;padding:.2em .7em;border-radius:99px">{verdict}</span>'
     f'</div>'
     f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">'
-    f'{cards}</div></div>{warn}')
+    f'{cards}</div></div>{refusal}{warn}')
 
 display(HTML(card))
 ''', title="Run the design"))
 
 # ---------------------------------------------------------------- fragments
 cells.append(md("""
-## 3 · The fragments to order
+## 3 · The fragments
 
-One row per orderable piece. `oh5` and `oh3` are the four-base Golden Gate overhangs that
+One row per fragment. **A row here is not an order:** whether these may be ordered is the
+SYNTHESIS verdict on the result card above, and under the strict policy the current de novo
+designs are refused. `oh5` and `oh3` are the four-base Golden Gate overhangs that
 join each fragment to its neighbours.
 """))
 
@@ -414,7 +438,19 @@ else:
         colab_files = None
 
     LABEL = {"oligo_csv": "Order sheet (CSV)", "oligo_fasta": "Oligos (FASTA)",
-             "gene_fasta": "Assembled gene (FASTA)", "genbank": "Annotated GenBank"}
+             "gene_fasta": "Assembled gene (FASTA)", "genbank": "Annotated GenBank",
+             # A rejected design exports under these keys. The label has to say so, or a
+             # REJECTED filename in a table headed "Order sheet" reads as an order.
+             "diagnostic_oligo_csv": "DIAGNOSTIC ONLY - rejected oligos (CSV)",
+             "diagnostic_oligo_fasta": "DIAGNOSTIC ONLY - rejected oligos (FASTA)",
+             "diagnostic_gene_fasta": "DIAGNOSTIC ONLY - rejected gene (FASTA)",
+             "diagnostic_genbank": "DIAGNOSTIC ONLY - rejected GenBank"}
+    if not result["synthesis_ready"]:
+        display(HTML(
+            '<div style="border-left:3px solid #a8402c;padding:.5em .9em;'
+            'margin-bottom:.6em;font-size:13px;line-height:1.5">These files are for '
+            '<b>inspection only</b>. This design did not pass the final-artifact check, '
+            'so no order sheet was written.</div>'))
     rows = "".join(
         f'<tr><td style="padding:.35em .9em">{LABEL.get(k, k)}</td>'
         f'<td style="padding:.35em .9em;font-family:ui-monospace,monospace;font-size:12px;'

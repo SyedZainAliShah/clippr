@@ -52,7 +52,15 @@ class DesignAudit:
     fidelity_components: tuple[float, float] | None = None
     fidelity_ceiling: float | None = None
     constraints_satisfied: bool = True
+    #: The coding span's complexity verdict. Named for its scope: it scored the CDS, not
+    #: the sequences that would be ordered, and it once stood alone as the design's
+    #: outcome -- a rejected design reported "QC PASS" and nothing else.
     qc_status: str = ""
+    #: The final-artifact verdict on the ordered sequences, and the shared readiness
+    #: result. A design can pass its coding-span QC and still not be orderable.
+    final_status: str = ""
+    synthesis_ready: bool | None = None
+    not_ready_because: tuple[str, ...] = field(default_factory=tuple)
     #: Whether host off-target screening actually ran. A skipped check must say so: an
     #: absent line reads as a clean screen, which is the same silent no-op the broad
     #: `except` around the scan in `design.py` once produced.
@@ -116,8 +124,22 @@ class DesignAudit:
                 line += (f"  (ceiling {self.fidelity_ceiling:.3f}, set by the "
                          f"destination pair)")
             lines.append(line)
-        lines.append(f"  constraints    {'satisfied' if self.constraints_satisfied else 'NOT satisfied'}")
-        lines.append(f"  QC             {self.qc_status}")
+        # The final verdict leads. "constraints satisfied" and "QC PASS" are both true of
+        # a rejected design, and printed alone they read as acceptance.
+        if self.synthesis_ready is not None:
+            lines.append(f"  SYNTHESIS      "
+                         + ("ready to order under the declared software checks"
+                            if self.synthesis_ready else "NOT ORDERABLE"))
+            for why in self.not_ready_because:
+                lines.append(f"                 - {why}")
+        if self.final_status:
+            lines.append(f"  final artifacts{self.final_status:>8} "
+                         f" (the sequences that would be ordered)")
+        lines.append(f"  optimiser      "
+                     f"{'constraints satisfied' if self.constraints_satisfied else 'constraints NOT satisfied'}"
+                     f"  (the coding span)")
+        lines.append(f"  coding-span QC {self.qc_status}"
+                     f"  (the CDS only, not the ordered sequences)")
         if self.offtarget_status:
             lines.append(f"  off-target     {self.offtarget_status}")
 

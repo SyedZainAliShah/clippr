@@ -165,18 +165,23 @@ LEVEL1_REQUIRED_ROLES: tuple[str, ...] = (
 def level1_participants(block_subset, *, roles=None, evidence: str = "") -> dict:
     """Assemble a level-1 participant list, and say whether it is **complete**.
 
-    `roles` maps a role from `LEVEL1_REQUIRED_ROLES` to the overhangs it contributes. A
-    reaction is complete only when every required role is present, every contributed end is a
-    four-base overhang, and the ends form a single closed chain -- each internal overhang
-    appearing exactly twice, and exactly two ends appearing once.
+    `roles` maps a role from `LEVEL1_REQUIRED_ROLES` to the overhangs it contributes.
 
-    `evidence` is required but **not sufficient**. An earlier version set completeness from
+    **This input shape cannot establish a complete reaction, so this function never does.**
+    Multiplicity counts are necessary for some geometries and sufficient for none: an open
+    path plus a disjoint cycle has exactly two ends appearing once and nothing appearing more
+    than twice, which the previous degree test accepted as "a single closed chain". Degree
+    cannot see connectivity, and a flat role -> ends mapping does not say which physical
+    fragment carries which pair of ends, in which orientation, against which acceptor.
+
+    `evidence` is required and **not sufficient**. An earlier version set completeness from
     `bool(extra) and bool(evidence)`, so one overhang and a sentence saying "DYW and bridging
-    parts are missing" returned `participants_established=True`. A citation field is not a
-    completeness check, and prose cannot discharge a contract.
+    parts are missing" returned `participants_established=True`. A citation is not a check.
 
-    Nothing here is scored. The caller gets the set, an explicit verdict and, when incomplete,
-    the roles it is missing.
+    Everything measurable is still returned as a diagnostic: roles supplied and missing,
+    malformed ends, the overhang list and its multiplicities. `topology` is `unverified`,
+    `participants_established` is False, and `scored` is None. A typed physical-fragment
+    model is what would change that; it does not exist yet.
     """
     supplied = {str(role): [str(o).upper().replace("U", "T") for o in (ends or ())]
                 for role, ends in (roles or {}).items()}
@@ -194,16 +199,15 @@ def level1_participants(block_subset, *, roles=None, evidence: str = "") -> dict
         if role not in LEVEL1_REQUIRED_ROLES:
             overhangs.extend(ends)
 
-    # A reaction is a chain: internal junctions are shared by two parts, the two outermost
-    # ends by one each. Anything else is not a set of fragments that can assemble in order.
+    # Multiplicities, kept as a diagnostic. They are not a topology test: a path plus a
+    # disjoint cycle gives two singly-occurring ends and nothing occurring more than twice.
     counts: dict[str, int] = {}
     for overhang in overhangs:
         counts[overhang] = counts.get(overhang, 0) + 1
     terminal = sorted(o for o, n in counts.items() if n == 1)
     overused = sorted(o for o, n in counts.items() if n > 2)
-    chain_ok = len(terminal) == 2 and not overused
+    degree_consistent = len(terminal) == 2 and not overused
 
-    complete = bool(evidence) and not missing and not malformed and chain_ok
     reasons = []
     if not evidence:
         reasons.append("no evidence supplied naming where these participants came from")
@@ -211,11 +215,16 @@ def level1_participants(block_subset, *, roles=None, evidence: str = "") -> dict
         reasons.append(f"no participant supplied for {', '.join(missing)}")
     if malformed:
         reasons.append(f"not four-base overhangs: {', '.join(malformed)}")
-    if not chain_ok and not missing:
+    if not degree_consistent and not missing:
         reasons.append(
-            f"the ends do not form one chain: {len(terminal)} appear once "
-            f"(expected 2)" + (f", and {', '.join(overused)} appear more than twice"
-                               if overused else ""))
+            f"end multiplicities are not even consistent with one chain: {len(terminal)} "
+            f"appear once (expected 2)"
+            + (f", and {', '.join(overused)} appear more than twice" if overused else ""))
+    reasons.append(
+        "topology is unverified: a flat role -> ends mapping does not record which physical "
+        "fragment carries which pair of ends, their orientation, or the acceptor context, "
+        "so connectivity cannot be derived from it and a complete reaction cannot be "
+        "established from this input")
 
     return {
         "overhangs": overhangs,
@@ -223,9 +232,16 @@ def level1_participants(block_subset, *, roles=None, evidence: str = "") -> dict
         "roles_supplied": {role: list(ends) for role, ends in sorted(supplied.items())},
         "roles_required": list(LEVEL1_REQUIRED_ROLES),
         "roles_missing": missing,
-        "participants_established": complete,
+        "malformed_ends": malformed,
+        "end_multiplicities": dict(sorted(counts.items())),
+        "degree_consistent_with_a_chain": degree_consistent,
+        "topology": "unverified",
+        # Never True from this entry point. See the docstring: the input cannot carry the
+        # evidence this would assert.
+        "participants_established": False,
+        "scored": None,
         "evidence": evidence or None,
-        "why_incomplete": None if complete else "; ".join(reasons),
+        "why_incomplete": "; ".join(reasons),
     }
 
 #: Residue offsets from an ARELF motif at which the corpus designs place cuts.

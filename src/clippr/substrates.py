@@ -203,17 +203,35 @@ def substrate_findings(insert: str, block: str, profile=None) -> dict[str, list[
     return synthesis_findings(sequence, policy)
 
 
-def synthesis_problems(sequence: str, profile=None) -> list[str]:
+def bbsi_intended_sites(sequence: str) -> tuple[tuple[str, str, int], ...]:
+    """The inventory wrapper's own two BbsI sites, as (enzyme, strand, offset) records.
+
+    The 5' arm carries the site forward; the 3' arm is reverse-complemented whole, so its
+    site matches the reverse pattern. Naming the strand is the point: the exemption used to
+    be offset-only, which also excused a forward site where only the reverse belongs.
+    """
+    return (("BbsI", "forward", PAD_LEN),
+            ("BbsI", "reverse", len(sequence) - PAD_LEN - len(BBSI_SITE)))
+
+
+def synthesis_problems(sequence: str, profile=None, *, intended_sites=None,
+                       enzymes=None) -> list[str]:
     """Hard synthesis-contract breaches on a wrapped substrate, judged on what is ordered."""
-    return synthesis_findings(sequence, profile)["hard"]
+    return synthesis_findings(sequence, profile, intended_sites=intended_sites,
+                              enzymes=enzymes)["hard"]
 
 
-def synthesis_findings(sequence: str, profile=None) -> dict[str, list[str]]:
+def synthesis_findings(sequence: str, profile=None, *,
+                       intended_sites=None, enzymes=None) -> dict[str, list[str]]:
     """Every breach on a wrapped substrate, split by how this profile enforces the rule.
 
-    The two intended BbsI sites are part of the construction and are excluded **by position**
-    -- they are why the fragment can be released at all. A BbsI site anywhere else, and any
-    site of another active enzyme anywhere, is a breach: it would be cut when it should not be.
+    `intended_sites` names the construction's own recognition sites as (enzyme, strand,
+    offset) records; all three must match for a site to be excused. Defaulting to `None`
+    keeps the inventory's BbsI geometry, which is what every existing caller means. The
+    one-shot route builds a BsaI wrapper and supplies its own records -- the two geometries
+    are different and must not be routed through one another.
+
+    Any site not named in those records is a breach: it would be cut when it should not be.
     Checking GC and homopolymers alone let an internal BsaI site pass as `synthesis_ok`.
 
     Returns `{"hard": [...], "target": [...]}`. Forbidden sites are always hard: no profile may
@@ -237,17 +255,22 @@ def synthesis_findings(sequence: str, profile=None) -> dict[str, list[str]]:
     MAX_HOMOPOLYMER = policy.max_homopolymer
     problems = findings["hard"]
 
-    # Recognition sites, by role. The wrapper's own two BbsI sites sit at known positions;
-    # everything else is unintended.
-    intended = {PAD_LEN, len(sequence) - PAD_LEN - len(BBSI_SITE)}
-    for name in C.enzymes_for(C.DEFAULT_ENZYME_PROFILE):
+    # Recognition sites, by role. An exemption must match enzyme, strand and offset
+    # together: an offset-only rule excused a forward site at the reverse arm's position.
+    intended = set(bbsi_intended_sites(sequence) if intended_sites is None
+                   else (tuple(r) for r in intended_sites))
+    # The effective set, not the default one. The one-shot API accepts `enzyme_profile`
+    # and `extra_blacklist`, so checking only the default profile left a caller's own
+    # exclusions unverified.
+    active = tuple(enzymes) if enzymes else C.enzymes_for(C.DEFAULT_ENZYME_PROFILE)
+    for name in active:
         from Bio.Restriction import RestrictionBatch
 
         site = str(RestrictionBatch([name]).get(name).site)
         for strand, pattern in (("forward", site), ("reverse", rc(site))):
             for at in _occurrences(sequence, pattern):
-                if name == "BbsI" and at in intended:
-                    continue            # the wrapper's own site, by role
+                if (name, strand, at) in intended:
+                    continue            # the construction's own site, by role
                 problems.append(f"unintended {name} site on the {strand} strand at {at}")
 
     if policy.global_gc is not None:

@@ -18,6 +18,7 @@ result is read from disk otherwise.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -251,7 +252,9 @@ def _v5(d: dict) -> tuple[bool, str]:
 
 def _v6(d: dict) -> tuple[bool, str]:
     ok = d["clean"] == d["designs"] > 0 and not d["offenders"]
-    return ok, (f"{d['clean']}/{d['designs']} satisfy every hard constraint, "
+    # Scoped. V6 checks the coding sequence; the final wrapped oligo is a separate check
+    # that rejects this same corpus. "every hard constraint" read as both.
+    return ok, (f"{d['clean']}/{d['designs']} satisfy the V6 coding-sequence constraints, "
                 f"{d['disagreements_with_claimed_status']} disagreements with claimed status")
 
 
@@ -335,8 +338,13 @@ def _package_source_sha256() -> str:
     return source_fingerprint()["sha256"]
 
 
-def check_independent_agreement() -> dict:
-    """5. Exported sequences, metrics and hashes agree with independent calculations."""
+def check_independent_agreement(evidence_dir: str | None = None) -> dict:
+    """5. Exported sequences, metrics and hashes agree with independent calculations.
+
+    Reads the release bundle when one is given. The shared `work/independent` path stays
+    as the default convenience, but a release must be judged on its own records, not on
+    whatever a later ad-hoc run happened to leave in a shared directory.
+    """
     parts, ok = [], True
     for name, filename, read, needs_corpus in (
         ("V5 digest/ligate", "v5_digest_ligate.json", _v5, True),
@@ -344,6 +352,8 @@ def check_independent_agreement() -> dict:
         ("V7 export semantics", "v7_export_semantics.json", _v7, False),
     ):
         file = ROOT / "work" / "independent" / filename
+        if evidence_dir and (Path(evidence_dir) / filename).is_file():
+            file = Path(evidence_dir) / filename
         if not file.is_file():
             parts.append(f"{name}: not run")
             ok = False
@@ -482,6 +492,253 @@ def check_badge_count(run: subprocess.CompletedProcess, collected: int) -> dict:
                       else f" -- set TESTS = {measured} in tools/build_notebook.py and rebuild"))
 
 
+#: Every record a candidate release must carry, and where in the bundle it lives. B-E and
+#: V5-V7 used to be absent from this list, so a directory holding four files passed while
+#: the rest of the evidence could be anything, anywhere, from any run.
+REQUIRED_RECORDS = {
+    "gate_b": ("gate_b.json",),
+    "gate_c": ("phasec", "gate_c.json"),
+    "gate_d": ("phased", "gate_d.json"),
+    "gate_e": ("phasee", "gate_e.json"),
+    "gate_f": ("phasef", "gate_f.json"),
+    "notebook_designer": ("notebook_designer.json",),
+    "notebook_inventory": ("notebook_inventory.json",),
+    "final_artifact_contract": ("final_artifact_contract.json",),
+    "v5_digest_ligate": ("v5_digest_ligate.json",),
+    "v6_constraints": ("v6_constraints.json",),
+    "v7_export_semantics": ("v7_export_semantics.json",),
+}
+
+#: What each notebook must actually have demonstrated. A positive postcondition count is
+#: not a contract: `--expect "1"` satisfied the old gate. Each entry is a substring that
+#: must appear in some declared expectation for that notebook.
+NOTEBOOK_CONTRACT = {
+    "notebook_designer": ("final_artifacts", "synthesis_ready", "oligos"),
+    "notebook_inventory": ("deposited", "order_items", "order.ok", "summary["),
+}
+
+#: The panel the corpus contract must cover.
+EXPECTED_DESIGNS = 200
+
+
+def _file_sha256(path) -> str | None:
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def _check_notebook_record(name, record, current, problems):
+    """A notebook record, verified against the files it names."""
+    if not record.get("ok"):
+        problems.append(f"{name} records ok={record.get('ok')!r}")
+
+    # Recompute, do not read. A zeroed hash used to pass because the field was non-empty.
+    stated = record.get("notebook_sha256")
+    notebook = record.get("notebook")
+    if not stated:
+        problems.append(f"{name} carries no notebook_sha256")
+    elif not notebook or not Path(notebook).is_file():
+        problems.append(f"{name} names no readable notebook to verify its hash against")
+    else:
+        actual = _file_sha256(notebook)
+        if actual != stated:
+            problems.append(f"{name} records notebook {str(stated)[:12]} but "
+                            f"{Path(notebook).name} hashes to {str(actual)[:12]}")
+
+    for field in ("installed_source_fingerprint", "checkout_source_fingerprint",
+                  "interpreter", "environment_prefix"):
+        if not record.get(field):
+            problems.append(f"{name} carries no {field}")
+    installed = record.get("installed_source_fingerprint")
+    checkout = record.get("checkout_source_fingerprint")
+    if installed and checkout and installed != checkout:
+        problems.append(f"{name} ran against a wheel that is not this source")
+    if installed and current and installed != current:
+        problems.append(f"{name} ran against {str(installed)[:12]}, but this checkout "
+                        f"is {current[:12]}")
+
+    # Every staged input, re-hashed from the file it came from.
+    for dest, staged in (record.get("staged_inputs") or {}).items():
+        source = staged.get("from")
+        stated = staged.get("sha256")
+        if not stated:
+            problems.append(f"{name} staged {dest} with no hash")
+        elif not source or not Path(source).is_file():
+            problems.append(f"{name} staged {dest} from a source that is not readable")
+        elif _file_sha256(source) != stated:
+            problems.append(f"{name} staged {dest} as {str(stated)[:12]}, but its "
+                            f"source now hashes to {str(_file_sha256(source))[:12]}")
+
+    # Cells that ran are not work done.
+    declared = record.get("postconditions_declared")
+    entries = record.get("expectations") or []
+    if not declared:
+        problems.append(f"{name} declared no postcondition, so it cannot show the "
+                        f"notebook did its work")
+    elif declared != len(entries):
+        problems.append(f"{name} claims {declared} postcondition(s) but lists "
+                        f"{len(entries)}")
+    unmet = [e for e in entries if not e.get("ok")]
+    if unmet:
+        problems.append(f"{name} postcondition not met: "
+                        f"{unmet[0].get('expect', '?')[:60]}")
+
+    # And the postconditions must be the declared ones, not any true statement.
+    text = " ".join(str(e.get("expect", "")) for e in entries)
+    for token in NOTEBOOK_CONTRACT.get(name, ()):
+        if token not in text:
+            problems.append(f"{name} declares no postcondition covering {token!r}, so "
+                            f"its result contract is not established")
+
+
+def _check_gate_f_record(record, current, problems):
+    """Gate F names the wheel it built. Verify the wheel, not the claim."""
+    if record.get("gate") != "PASS":
+        problems.append(f"gate_f records {record.get('gate')!r}")
+    installed = record.get("installed_source_fingerprint")
+    if not installed:
+        problems.append("gate_f carries no installed_source_fingerprint")
+    elif current and installed != current:
+        problems.append(f"gate_f built {str(installed)[:12]}, but this checkout is "
+                        f"{current[:12]}")
+    stated = (record.get("wheel") or {}).get("sha256") or record.get("wheel_sha256")
+    path = (record.get("wheel") or {}).get("path") or record.get("wheel_path")
+    if not stated:
+        problems.append("gate_f carries no wheel hash")
+    elif not path or not Path(path).is_file():
+        problems.append("gate_f names no retained wheel to verify its hash against")
+    elif _file_sha256(path) != stated:
+        problems.append(f"gate_f records wheel {str(stated)[:12]} but the file hashes to "
+                        f"{str(_file_sha256(path))[:12]}")
+
+
+def _check_corpus_record(record, current, problems):
+    """The corpus report, against the corpus file and the checker that produced it."""
+    rows = record.get("rows") or []
+    checked = len(rows)
+    compared = record.get("comparisons_performed", 0)
+    if compared <= 0:
+        problems.append("the corpus checker performed no comparison")
+    if record.get("disagreements_with_production"):
+        problems.append("the corpus checker disagrees with production")
+    if compared != checked:
+        problems.append(f"the corpus checker compared {compared} of {checked} rows")
+    if checked != EXPECTED_DESIGNS:
+        problems.append(f"the corpus checker covered {checked} designs, not the declared "
+                        f"{EXPECTED_DESIGNS}")
+    if record.get("not_assessed"):
+        problems.append(f"{record['not_assessed']} design(s) could not be assessed; "
+                        f"required data is missing")
+
+    prov = record.get("provenance") or {}
+    # The package fingerprint does not cover validation/*.py, so the checker's own bytes
+    # are part of what this result is evidence about.
+    validator = ROOT / "validation" / "independent" / "final_artifact_contract.py"
+    stated = prov.get("validator_sha256")
+    if not stated:
+        problems.append("the corpus report carries no validator_sha256")
+    elif _file_sha256(validator) != stated:
+        problems.append("the corpus report was produced by a different version of "
+                        "final_artifact_contract.py than the one on disk")
+    if prov.get("package_source_sha256") and current and \
+            prov["package_source_sha256"] != current:
+        problems.append(f"the corpus report ran against "
+                        f"{prov['package_source_sha256'][:12]}, not {current[:12]}")
+
+    # The panel must be the declared source rows, repeats included. A report whose rows
+    # were one result copied two hundred times passed on its row count alone.
+    corpus = prov.get("corpus_path")
+    stated_corpus = prov.get("corpus_sha256")
+    if not stated_corpus:
+        problems.append("the corpus report carries no corpus_sha256")
+    elif not corpus or not Path(corpus).is_file():
+        problems.append("the corpus report names no readable corpus to verify")
+    elif _file_sha256(corpus) != stated_corpus:
+        problems.append(f"the corpus report records {str(stated_corpus)[:12]} but "
+                        f"{Path(corpus).name} hashes to "
+                        f"{str(_file_sha256(corpus))[:12]}")
+    else:
+        declared = []
+        for line in Path(corpus).read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if "__run__" in entry or "__run_identity__" in entry:
+                continue
+            # The same resolution the checker uses, so the two lists are comparable.
+            declared.append(entry.get("target") or entry.get("target_rna"))
+        reported = [r.get("target") for r in rows]
+        if sorted(filter(None, reported)) != sorted(filter(None, declared)):
+            problems.append(f"the corpus report's {len(reported)} rows are not the "
+                            f"{len(declared)} declared panel rows")
+
+
+def _check_validator_record(name, record, current, problems):
+    """V5-V7: produced by the checker on disk, against this package."""
+    prov = record.get("provenance") or {}
+    stated = prov.get("validator_sha256")
+    script = ROOT / "validation" / "independent" / f"{name}.py"
+    if not stated:
+        problems.append(f"{name} carries no validator_sha256")
+    elif _file_sha256(script) != stated:
+        problems.append(f"{name} was produced by a different version of {name}.py than "
+                        f"the one on disk")
+    if prov.get("package_source_sha256") and current and \
+            prov["package_source_sha256"] != current:
+        problems.append(f"{name} ran against {prov['package_source_sha256'][:12]}, not "
+                        f"{current[:12]}")
+
+
+def check_evidence_dir(path: str | None) -> dict | None:
+    """13. This run's evidence is present, complete and bound to this release.
+
+    Returns None when no directory was given, so an ordinary run is unchanged.
+
+    Every required record must be in the bundle, and every identity a record states is
+    recomputed from the file it names. The earlier version compared two fingerprints "if
+    both exist" and otherwise checked that fields were non-empty, so a record whose
+    notebook hash, input hash, wheel hash or corpus hash had been replaced by zeros passed,
+    as did a report whose two hundred rows were one result copied two hundred times.
+    """
+    if not path:
+        return None
+    where = Path(path)
+    required = {name: where.joinpath(*parts)
+                for name, parts in REQUIRED_RECORDS.items()}
+    missing = sorted(name for name, f in required.items() if not f.is_file())
+    if missing:
+        return _result("13. this run's evidence is present", "RAN", False,
+                       f"missing from {where}: {', '.join(missing)}")
+
+    current = _package_source_sha256()
+    problems: list[str] = []
+    for name, f in required.items():
+        try:
+            record = json.loads(f.read_text(encoding="utf-8"))
+        except ValueError as exc:
+            problems.append(f"{name}: unreadable ({exc})")
+            continue
+        if name == "gate_f":
+            _check_gate_f_record(record, current, problems)
+        elif name.startswith("gate_") and record.get("gate") not in ("PASS", None):
+            problems.append(f"{name} records {record.get('gate')!r}")
+        elif name.startswith("notebook"):
+            _check_notebook_record(name, record, current, problems)
+        elif name == "final_artifact_contract":
+            _check_corpus_record(record, current, problems)
+        elif name.startswith("v"):
+            _check_validator_record(name, record, current, problems)
+
+    return _result("13. this run's evidence is present", "RAN", not problems,
+                   "; ".join(problems) if problems
+                   else f"{len(required)} records, every stated identity recomputed and "
+                        f"matched, all from {where}")
+
+
 def check_state_table() -> dict:
     """11. The handover's State table is rendered from measurements, not typed from memory."""
     script = ROOT / "validation" / "state_table.py"
@@ -501,6 +758,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--clean-install", action="store_true",
                     help="build a wheel and run the README example in a throwaway venv")
+    ap.add_argument("--evidence-dir", default=None,
+                    help=("read this run's gate, notebook and artifact records from here "
+                          "instead of the historical fixed paths; a missing required "
+                          "record fails rather than falling back"))
+    ap.add_argument("--refresh-state", action="store_true",
+                    help=("after the measured record is written, re-render the handover's "
+                          "State table and verify it; default behaviour does not mutate"))
     args = ap.parse_args()
 
     print(f"release validation  |  {ROOT}")
@@ -509,7 +773,7 @@ def main() -> int:
     suite, collected = run_suite()
     checks = [check_tests(suite, collected), check_integration_coverage(suite),
               check_clean_install(args.clean_install), check_architectures(),
-              check_independent_agreement(), check_optional_inputs(), check_notebook(),
+              check_independent_agreement(args.evidence_dir), check_optional_inputs(), check_notebook(),
               check_claim_labels(), check_runtime_table(), check_handoff(),
               check_badge_count(suite, collected)]
 
@@ -523,6 +787,17 @@ def main() -> int:
         print(f"  [{c['evidence']:6s}] {c['check']:<{width}}  {mark}")
         print(f"           {' ' * width}  {c['detail']}")
 
+    # Every check that does not read the record must be in the record before it is
+    # written. Appending check 13 after the write meant the state table was rendered from
+    # an interim 11-check file and the final file immediately invalidated it: the table
+    # said "11 of 11" while the record said 12 of 12.
+    evidence = check_evidence_dir(args.evidence_dir)
+    if evidence is not None:
+        checks.append(evidence)
+        mark = {True: "PASS", False: "FAIL", None: "NEEDS A HUMAN"}[evidence["ok"]]
+        print(f"  [{evidence['evidence']:6s}] {evidence['check']:<{width}}  {mark}")
+        print(f"           {' ' * width}  {evidence['detail']}")
+
     WORK.mkdir(parents=True, exist_ok=True)
     out = WORK / "release_check.json"
     # Bind the record to the tree. Without these, anything reading it later cannot tell
@@ -535,8 +810,29 @@ def main() -> int:
     out.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     print(f"\nwrote {out}")
 
-    # Deliberately after the write: check 11 verifies the handover against the record this
-    # run just produced, so it cannot pass by reading a stale one.
+    # Only check 11 runs after the write, because it is the one check that reads the
+    # record. Its own result is the single row the final rewrite adds, and the state
+    # renderer excludes it, so the rendered tally stays true.
+    if args.refresh_state:
+        # Render from the record this run wrote, then verify. A renderer failure is a
+        # release failure; it is never converted into success.
+        script = ROOT / "validation" / "state_table.py"
+        written = subprocess.run([str(PYTHON), str(script), "--write"],
+                                 capture_output=True, text=True, cwd=str(ROOT))
+        tail = (written.stdout or written.stderr).strip().splitlines()
+        print(f"\n  state table --write: {(tail[-1] if tail else '(no output)')[:100]}")
+        if written.returncode != 0:
+            # A renderer that failed is a release failure. Its exit code was discarded,
+            # so a failed rewrite was followed by a verification of whatever the file
+            # already said.
+            checks.append(_result("11. handover State table is measured", "RAN", False,
+                                  f"state_table.py --write exited {written.returncode}: "
+                                  f"{(written.stderr or '').strip()[:120]}"))
+            record["checks"] = checks
+            out.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+            print("\nthe State table could not be rendered; not reporting a tally")
+            return 1
+
     state = check_state_table()
     mark = {True: "PASS", False: "FAIL", None: "NEEDS A HUMAN"}[state["ok"]]
     print(f"  [{state['evidence']:6s}] {state['check']:<{width}}  {mark}")
@@ -554,6 +850,17 @@ def main() -> int:
     # binding is the inputs digest, and `_release_row` is rendered from this final list.
     record["checks"] = checks
     out.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+
+    # A copy inside the bundle, so every figure in a release document resolves to a file
+    # later runs do not rewrite. `work/release/release_check.json` stays as the convenience
+    # path; it is mutable, and a control run once overwrote it.
+    if args.evidence_dir:
+        frozen = Path(args.evidence_dir) / "release_check.json"
+        frozen.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+        digest = hashlib.sha256(frozen.read_bytes()).hexdigest()
+        (Path(args.evidence_dir) / "release_check.sha256").write_text(
+            f"{digest}  release_check.json\n", encoding="utf-8")
+        print(f"\nfroze {frozen}\n  sha256 {digest}")
     return 1 if failed or manual else 0
 
 

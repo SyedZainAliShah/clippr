@@ -275,6 +275,7 @@ def optimize_cds(
     soft_rules: tuple[str, ...] = (),
     unique_kmer_size: int | None = 20,
     avoid_sequences: Sequence[str] = (),
+    extra_constraints: Sequence = (),
 ) -> dict:
     """Design a coding sequence for `protein` under the assembly's constraints.
 
@@ -284,7 +285,10 @@ def optimize_cds(
     docstring for why there is no default. `unique_kmer_size` defaults to 20 for the
     repeat reasons in the module docstring; pass `None` to optimise codons alone.
     `avoid_sequences` forbids specific DNA verbatim, which is how `homology.py` stops
-    library members from sharing their scaffold sequence.
+    library members from sharing their scaffold sequence. `extra_constraints` takes further
+    DNA Chisel specifications from the caller; it is empty by default and no shipped route
+    passes it. The wrapper-aware experiment in `validation/experiments/` uses it to constrain
+    the sequence that would actually be ordered rather than the coding span alone.
 
     Returns `{'cds', 'constraints_ok', 'summary', 'objectives_score'}`. A design that
     cannot satisfy every constraint is returned with `constraints_ok=False` and the
@@ -369,6 +373,8 @@ def optimize_cds(
             )
         constraints.append(dc.EnforceSequence(sequence=locked,
                                               location=(start, start + len(locked))))
+
+    constraints += list(extra_constraints or ())
 
     objectives = [dc.CodonOptimize(codon_usage_table=codon_table,
                                    method="use_best_codon")]
