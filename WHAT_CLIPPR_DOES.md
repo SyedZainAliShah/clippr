@@ -73,21 +73,20 @@ It worked. We then ran it on **all 200 designs**:
 
 | | with the fix | without it |
 |---|---:|---:|
-| orderable | **192 of 200** | **0 of 200** |
-| failing fragments | 8 | 277 |
+| orderable | **200 of 200** | **0 of 200** |
+| failing fragments | **0** | 277 |
 
-Cost in codon quality: typically 0.003 on a 0–1 scale, worst 0.032, and ten designs got
+Cost in codon quality: typically 0.003 on a 0–1 scale, worst 0.032, and thirteen designs got
 slightly *better*. A second, independently written checker agreed on all 200.
 
 The control matters as much as the result: with the one change removed, the software returned
 **exactly** the old sequences — all 200, letter for letter. So the fix is what fixed it.
 
-**The 8 that still fail** do so for a new reason. Pushing GC *down* to get under the ceiling
-pushes one middle fragment *below the floor* — 0.340 against a 0.350 minimum. On those eight
-there is no spelling that satisfies both ends at once. The software says so plainly and writes
-no order.
+An earlier version of this run reported 8 failures and a reason for them. That was a bug in
+our own test code, not a property of those targets. Once fixed, all 200 passed. The write-up
+keeps the wrong claim on the record.
 
-**It is not switched on.** 192 of 200 is a strong result, not a decision. Turning it on moves
+**It is not switched on.** 200 of 200 is a strong result, not a decision. Turning it on moves
 every number we have published and still leaves eight targets refused.
 
 ## What we do not claim

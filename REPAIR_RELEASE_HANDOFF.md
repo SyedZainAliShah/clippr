@@ -197,26 +197,30 @@ declared 5400 s budget.
 
 | | treatment | control |
 |---|---:|---:|
-| accepted | **192 / 200** | **0 / 200** |
-| hard findings | 277 → **8** | 277 → 277 |
+| accepted | **200 / 200** | **0 / 200** |
+| hard findings | 277 → **0** | 277 → 277 |
 | reproduced the corpus bit-for-bit | 0 | **200 / 200** |
-| independent re-read | 192 acc, 8 rej, 0 disagreements | 0 acc, 200 rej, 0 disagreements |
+| independent re-read | 200 acc, 0 rej, 0 disagreements | 0 acc, 200 rej, 0 disagreements |
 
-9S 100/100, 19S 48/50, 14S 44/50 — the 19-mers were expected to be hardest and were not; that
-is unexplained. CAI cost over the accepted set: median −0.003, worst −0.032, 10 improved.
+Complete in every architecture: 9S 100/100, 14S 50/50, 19S 50/50. CAI cost over the panel:
+median −0.003, worst −0.032, 13 improved.
 
-The eight failures are a **new** mode: every one breaches the 0.35 **floor** at 0.340, where
-every baseline breach was the 0.65 ceiling. Pushing GC down to clear the ceiling overshoots
-below the floor on one interior fragment. All eight carry `constraints_ok=False`, gave up in
-≤0.08 s, and wrote nothing orderable.
+**The first run of this panel reported 192 of 200 and a new floor-breach failure mode. That
+was a defect in the experiment's own constraint** — a `localized()` signature missing the
+`with_righthand` keyword that some of DNA Chisel's resolution paths pass, so on eight designs
+the call raised, the solver reported `constraints_ok=False` and returned the unoptimised
+sequence. The "0.340 floor breach" and the "−0.41 CAI cost" were both that artifact. Fixed,
+re-tested individually, then the whole panel re-run because the broken path was reachable for
+every design. §5 of the panel document records both wrong claims rather than replacing them
+quietly.
 
 **This still changes nothing about the shipped default.** `optimize_cds(extra_constraints=...)`
 is empty for every shipped route and a test asserts no `src/` module other than its definition
-references it. Switching it on would move every published number and still refuse eight named
-targets; that decision is not taken here and is not a dry-lab result.
+references it. Switching it on would move every published number and needs regression coverage
+in the shipped path; that decision is not taken here and is not a dry-lab result.
 
 One seed throughout (42, matching the corpus baselines, so the comparison is like-for-like).
-Whether another seed rescues any of the eight is untested.
+
 
 ---
 
@@ -259,10 +263,10 @@ a diagnostic without someone having to explain the badge away.
   not a vendor refusal. No order was submitted and no quote obtained. The vendor profile is a
   local transcription dated 2026-09-15 modelling only the 50 pmol scale.
 - **Whether the wrapper-aware route should be the default.** A positive final-export control
-  now exists over the whole declared panel — 192 of 200, independently rechecked — but the
-  **shipped** route still produces nothing orderable, eight targets resist the approach
-  entirely, and only one seed was tried. Switching the default is an open decision, stated with
-  its three options in `PANEL_WRAPPER_AWARE_2026-10-11.md`.
+  now exists over the whole declared panel — 200 of 200, independently rechecked — but the
+  **shipped** route still produces nothing orderable, only one seed and one host were tried,
+  and the constraint has no regression coverage in the shipped path. Switching the default is
+  an open decision, stated with its three options in `PANEL_WRAPPER_AWARE_2026-10-11.md`.
 - **Browser or Colab execution.** Only installed local notebook execution was verified.
 - **Level-1 assembly context.** Participants are not established from a flat role list, so no
   level-1 score is reported.

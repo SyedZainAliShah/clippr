@@ -121,9 +121,14 @@ def make_constraint(fragments, policy):
                 message=(f"{len(locations)} ordered-fragment window(s) outside "
                          f"({lo}, {hi})" + (f", worst {worst:.3f}" if worst else "")))
 
-        def localized(self, location, problem=None):
+        def localized(self, location, problem=None, with_righthand=True):
             # Evaluated globally: one codon change moves a window in a fragment whose
             # flanks sit outside this location, so a localised view would miss it.
+            #
+            # `with_righthand` is passed by some of DNA Chisel's resolution paths. Omitting
+            # it from the signature raised TypeError inside the solver, which reported
+            # constraints_ok=False and handed back the unoptimised sequence -- read as
+            # eight targets where the band was unsatisfiable. It was this.
             return self
 
         def label_parameters(self):
