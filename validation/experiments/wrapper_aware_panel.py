@@ -43,7 +43,9 @@ from clippr.codons import optimize_cds, table_from_kazusa             # noqa: E4
 from clippr.design import final_artifact_report                       # noqa: E402
 from clippr.objectives import codon_adaptation                        # noqa: E402
 from clippr.synthesis_profile import resolve                          # noqa: E402
-from wrapper_aware_pilot import frozen_geometry, make_constraint      # noqa: E402
+from wrapper_aware_pilot import (frozen_geometry, make_constraint,    # noqa: E402
+                                 make_structure_constraint, fold_dg,
+                                 STRUCTURE_DG_LIMIT, STRUCTURE_WINDOW_NT)
 
 #: Declared before execution.
 BUDGET = {
@@ -77,7 +79,8 @@ def _baseline_frame(row: dict):
     return pd.DataFrame(row["oligos"])
 
 
-def one(row: dict, table, policy, with_constraint: bool) -> dict:
+def one(row: dict, table, policy, with_constraint: bool,
+        with_structure: bool = False) -> dict:
     """One corpus design: re-optimise on its frozen geometry and re-judge."""
     target = row.get("target") or row.get("target_rna")
     rec: dict = {"target": target, "architecture": row.get("architecture")}
@@ -114,8 +117,9 @@ def one(row: dict, table, policy, with_constraint: bool) -> dict:
             baseline["protein"], locked_sites=locked, codon_table=table,
             genetic_code=1, seed=BUDGET["seed"],
             enzymes=C.enzymes_for(ENZYME_PROFILE),
-            extra_constraints=([make_constraint(geometry, policy)]
-                               if with_constraint else []))
+            extra_constraints=(
+                ([make_constraint(geometry, policy)] if with_constraint else [])
+                + ([make_structure_constraint(geometry)] if with_structure else [])))
     except Exception as exc:                        # noqa: BLE001 - reported, not hidden
         rec["candidate"] = {"outcome": f"solver raised {type(exc).__name__}: {exc}"}
         rec["wall_seconds"] = round(time.perf_counter() - t0, 2)
@@ -137,6 +141,13 @@ def one(row: dict, table, policy, with_constraint: bool) -> dict:
     from Bio.Seq import Seq
     translates = str(Seq(cds).translate()).rstrip("*") == baseline["protein"].rstrip("*")
 
+    # Measured in both arms whether or not it was constrained, so the cost of adding the
+    # term and the effect of omitting it are both visible.
+    leading = [fold_dg(str(r["oligo_sequence_5to3"])[:STRUCTURE_WINDOW_NT])
+               for _, r in oligos.iterrows()]
+    base_leading = [fold_dg(str(r["oligo_sequence_5to3"])[:STRUCTURE_WINDOW_NT])
+                    for _, r in baseline["oligos"].iterrows()]
+
     rec["candidate"] = {
         "status": report["status"],
         "hard": list(report.get("hard") or []),
@@ -153,7 +164,12 @@ def one(row: dict, table, policy, with_constraint: bool) -> dict:
         "reproduces_corpus_cds": cds == row["cds"],
         "solve_seconds": round(solve, 2),
         "optimiser_summary": (opt["summary"] or "")[-300:],
+        "leading_window_dg": [round(x, 2) for x in leading],
+        "leading_window_breaches": sum(1 for x in leading if x < STRUCTURE_DG_LIMIT),
     }
+    rec["baseline"]["leading_window_dg"] = [round(x, 2) for x in base_leading]
+    rec["baseline"]["leading_window_breaches"] = sum(
+        1 for x in base_leading if x < STRUCTURE_DG_LIMIT)
     rec["candidate"]["accepted"] = bool(
         report["status"] in ("pass", "warning") and opt["constraints_ok"]
         and translates and not moved and not reflanked)
@@ -239,6 +255,13 @@ def summarise(attempts: list[dict]) -> dict:
                           "unchanged by construction; it is not re-reported as a gain"),
         "reproduces_corpus_cds": sum(1 for a in judged
                                      if a["candidate"]["reproduces_corpus_cds"]),
+        "leading_window_breaches": {
+            "baseline": sum(a["baseline"].get("leading_window_breaches", 0)
+                            for a in judged),
+            "candidate": sum(a["candidate"].get("leading_window_breaches", 0)
+                             for a in judged),
+            "limit": "dG < -8.0 kcal/mol in the first 48 nt",
+        },
     }
 
 
@@ -247,6 +270,9 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--without-constraint", action="store_true",
                     help="the control arm, and the setup check described in the docstring")
+    ap.add_argument("--with-structure", action="store_true",
+                    help=("also constrain the leading-window fold, the quantity GC is a "
+                          "proxy for"))
     ap.add_argument("--limit", type=int, default=None, help="first N designs only")
     args = ap.parse_args()
 
@@ -263,6 +289,11 @@ def main() -> int:
         "experiment": "wrapper_aware_panel",
         "arm": "treatment" if with_constraint else "control (constraint omitted)",
         "wrapper_aware_constraint_applied": with_constraint,
+        "structure_constraint_applied": args.with_structure,
+        "structure_rule": {"window_nt": STRUCTURE_WINDOW_NT,
+                           "dg_limit": STRUCTURE_DG_LIMIT,
+                           "source": "Twist codon-optimisation FAQ, gene-synthesis guidance; "
+                                     "no oPools structure rule exists to use"},
         "question": ("over the whole pinned panel, how many designs can satisfy the "
                      "declared local GC band on every ordered fragment using synonymous "
                      "codon choices alone?"),
@@ -285,7 +316,8 @@ def main() -> int:
                 f"total wall budget of {BUDGET['wall_seconds_total']}s reached after "
                 f"{n - 1} designs")
             break
-        rec = one(row, table, policy, with_constraint)
+        rec = one(row, table, policy, with_constraint,
+                  with_structure=args.with_structure)
         result["attempts"].append(rec)
         cand = rec.get("candidate", {})
         mark = ("ok " if cand.get("accepted") else
@@ -350,6 +382,8 @@ def main() -> int:
           f"p95 {s['solve_seconds']['p95']}  max {s['solve_seconds']['max']}")
     print(f"  invariant breaches {s['invariant_violations']}")
     print(f"  reproduced corpus  {s['reproduces_corpus_cds']} of {s['designs']}")
+    lw = s["leading_window_breaches"]
+    print(f"  leading-window dG  {lw['baseline']} breaching -> {lw['candidate']}")
     for arch, v in sorted(s["by_architecture"].items()):
         print(f"    {arch:5s} {v['accepted']:3d} accepted / {v['designs']:3d}")
     if "independent_recheck" in result:

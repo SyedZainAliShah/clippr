@@ -137,6 +137,85 @@ def make_constraint(fragments, policy):
     return EnforceGCInOrderedFragments()
 
 
+#: Twist's one published structure threshold: strong hairpins (dG < -8 kcal/mol) in the first
+#: 48 base pairs. It is gene-synthesis guidance, not an oPools rule -- no oPools structure rule
+#: exists to use -- so it is the only published number available to aim at.
+STRUCTURE_WINDOW_NT = 48
+STRUCTURE_DG_LIMIT = -8.0
+
+#: Folding the same window repeatedly is the dominant cost inside a solver loop.
+_FOLD_CACHE: dict[str, float] = {}
+
+
+def fold_dg(seq: str) -> float:
+    """Minimum free energy of `seq` under DNA parameters, memoised."""
+    import RNA
+
+    hit = _FOLD_CACHE.get(seq)
+    if hit is None:
+        hit = float(RNA.fold_compound(seq).mfe()[1])
+        _FOLD_CACHE[seq] = hit
+    return hit
+
+
+def make_structure_constraint(fragments, window_nt=STRUCTURE_WINDOW_NT,
+                              dg_limit=STRUCTURE_DG_LIMIT):
+    """Constrain the fold of each ordered fragment's leading window.
+
+    GC is a proxy for secondary structure -- IDT says so in as many words -- and the panel
+    found 14 of 1050 shipped fragments folding past the only published threshold while every
+    GC rule was satisfied. This constrains the quantity itself.
+
+    Scope is the leading `window_nt` bases, which is the span the published threshold names.
+    Structure further into a fragment is **not** addressed: scanning every window would mean
+    folding two hundred times per fragment per evaluation, and no threshold exists to score
+    it against.
+    """
+    import dnachisel as dc
+    import RNA
+
+    RNA.params_load_DNA_Mathews2004()
+
+    class EnforceLeadingWindowFold(dc.Specification):
+        """The first `window_nt` bases of every ordered fragment must fold no tighter
+        than `dg_limit`."""
+
+        def __init__(self, boost=1.0):
+            self.boost = boost
+
+        def evaluate(self, problem):
+            seq = str(problem.sequence)
+            breaches, worst = [], None
+            for f in fragments:
+                a, b = f["cds_start"], f["cds_end"]
+                window = (f["left"] + seq[a:b] + f["right"])[:window_nt]
+                dg = fold_dg(window)
+                if dg >= dg_limit:
+                    continue
+                if worst is None or dg < worst:
+                    worst = dg
+                # The mutable slice of this window: the flank cannot be changed, so the
+                # solver is pointed only at the coding bases inside it.
+                start, end = a, min(b, a + max(0, window_nt - len(f["left"])))
+                if end > start:
+                    breaches.append((start, end))
+            locations = [dc.Location(s, e) for s, e in sorted(set(breaches))]
+            return dc.SpecEvaluation(
+                self, problem, score=-len(locations), locations=locations,
+                message=(f"{len(locations)} leading window(s) folding below {dg_limit}"
+                         + (f", worst {worst:.2f} kcal/mol" if worst is not None else "")))
+
+        def localized(self, location, problem=None, with_righthand=True):
+            # Global, for the same reason the GC constraint is: a codon change moves a
+            # window whose flank lies outside any local view.
+            return self
+
+        def label_parameters(self):
+            return [("window", str(window_nt)), ("dG", str(dg_limit))]
+
+    return EnforceLeadingWindowFold()
+
+
 def attempt(target: str, seed: int, table, policy, budget_left: float,
             with_constraint: bool = True) -> dict:
     """One target at one seed: baseline, then the wrapper-aware candidate."""
