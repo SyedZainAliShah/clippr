@@ -6,9 +6,10 @@ The GC band refusing all 200 de novo designs matches exactly one published docum
 the least applicable one we could have chosen. This records what each vendor actually publishes,
 how our designs score against each, and what to model on.
 
-**Verification levels.** **[F]** fetched and read directly. **[S]** quoted by a search engine
-from the vendor's page; IDT's site returns a redirect loop to automated fetches, so its numbers
-could not be page-verified here and should be confirmed in IDT's own order-entry checker.
+**Verification levels.** **[F]** fetched and read directly. **[S]** quoted by a search engine only.
+IDT's site defeats simple fetches with a redirect loop; its pages here were read in a real
+browser instead, so every IDT figure below is **[F]**. Confirm current numbers in IDT's own
+order-entry complexity checker, which it names as the authoritative accept/reject tool.
 
 ---
 
@@ -32,12 +33,37 @@ products.
 | **Twist Express** complexity flag | — | 10–90% absolute | run > 30 bp | complexity flag, not rejection **[F]** |
 | **Twist "the only hard rules"** | — | — | **≥ 14 bp forbidden** | hard **[F]** |
 | **Twist "Impossible" score factors** | 25–65% | — | < 10 | ML-scored **[F]** |
-| **IDT gBlocks** sequence motifs FAQ | 25–75% | none published | 10+ A/T, 6+ G/C | guidance **[S]** |
+| **IDT gBlocks** sequence motifs FAQ | 25–75% | **none published** | 10+ A/T, 6+ G/C | guidance **[F]** |
+| **IDT Codon Optimization Tool** | **none published** | **none published** | **none published** | algorithm + checker **[F]** |
 | **IDT oPools** (our product) | **none published** | **none published** | **none published** | — **[F]** |
 
-Two things to notice. Twist's **only** stated hard rules are a 14 bp homopolymer and no CcdB.
-And Twist's *acceptance* threshold for a 50 bp window — 10–90% — is roughly five times wider
-than the band we enforce as a rejection gate.
+Three things to notice.
+
+**Twist's only stated hard rules** are a 14 bp homopolymer and no CcdB, and its *acceptance*
+threshold for a 50 bp window — 10–90% — is roughly five times wider than the band we enforce
+as a rejection gate.
+
+**IDT publishes no GC window rule anywhere.** Not for oPools, not for gBlocks, not for its
+Codon Optimization Tool, not in its DECODED explainer. Its only numeric GC guidance is a
+global 25–75% for gBlocks, a different product. There is no IDT equivalent of our 35–65% over
+50 nt — the rule is ours alone. Verbatim, from the gBlocks sequence-motifs FAQ:
+
+> "Sequences that cause problems for gBlocks Gene Fragment synthesis are those having
+> extremely low or high GC content (less than 25% and greater than 75%), homopolymeric runs
+> of 10 or more As and Ts or 6 or more Gs and Cs. Other structural motifs such as repeats or
+> hairpins may also influence our ability to construct gBlocks Gene Fragments. The decision
+> to accept or reject an order for a particular gBlocks Gene Fragment sequence is complex and
+> multifactorial."
+
+**IDT's own explanation says GC is a proxy, not the thing itself.** Its DECODED article on
+complexity screening states that *"Regions with extreme GC content may have higher propensity
+to form stable secondary structures,"* and describes screening as secondary-structure
+prediction, GC analysis and melting-temperature calculation together. The quantity that
+actually obstructs synthesis is **structure**; GC is a cheap stand-in for it.
+
+We check the stand-in and not the thing. CLIPPR has no hairpin, self-dimer or cross-dimer
+check of any kind, which `ordering.CURRENT_OPOOL_50PMOL.unresolved_rules` already admits:
+*"secondary-structure and synthesis-difficulty judgements are the vendor's."*
 
 Twist also states that rejection is scored by a machine-learning model and that *"most of the
 time, there is no single reason for the rejection of a sequence."* No threshold set predicts
@@ -75,8 +101,14 @@ target rather than an acceptance criterion.
    pool synthesis uniformity depends on fragments resembling each other, which is what a
    spread limit controls and an absolute band does not.
 3. **Demote the 35–65% absolute window from hard to a declared target.** It is not a vendor
-   requirement. Keeping it visible is reasonable engineering conservatism; enforcing it as a
-   rejection gate is not supportable by any document found.
+   requirement — no IDT document contains it, and the one Twist document that does frames it
+   as optimisation guidance. Keeping it visible is reasonable engineering conservatism;
+   enforcing it as a rejection gate is not supportable by any document found.
+4. **Add a secondary-structure check, which is the real gap.** Both vendors screen structure;
+   neither publishes a GC window rule we match. Tuning the proxy while ignoring the quantity
+   it proxies for is the wrong priority. IDT's OligoAnalyzer computes hairpin and dimer ΔG and
+   accepts our full 257 nt fragments, and IDT exposes an API, so this can be scripted rather
+   than left as a manual step.
 4. **Never describe any of this as vendor acceptance.** Both vendors score acceptance with
    proprietary models and say so.
 
@@ -108,7 +140,9 @@ doing both is not required.
 | Twist design guidelines FAQ | https://www.twistbioscience.com/faq/gene-synthesis/are-there-any-sequence-limitationsdesign-guidelines-genes-which-i-should-follow **[F]** |
 | Twist gene synthesis FAQ | https://www.twistbioscience.com/faq/gene-synthesis **[F]** |
 | Twist codon optimisation tool FAQ | https://www.twistbioscience.com/faq/using-your-twist-account/what-does-twist-codon-optimization-tool-do **[F]** |
-| IDT gBlocks sequence motifs FAQ | https://www.idtdna.com/pages/support/faqs/what-types-of-sequence-motifs-should-be-avoided-when-ordering-gblocks-gene-fragments- **[S]** |
+| IDT gBlocks sequence motifs FAQ | https://eu.idtdna.com/pages/support/faqs/what-types-of-sequence-motifs-should-be-avoided-when-ordering-gblocks-gene-fragments- **[F]** |
+| IDT Codon Optimization Tool | https://eu.idtdna.com/pages/tools/codon-optimization-tool **[F]** — no numeric thresholds published; the tool is behind sign-in |
+| IDT DECODED, codon optimisation basics | https://eu.idtdna.com/page/support-and-education/decoded-plus/codon-optimization-the-basics-explained/ **[F]** |
 | IDT oPools product page | https://www.idtdna.com/pages/products/custom-dna-rna/dna-oligos/custom-dna-oligos/opools-oligo-pools **[F]**, read 2026-09-15 for the ordering profile |
 
 All pages read 11 October 2026 unless stated. Vendor pages change; re-read before publication,
