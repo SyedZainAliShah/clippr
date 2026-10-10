@@ -89,6 +89,66 @@ document that rejects them is the one our band was modelled on, and that documen
 codon-optimiser guidance — a different vendor, a different product, and explicitly a design
 target rather than an acceptance criterion.
 
+## 3a. Verified against IDT's live pages, 11 October 2026
+
+Read while signed in, so these are the pages as a customer sees them.
+
+**Our oPools profile is exactly right.** IDT's specification table:
+
+| Scale (pmol/oligo) | Oligos per pool | Oligo length |
+|---|---|---|
+| 1 | 100–20,000 | 40–350 |
+| 10 | 10–2,000 | 40–350 |
+| **50** | **2–384** | **40–350** |
+
+`ordering.CURRENT_OPOOL_50PMOL` carries 40–350 nt and 2–384 oligos at 50 pmol. Transcribed
+2026-09-15, still accurate today, and the scale-dependent count ranges its `unresolved_rules`
+warned about are now confirmed rather than assumed.
+
+**Our fragments need oPools specifically.** At 257–264 nt they exceed Ultramer's 200-base
+ceiling, so the product choice is forced, not preferred.
+
+**The list prices are confirmed and now dated.** €109.00 for the first 3,300 bases, then
+€0.038, €0.025 and €0.013 per base in tiers, and €1.63 per oligo for 5′ phosphorylation —
+matching the reference implementation's transcription exactly.
+`docs/reference_implementation_findings.md` §3.8 observes that CLIPPR refuses to price while
+the reference's figures *"are undated too — but they are there, and ours are not."* That
+objection is now answerable: these figures carry a date.
+
+**oPools has no published GC, complexity or structure rule**, and no QC: the page lists
+*"QC and quantification: None"*, an average dropout of 0.8% across 900,000 oligos, and notes
+dropout *"can vary by length and sequence complexity."* Complexity affects yield, not
+acceptance.
+
+## 3b. Secondary structure, measured for the first time
+
+Folded all 1,050 ordered fragments in both arms with ViennaRNA 2.7.2 under the Mathews 2004
+DNA parameters — `validation/experiments/secondary_structure_scan.py`.
+
+| | baseline | wrapper-aware |
+|---|---|---|
+| first 48 nt ΔG, median | −5.0 | −5.1 |
+| first 48 nt ΔG, worst | −10.7 | −10.7 |
+| whole fragment ΔG, median | −44.7 | −44.9 |
+| **breaching Twist's −8 in the first 48 nt** | **14 of 1050** | **16 of 1050** |
+
+**The GC fix is structure-neutral.** Medians moved 0.1–0.2 kcal/mol, which is noise. The
+wrapper-aware work did not trade secondary structure for GC — a risk nobody had checked.
+
+**But roughly 1.4% of fragments carry a hairpin stronger than −8 kcal/mol in the first 48 nt,
+in the shipped corpus, today.** That is the only published structure threshold found anywhere,
+and we have been shipping fragments past it without looking.
+
+Four reasons this is a flag and not a failure: ViennaRNA is not IDT's implementation; Twist's
+−8 rule belongs to its codon optimiser for gene synthesis, not to oPools; a folding prediction
+is not a measurement; and IDT publishes no structure rule for oPools at all, treating
+complexity as a yield question. It is nonetheless a quantified gap where there was previously
+no number.
+
+Note that neither IDT's OligoAnalyzer nor primer3 can evaluate these fragments — both cap
+thermodynamic calculations at 60 bases, against our 257–264 nt. A folding engine is the only
+instrument that applies.
+
 ## 4. Recommendation
 
 **Model on IDT, because IDT is who we order from.** Concretely:
