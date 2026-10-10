@@ -69,16 +69,26 @@ rather than raising the limit to make it pass.
 We tried one thing: show the optimiser the **whole ordered piece** instead of just the gene,
 then let it pick different codon spellings for the same protein.
 
-It worked — nine tries (three targets, three random starts each), nine passes, confirmed by a
-second, independently written checker. Cost in codon quality: at worst 0.005 on a 0–1 scale,
-and two of the nine got slightly *better*.
+It worked. We then ran it on **all 200 designs**:
 
-The control that matters: the same nine runs with that one change removed gave **zero**
-passes. So the fix is what fixed it, not luck.
+| | with the fix | without it |
+|---|---:|---:|
+| orderable | **192 of 200** | **0 of 200** |
+| failing fragments | 8 | 277 |
 
-**It is not switched on.** Nine successes on three targets says the idea works, not that it
-works on any target. Turning it on needs the full 200-target comparison, reporting every
-target and not only the ones that worked.
+Cost in codon quality: typically 0.003 on a 0–1 scale, worst 0.032, and ten designs got
+slightly *better*. A second, independently written checker agreed on all 200.
+
+The control matters as much as the result: with the one change removed, the software returned
+**exactly** the old sequences — all 200, letter for letter. So the fix is what fixed it.
+
+**The 8 that still fail** do so for a new reason. Pushing GC *down* to get under the ceiling
+pushes one middle fragment *below the floor* — 0.340 against a 0.350 minimum. On those eight
+there is no spelling that satisfies both ends at once. The software says so plainly and writes
+no order.
+
+**It is not switched on.** 192 of 200 is a strong result, not a decision. Turning it on moves
+every number we have published and still leaves eight targets refused.
 
 ## What we do not claim
 

@@ -192,12 +192,31 @@ Worst CAI cost **0.005**; two attempts improved. Protein never changed, fragment
 and construction DNA byte-identical, 0 invariant violations across 9 attempts. 339 s of a
 declared 5400 s budget.
 
-**This changes nothing about the shipped default.** The constraint is passed through
-`optimize_cds(extra_constraints=...)`, which is empty for every shipped route, and a test
-asserts no `src/` module other than its definition references it. Promoting it needs the
-predeclared broader panel over all 200 targets, reported in full rather than only the
-recoveries, with runtime measured. Three targets is a feasibility answer, not a performance
-estimate.
+**The broader panel has now been run too.** All 200 pinned designs, both arms —
+`PANEL_WRAPPER_AWARE_2026-10-11.md`:
+
+| | treatment | control |
+|---|---:|---:|
+| accepted | **192 / 200** | **0 / 200** |
+| hard findings | 277 → **8** | 277 → 277 |
+| reproduced the corpus bit-for-bit | 0 | **200 / 200** |
+| independent re-read | 192 acc, 8 rej, 0 disagreements | 0 acc, 200 rej, 0 disagreements |
+
+9S 100/100, 19S 48/50, 14S 44/50 — the 19-mers were expected to be hardest and were not; that
+is unexplained. CAI cost over the accepted set: median −0.003, worst −0.032, 10 improved.
+
+The eight failures are a **new** mode: every one breaches the 0.35 **floor** at 0.340, where
+every baseline breach was the 0.65 ceiling. Pushing GC down to clear the ceiling overshoots
+below the floor on one interior fragment. All eight carry `constraints_ok=False`, gave up in
+≤0.08 s, and wrote nothing orderable.
+
+**This still changes nothing about the shipped default.** `optimize_cds(extra_constraints=...)`
+is empty for every shipped route and a test asserts no `src/` module other than its definition
+references it. Switching it on would move every published number and still refuse eight named
+targets; that decision is not taken here and is not a dry-lab result.
+
+One seed throughout (42, matching the corpus baselines, so the comparison is like-for-like).
+Whether another seed rescues any of the eight is untested.
 
 ---
 
@@ -239,10 +258,11 @@ a diagnostic without someone having to explain the badge away.
 - **Whether any vendor would refuse these sequences.** A failed engineering-policy check is
   not a vendor refusal. No order was submitted and no quote obtained. The vendor profile is a
   local transcription dated 2026-09-15 modelling only the 50 pmol scale.
-- **Whether a wrapper-aware optimiser generalises.** A positive final-export control now
-  exists under the strict policy — 9 of 9 on three targets, independently rechecked — but only
-  for those three targets at three seeds. The **shipped** route still produces nothing
-  orderable, and runtime over arbitrary targets is unmeasured. No general claim is made.
+- **Whether the wrapper-aware route should be the default.** A positive final-export control
+  now exists over the whole declared panel — 192 of 200, independently rechecked — but the
+  **shipped** route still produces nothing orderable, eight targets resist the approach
+  entirely, and only one seed was tried. Switching the default is an open decision, stated with
+  its three options in `PANEL_WRAPPER_AWARE_2026-10-11.md`.
 - **Browser or Colab execution.** Only installed local notebook execution was verified.
 - **Level-1 assembly context.** Participants are not established from a flat role list, so no
   level-1 score is reported.
