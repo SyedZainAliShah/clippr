@@ -45,9 +45,9 @@ CODON_TABLE = ROOT / "data" / "codon_tables" / "kazusa_3055.json"
 
 def measure(deposited, raw_table, table, profile, seeds: int, label: str) -> dict:
     """Recode the whole kit under one policy, and report what it actually delivers."""
-    from clippr import substrates as sub
-    from clippr.objectives import codon_adaptation
-    from clippr.recoding import recode_inventory
+    from ppropt import substrates as sub
+    from ppropt.objectives import codon_adaptation
+    from ppropt.recoding import recode_inventory
 
     started = time.perf_counter()
     report = recode_inventory(deposited, raw_table, label=label, seeds=seeds, profile=profile)
@@ -118,9 +118,9 @@ def main() -> int:
         print(f"missing {TABLE_S1}; this benchmark needs the deposited kit")
         return 2
 
-    from clippr import inventories as inv
-    from clippr import synthesis_profile as sp
-    from clippr.codons import complete_table
+    from ppropt import inventories as inv
+    from ppropt import synthesis_profile as sp
+    from ppropt.codons import complete_table
 
     raw = json.loads(CODON_TABLE.read_text(encoding="utf-8"))
     table = complete_table(raw, 1)

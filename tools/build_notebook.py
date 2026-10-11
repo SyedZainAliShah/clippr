@@ -1,4 +1,4 @@
-"""Generate the CLIPPR Colab notebook.
+"""Generate the PPROPT Colab notebook.
 
 Written as a generator rather than hand-edited JSON so cell order, titles and the form
 metadata stay consistent, and so the whole notebook can be regenerated after an API change
@@ -8,10 +8,10 @@ from pathlib import Path
 
 from notebook_kit import REPO, code, colab_url, md, setup_cell, write_notebook
 
-OUT = Path("notebooks/CLIPPR_designer.ipynb")
-NAME = "CLIPPR_designer.ipynb"
+OUT = Path("notebooks/PPROPT_designer.ipynb")
+NAME = "PPROPT_designer.ipynb"
 COLAB = colab_url(NAME)
-INVENTORY_COLAB = colab_url("CLIPPR_inventory.ipynb")
+INVENTORY_COLAB = colab_url("PPROPT_inventory.ipynb")
 DIAGRAM = Path("notebooks/pipeline.svg")
 #: The measured count, committed so the notebook is reproducible from the repository alone.
 #: `release_check.py` check 12 fails when this does not equal what the suite reports, so it
@@ -98,7 +98,7 @@ def pipeline_svg():
         f'<svg viewBox="0 0 {end_x + right_margin} 150" '
         f'width="{end_x + right_margin}" height="150" '
         f'xmlns="http://www.w3.org/2000/svg" '
-        f'role="img" aria-label="CLIPPR pipeline: a target RNA passes through ppr, a joint '
+        f'role="img" aria-label="PPROPT pipeline: a target RNA passes through ppr, a joint '
         f'choice of cuts and overhangs, codon optimisation, assembly and QC to become '
         f'orderable DNA fragments, with a fallback from codons to a different split">'
         f'<text x="0" y="{y + 21}" {label}>target</text>'
@@ -125,7 +125,7 @@ def pipeline_svg():
 cells.append(md(f"""
 <div align="center">
 
-# CLIPPR
+# PPROPT
 
 **Design a PPR protein that binds any RNA sequence you choose**
 
@@ -139,7 +139,7 @@ cells.append(md(f"""
 
 <div align="center">
 
-<img src="{DIAGRAM_URL}" alt="CLIPPR pipeline: a target RNA passes through ppr, a joint choice of cuts and overhangs, codon optimisation, assembly and qc to become orderable DNA fragments, with a fallback from codons to a different split" width="100%" style="max-width:980px">
+<img src="{DIAGRAM_URL}" alt="PPROPT pipeline: a target RNA passes through ppr, a joint choice of cuts and overhangs, codon optimisation, assembly and qc to become orderable DNA fragments, with a fallback from codons to a different split" width="100%" style="max-width:980px">
 
 </div>
 
@@ -163,7 +163,7 @@ Code is hidden behind the forms; use a cell's ⋮ menu → **Form → Show code*
 
 > **Designing from the deposited 42-module kit instead?** That is a different workflow with a
 > different set of answers, so it has its own notebook:
-> [CLIPPR_inventory.ipynb]({INVENTORY_COLAB}).
+> [PPROPT_inventory.ipynb]({INVENTORY_COLAB}).
 
 > ##### Before you read any number
 > **Predicted fidelity** comes from published ligation-count matrices (Pryor *et al.* 2020) —
@@ -176,7 +176,7 @@ Code is hidden behind the forms; use a cell's ⋮ menu → **Form → Show code*
 cells.append(md("""
 ## 0 · Setup
 
-Run once — installs CLIPPR from GitHub, about a minute.
+Run once — installs PPROPT from GitHub, about a minute.
 """))
 
 cells.append(setup_cell())
@@ -194,7 +194,7 @@ from IPython.display import HTML, display
 # synthesis_readiness arrived with the readiness verdict, in the same change as the
 # synthesis_ready key step 2 reads, so its absence is exactly the staleness that matters.
 try:
-    from clippr.design import synthesis_readiness
+    from ppropt.design import synthesis_readiness
     _stale = None
 except ImportError as exc:
     _stale = str(exc)
@@ -202,7 +202,7 @@ except ImportError as exc:
 if _stale:
     display(HTML(
         '<div style="border-left:3px solid #a8402c;padding:.6em 1em;font-size:13px;'
-        'line-height:1.55">This kernel has an older CLIPPR loaded.<br><code>'
+        'line-height:1.55">This kernel has an older PPROPT loaded.<br><code>'
         + _stale + '</code><br><br>Run <b>Runtime &gt; Restart session</b>, then run the '
         'setup cell again. Reinstalling alone will not help: the old copy stays in memory '
         'until the kernel restarts.</div>'))
@@ -315,7 +315,7 @@ cells.append(code('''
 #@markdown Picks cut positions and Golden Gate overhangs **first**, then codon-optimises with
 #@markdown those positions locked — optimising first would let the optimiser rewrite the very
 #@markdown bases the junctions depend on.
-from clippr import DESTINATION_OVERHANGS, design_oneshot, table_from_kazusa
+from ppropt import DESTINATION_OVERHANGS, design_oneshot, table_from_kazusa
 from IPython.display import HTML, display
 
 result = design_oneshot(
@@ -333,7 +333,7 @@ result = design_oneshot(
     n_fragments=n_fragments or None,
     seed=seed,
     check_offtarget=check_offtarget,
-    outdir="clippr_output" if write_files else None,
+    outdir="ppropt_output" if write_files else None,
 )
 
 qc = result["qc"]
@@ -426,7 +426,7 @@ join each fragment to its neighbours.
 # The diagram before the table: the shape of the assembly is the thing a reader checks
 # first, and the overhangs are easier to match up drawn than read off a column.
 cells.append(code('''
-from clippr.viz import assembly_svg
+from ppropt.viz import assembly_svg
 
 display(HTML(assembly_svg(
     result["oligos"],
@@ -574,17 +574,17 @@ screen_against_host = True  #@param {type:"boolean"}
 #@markdown target you did not choose.
 apply_to_target = False  #@param {type:"boolean"}
 
-import clippr  # unguarded: a broken install should show its real traceback, not be excused
+import ppropt  # unguarded: a broken install should show its real traceback, not be excused
 
-if not hasattr(clippr, "select_window"):
+if not hasattr(ppropt, "select_window"):
     # Only the one case this guard is for: a build predating targeting.py. Anything else --
     # a missing Biopython, a half-installed package -- must raise and say what it is.
-    print("This build of CLIPPR has no window selection.")
+    print("This build of PPROPT has no window selection.")
     print("Use Runtime -> Restart session, re-run Setup, then run this cell again.")
     print("Nothing else is affected: target_rna from Step 1 is untouched.")
 else:
-    from clippr import SearchSequence, loci_for_gene, select_window, window_report
-    from clippr.offtarget import load_transcripts
+    from ppropt import SearchSequence, loci_for_gene, select_window, window_report
+    from ppropt.offtarget import load_transcripts
 
     transcripts = load_transcripts()
     lengths = tuple(int(n) for n in window_lengths.replace(",", " ").split())
@@ -709,14 +709,14 @@ sequence. Both tiers are printed separately.
 a gene name does not identify a single location, and the CDS entries are coding spans rather
 than UTR-inclusive transcripts. Your construct and the other members of your library are
 **not** searched; for those, see the cross-talk cells below. Background rates and how they
-were measured are in `CLIPPR_FOR_THE_WET_LAB.md`.
+were measured are in `PPROPT_FOR_THE_WET_LAB.md`.
 
 > The target this notebook ships with, `AAAAUGUGG`, **does** occur in the host, deliberately,
 > so a first run shows you what a match looks like rather than a blank result.
 """))
 
 cells.append(code('''
-from clippr.offtarget import architecture_advice, load_genome, load_transcripts, report, scan
+from ppropt.offtarget import architecture_advice, load_genome, load_transcripts, report, scan
 
 genome = load_genome()
 transcripts = load_transcripts()
@@ -766,7 +766,7 @@ plainly when asked for more.
 """))
 
 cells.append(code('''
-from clippr import parts_report, select_parts
+from ppropt import parts_report, select_parts
 
 plan = select_parts(target_rna)
 print(parts_report(plan))
@@ -792,13 +792,13 @@ cells.append(code('''
 #@markdown it cannot reuse the single target from the top of the notebook.
 targets = "AAAAUGUGG, GCUAAAGAC, UUACACGUG"  #@param {type:"string"}
 
-from clippr import design_library
+from ppropt import design_library
 
 target_list = [t.strip().upper() for t in targets.split(",") if t.strip()]
 lib = design_library(target_list, codon_table=None, organism=organism,
                      enzyme_profile=enzyme_profile, seed=seed,
                      check_offtarget=check_offtarget,
-                     outdir="clippr_library" if write_files else None,
+                     outdir="ppropt_library" if write_files else None,
                      on_progress=lambda i, n, t: print(f"  {i}/{n}  {t}", flush=True))
 
 print()
@@ -840,7 +840,7 @@ Sequence separation and *predicted binding* are different questions, so they sta
 | **A — Hamming distance** | two targets differ in *k* of *n* positions | **the only thing that gates** |
 | **B — predicted affinity** | the PPR designed for A, scored against B | an annotation; gates nothing |
 
-Tier B needs a PPR specificity table. **CLIPPR does not ship one** — the available table
+Tier B needs a PPR specificity table. **PPROPT does not ship one** — the available table
 carries no licence, and it comes from **P-type** experiments while this scaffold is
 **S-type**. A high score means *look*, never *fail*.
 
@@ -850,7 +850,7 @@ Leave the path blank and you get tier A alone, which is what gates anyway.
 cells.append(code('''
 ppr_score_table = ""  #@param {type:"string"}
 
-from clippr import compare_tiers, load_ppr_scores
+from ppropt import compare_tiers, load_ppr_scores
 
 scores = load_ppr_scores(ppr_score_table) if ppr_score_table.strip() else None
 print(lib.crosstalk(scores=scores))
@@ -910,7 +910,7 @@ cells.append(md(f"""
 
 | Step | What happens |
 |---|---|
-| **0 · Setup** | installs CLIPPR from GitHub |
+| **0 · Setup** | installs PPROPT from GitHub |
 | **1 · Target and host** | your target RNA, codon table, enzyme and destination |
 | **2 · Design it** | target to protein, then cuts and overhangs chosen **before** the coding sequence is optimised, so the optimiser cannot rewrite the bases the junctions depend on |
 | **3 · Fragments** | the oligo table you order |
@@ -920,7 +920,7 @@ cells.append(md(f"""
 
 **Predicted fidelity** is from published ligation-count matrices (Pryor *et al.* 2020), not a measured efficiency in your hands. **QC** is a sequence-complexity check, not calibrated against vendor outcomes. No sequence from this project has been synthesised.
 
-Building from the deposited 42-module kit instead? [CLIPPR_inventory.ipynb]({INVENTORY_COLAB})
+Building from the deposited 42-module kit instead? [PPROPT_inventory.ipynb]({INVENTORY_COLAB})
 """))
 
 DIAGRAM.write_text(pipeline_svg(), encoding="utf-8")

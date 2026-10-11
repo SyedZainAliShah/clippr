@@ -11,9 +11,9 @@ to make. Theirs is `oligo_sequence_5to3` from `optimized_library.csv`; ours is
 `substrates.build(...).sequence`. All 42 modules join by name.
 
 **Neither system is graded only on its home rules.** The checker below is written here, imports
-nothing from `clippr` or from the reference, and is run twice over both systems' output:
+nothing from `ppropt` or from the reference, and is run twice over both systems' output:
 
-    CLIPPR regime      GC 0.35-0.65 over 50 nt, homopolymer <= 4, no BsaI/BbsI/SapI site
+    PPROPT regime      GC 0.35-0.65 over 50 nt, homopolymer <= 4, no BsaI/BbsI/SapI site
                        outside the two that release the fragment
     reference regime   global GC 0.25-0.65, windowed GC 0.15-0.85 over 50 nt,
                        homopolymer <= 3, no SapI/BsaI/BpiI site outside the intended pair
@@ -70,7 +70,7 @@ THEIR_SUFFIX = "_v1"
 SITES = {"BsaI": "GGTCTC", "BbsI": "GAAGAC", "BpiI": "GAAGAC", "SapI": "GCTCTTC"}
 
 REGIMES = {
-    "clippr": {
+    "ppropt": {
         "window": 50, "window_gc": (0.35, 0.65), "global_gc": None,
         "max_homopolymer": 4, "enzymes": ("BsaI", "BbsI", "SapI"),
     },
@@ -207,7 +207,7 @@ def repetition_profile(sequences: dict[str, str], k: int = 12) -> dict:
     """Internal repetition and cross-module sharing over one collection of sequences.
 
     Written here rather than imported from either side. The reference carries a similarity
-    penalty in its objective and CLIPPR carries `collection_sharing` in `synthesis_fitness`, so
+    penalty in its objective and PPROPT carries `collection_sharing` in `synthesis_fitness`, so
     scoring with either system's own code would grade one of them with the very term it was
     optimising — and the result would look like a finding about sequence quality rather than
     about whose scorer was used.
@@ -276,8 +276,8 @@ def main() -> int:
             print(f"missing {required}; run the reference comparison and Phase B first")
             return 2
 
-    from clippr import inventories as inv
-    from clippr import substrates as sub
+    from ppropt import inventories as inv
+    from ppropt import substrates as sub
 
     table = json.loads(CODON_TABLE.read_text(encoding="utf-8"))
     ours_inv = inv.load(OUR_INVENTORY)
@@ -329,9 +329,9 @@ def main() -> int:
 
     print("\nclean ordered sequences, out of "
           f"{len(shared)} — each system under BOTH rule sets:")
-    print(f"{'':12s}{'CLIPPR rules':>16s}{'reference rules':>18s}")
+    print(f"{'':12s}{'PPROPT rules':>16s}{'reference rules':>18s}")
     for system in ("ours", "reference"):
-        print(f"  {system:10s}{counts[f'{system}/clippr']:>16d}"
+        print(f"  {system:10s}{counts[f'{system}/ppropt']:>16d}"
               f"{counts[f'{system}/reference']:>18d}")
 
     def offenders(system, regime):
@@ -349,7 +349,7 @@ def main() -> int:
     # benchmark a test of whether we adopted their policy; an unexplained breach is a real
     # defect and is what this gate is for.
     unexplained: dict[str, dict[str, str]] = {}
-    for system, other in (("ours", "reference"), ("reference", "clippr")):
+    for system, other in (("ours", "reference"), ("reference", "ppropt")):
         for row in rows:
             for problem in row[f"{system}_{other}"]:
                 if not problem.startswith(DECLARED_DIFFERENCES):
@@ -449,7 +449,7 @@ def main() -> int:
               f"one CDS for {varying}/{len(per_module)} modules across {len(run_files)} runs "
               f"at its declared seed")
 
-    passed = counts["ours/clippr"] == len(shared) and not unexplained
+    passed = counts["ours/ppropt"] == len(shared) and not unexplained
     print(f"{chr(10)}BENCHMARK: {'PASS' if passed else 'FAIL'} "
           "(ours clean under its own declared rules, and every cross-regime failure on "
           "either side traced to a declared threshold difference)")

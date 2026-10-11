@@ -11,7 +11,7 @@ dist/
 
 # Regenerable caches. The .npz are parsed from the .xlsx in data/matrices, which ARE
 # tracked -- the package cannot score ligation fidelity without them.
-src/clippr/data/matrices/*.npz
+src/ppropt/data/matrices/*.npz
 data/codon_tables/
 
 # Publisher supplementary material (6.1 MB). Ours to read and analyse, not ours to
@@ -24,12 +24,12 @@ data/grasp_supp/
 # corpus is absent.
 results/
 
-# Notebook and scratch output. `clippr_library/` is what the notebook's library cell writes
+# Notebook and scratch output. `ppropt_library/` is what the notebook's library cell writes
 # when run from the repository root, which is exactly what happens when the notebook is
 # executed as a test.
-notebooks/clippr_output/
-clippr_output/
-clippr_library/
+notebooks/ppropt_output/
+ppropt_output/
+ppropt_library/
 out/
 our_cds.json
 *.ipynb_checkpoints/

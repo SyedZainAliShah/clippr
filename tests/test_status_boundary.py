@@ -16,9 +16,9 @@ import json
 
 import pytest
 
-from clippr import design as design_mod
-from clippr.design import design_oneshot, synthesis_readiness
-from clippr.library import LibraryResult, design_library, write_library
+from ppropt import design as design_mod
+from ppropt.design import design_oneshot, synthesis_readiness
+from ppropt.library import LibraryResult, design_library, write_library
 
 from test_design import TOY_TABLE
 

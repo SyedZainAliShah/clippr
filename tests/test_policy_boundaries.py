@@ -29,14 +29,14 @@ from unittest.mock import patch
 
 import pytest
 
-from clippr import assembly_spec, codons
-from clippr import inventories as inv
-from clippr import objectives
-from clippr import joint_search as js
-from clippr import library_search as ls
-from clippr import substrates as sub
-from clippr import synthesis_profile as sp
-from clippr import workflow as w
+from ppropt import assembly_spec, codons
+from ppropt import inventories as inv
+from ppropt import objectives
+from ppropt import joint_search as js
+from ppropt import library_search as ls
+from ppropt import substrates as sub
+from ppropt import synthesis_profile as sp
+from ppropt import workflow as w
 
 ROOT = Path(__file__).resolve().parents[1]
 CODON_TABLE = ROOT / "data" / "codon_tables" / "kazusa_3055.json"
@@ -383,7 +383,7 @@ class TestLevel1ReadinessIsReachableAndScoresCorrectly:
         this very chain. The failure mode is quiet, because a fidelity of 0.0039 looks like a
         badly chosen overhang set rather than a counting error.
         """
-        from clippr.overhangs import set_fidelity
+        from ppropt.overhangs import set_fidelity
 
         # Asserted on the scorer directly: `level1_readiness` no longer scores a flat role
         # list, so the old route to this number is gone, but the arithmetic it protected is

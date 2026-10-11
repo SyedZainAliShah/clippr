@@ -58,10 +58,10 @@ def main() -> int:
         print(f"missing {RECODED}; run Phase B first")
         return 2
 
-    from clippr import inventories as inv
-    from clippr import joint_search as js
-    from clippr import synthesis_fitness as sf
-    from clippr.codons import complete_table
+    from ppropt import inventories as inv
+    from ppropt import joint_search as js
+    from ppropt import synthesis_fitness as sf
+    from ppropt.codons import complete_table
 
     table = complete_table(json.loads(CODON_TABLE.read_text(encoding="utf-8")), 1)
     library = inv.load(RECODED)

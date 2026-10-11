@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from clippr import inventories as inv
-from clippr.junctions import (JunctionSite, permitted_overhangs, site_for, sites_in,
+from ppropt import inventories as inv
+from ppropt.junctions import (JunctionSite, permitted_overhangs, site_for, sites_in,
                               valid_assignment)
 
 TABLE_S1 = Path(__file__).resolve().parents[1] / "data" / "grasp_supp" / "Table S1.xlsx"

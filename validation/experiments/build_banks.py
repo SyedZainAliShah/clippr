@@ -10,7 +10,7 @@ separately: requested, generated, valid, distinct. If a target yields fewer than
 distinct valid candidates that is the result, not a prompt to keep searching -- searching
 until the bank is full would make the bank size a function of how hard we looked.
 
-Resumable and bounded through `clippr.experiment`, keyed on the frozen configuration's hash
+Resumable and bounded through `ppropt.experiment`, keyed on the frozen configuration's hash
 so rows from a different configuration can never be merged into this bank.
 
     python validation/experiments/build_banks.py [--panels 9S 14S 19S] [--wall-seconds N]
@@ -31,10 +31,10 @@ sys.path.insert(0, str(ROOT / "src"))
 from Bio.Data import CodonTable                                   # noqa: E402
 from Bio.Seq import Seq                                           # noqa: E402
 
-from clippr import experiment, manifest                           # noqa: E402
-from clippr.design import design_oneshot                          # noqa: E402
-from clippr.overhangs import SCORER_VERSION, cache_stats          # noqa: E402
-from clippr.ppr import describe                                   # noqa: E402
+from ppropt import experiment, manifest                           # noqa: E402
+from ppropt.design import design_oneshot                          # noqa: E402
+from ppropt.overhangs import SCORER_VERSION, cache_stats          # noqa: E402
+from ppropt.ppr import describe                                   # noqa: E402
 
 CONFIG = Path(__file__).resolve().parent / "m2_joint_selection.json"
 

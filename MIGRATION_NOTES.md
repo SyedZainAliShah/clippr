@@ -316,10 +316,10 @@ and is explicitly mutable.
 
 **Was:** the harness set no environment, so the installed wheel resolved `cache_dir()` to a
 per-user directory. The designer notebook consumed a codon table and a chloroplast genome
-from `%LOCALAPPDATA%\clippr` while its record declared no inputs at all.
+from `%LOCALAPPDATA%\ppropt` while its record declared no inputs at all.
 
 **Now:** `--env NAME=VALUE` is applied before the build is imported, and a relative value
-resolves inside the working directory and may not escape it. Pointing `CLIPPR_CACHE_DIR` at a
+resolves inside the working directory and may not escape it. Pointing `PPROPT_CACHE_DIR` at a
 staged cache makes every byte the run consumes a declared, hashed input. The record carries
 `environment_overrides`.
 

@@ -26,15 +26,15 @@ table_s1 = "Table S1.xlsx"  #@param {type:"string"}
 import json as _json
 from pathlib import Path
 
-from clippr import inventories as inv
-from clippr import workflow as w
+from ppropt import inventories as inv
+from ppropt import workflow as w
 
 # Resolves the codon table from the host form above. It cannot borrow the name `table`:
 # that name is used elsewhere for a dataframe
 # to a display DataFrame, so every call here was handed a DataFrame and raised. The name is
 # distinct so a later display cell cannot shadow it again.
-from clippr import constants as _C
-from clippr.design import _resolve_codon_table as _resolve
+from ppropt import constants as _C
+from ppropt.design import _resolve_codon_table as _resolve
 
 _host_code = genetic_code_override or _C.ORGANISMS[organism][1]
 host_codon_table = _resolve(codon_table_file or None, organism, _host_code)
@@ -53,11 +53,11 @@ else:
     notes = inv.synthesis_profile_notes(deposited)
     if notes:
         print()
-        print("Modules outside CLIPPR's synthesis profile, before you order anything:")
+        print("Modules outside PPROPT's synthesis profile, before you order anything:")
         for module_id, why in notes.items():
             print(f"   {module_id}: {'; '.join(why)}")
         print()
-        print("That limit is CLIPPR's engineering choice, not a published rule, so this")
+        print("That limit is PPROPT's engineering choice, not a published rule, so this")
         print("is a statement about fit -- not a defect in the deposited kit.")
 ''', title="Step 1 — load the deposited kit"))
 
@@ -248,7 +248,7 @@ always the authority, and no order is placed here.
 #@markdown JSON to check against a different product.
 profile_file = ""  #@param {type:"string"}
 
-from clippr.ordering import CURRENT_OPOOL_50PMOL, load_profile
+from ppropt.ordering import CURRENT_OPOOL_50PMOL, load_profile
 
 profile = load_profile(profile_file) if profile_file.strip() else CURRENT_OPOOL_50PMOL
 
@@ -278,13 +278,13 @@ else:
     # identifiers gets transcribed by hand into a picking order -- which is the step that
     # goes wrong.
     out.append(code('''
-from clippr.viz import kit_plate_svg
+from ppropt.viz import kit_plate_svg
 
 if order_items is None:
     print("Run the cells above first.")
 else:
     import importlib.resources as _res
-    _modules = _json.loads(_res.files("clippr").joinpath("parts.json")
+    _modules = _json.loads(_res.files("ppropt").joinpath("parts.json")
                            .read_text(encoding="utf-8"))["modules"]
     _wanted = [i["module"] for i in items]
     display(HTML(kit_plate_svg(
@@ -321,8 +321,8 @@ else:
         import shutil
 
         from google.colab import files
-        shutil.make_archive("clippr_package", "zip", "out")
-        files.download("clippr_package.zip")
+        shutil.make_archive("ppropt_package", "zip", "out")
+        files.download("ppropt_package.zip")
     except ImportError:
         print()
         print("Not running in Colab -- the package is in out/.")

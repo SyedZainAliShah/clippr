@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from clippr.crosstalk import (
+from ppropt.crosstalk import (
     PairRisk,
     assess,
     compare_tiers,

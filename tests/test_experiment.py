@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from clippr.experiment import IDENTITY_KEY, IncompatibleResume, run
+from ppropt.experiment import IDENTITY_KEY, IncompatibleResume, run
 
 IDENTITY = {"revision": "abc123", "config": "nine-mer"}
 
@@ -210,7 +210,7 @@ class TestBudgetSurvivesInterruption:
                 raise KeyboardInterrupt
             return {"v": n}
 
-        with patch("clippr.experiment.time.perf_counter", side_effect=lambda: clock[0]):
+        with patch("ppropt.experiment.time.perf_counter", side_effect=lambda: clock[0]):
             with pytest.raises(KeyboardInterrupt):
                 run([1, 2], worker, path=path, identity=IDENTITY, wall_seconds=5)
             spent_before_resume = clock[0]

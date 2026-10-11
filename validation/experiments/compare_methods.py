@@ -29,8 +29,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from clippr import experiment, manifest                                  # noqa: E402
-from clippr.homology import diversify_library, longest_shared, shared_kmers  # noqa: E402
+from ppropt import experiment, manifest                                  # noqa: E402
+from ppropt.homology import diversify_library, longest_shared, shared_kmers  # noqa: E402
 
 CONFIG = Path(__file__).resolve().parent / "m2_joint_selection.json"
 
@@ -126,7 +126,7 @@ def main() -> int:
     header = json.loads(lines[0]).get(experiment.IDENTITY_KEY)
     if header is None:
         raise SystemExit(f"{args.bank} has no identity header; it was not written by "
-                         f"clippr.experiment and cannot be trusted as one experiment")
+                         f"ppropt.experiment and cannot be trusted as one experiment")
     if header.get("config_sha256") != config_sha:
         raise SystemExit(
             f"bank was built under configuration {str(header.get('config_sha256'))[:16]} "

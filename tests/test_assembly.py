@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from clippr.assembly import (
+from ppropt.assembly import (
     DEFAULT_ENZYME,
     PAD_3,
     PAD_5,

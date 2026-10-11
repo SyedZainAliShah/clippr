@@ -23,7 +23,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from clippr.ordering import (HISTORICAL_OPOOL, ProductProfile,  # noqa: E402
+from ppropt.ordering import (HISTORICAL_OPOOL, ProductProfile,  # noqa: E402
                              check_eligibility, plan_pools)
 
 

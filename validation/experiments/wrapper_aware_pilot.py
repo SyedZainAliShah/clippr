@@ -34,12 +34,12 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "validation" / "independent"))
 
-from clippr import constants as C                                     # noqa: E402
-from clippr.assembly import build_oligos                              # noqa: E402
-from clippr.codons import optimize_cds, table_from_kazusa             # noqa: E402
-from clippr.design import design_oneshot, final_artifact_report       # noqa: E402
-from clippr.objectives import codon_adaptation                        # noqa: E402
-from clippr.synthesis_profile import resolve                          # noqa: E402
+from ppropt import constants as C                                     # noqa: E402
+from ppropt.assembly import build_oligos                              # noqa: E402
+from ppropt.codons import optimize_cds, table_from_kazusa             # noqa: E402
+from ppropt.design import design_oneshot, final_artifact_report       # noqa: E402
+from ppropt.objectives import codon_adaptation                        # noqa: E402
+from ppropt.synthesis_profile import resolve                          # noqa: E402
 
 #: Declared before execution. A run that exceeds these stops and says so.
 BUDGET = {
@@ -50,7 +50,7 @@ BUDGET = {
 }
 
 #: The pilot's own policy reading, taken from the shipped profile rather than retyped.
-PROFILE = "clippr-strict-legacy"
+PROFILE = "ppropt-strict-legacy"
 
 
 def _gc(seq: str) -> float:

@@ -22,8 +22,8 @@ from pathlib import Path
 
 import pytest
 
-from clippr import substrates as sub
-from clippr import synthesis_profile as sp
+from ppropt import substrates as sub
+from ppropt import synthesis_profile as sp
 
 ROOT = Path(__file__).resolve().parents[1]
 TABLE_S1 = ROOT / "data" / "grasp_supp" / "Table S1.xlsx"
@@ -173,10 +173,10 @@ class TestGcReporting:
 class TestTheProfileReachesEveryStage:
     @staticmethod
     def recoded(profile):
-        from clippr import inventories as inv
-        from clippr.codons import complete_table
-        from clippr.objectives import codon_adaptation
-        from clippr.recoding import recode_inventory
+        from ppropt import inventories as inv
+        from ppropt.codons import complete_table
+        from ppropt.objectives import codon_adaptation
+        from ppropt.recoding import recode_inventory
 
         raw = json.loads(CODON_TABLE.read_text(encoding="utf-8"))
         table = complete_table(raw, 1)

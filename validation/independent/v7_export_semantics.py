@@ -1,4 +1,4 @@
-"""V7 — reparse CLIPPR's exported files and check they still mean what the design meant.
+"""V7 — reparse PPROPT's exported files and check they still mean what the design meant.
 
 A format can be valid and still have lost the thing it was serialising: a dropped record, a
 strand flipped, an off-by-one coordinate, a quantity in the wrong unit. This reparses the
@@ -28,7 +28,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from Bio import SeqIO                                             # noqa: E402
 from Bio.Seq import Seq                                           # noqa: E402
 
-from clippr.design import design_oneshot                          # noqa: E402
+from ppropt.design import design_oneshot                          # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from journal import provenance                                    # noqa: E402
@@ -64,7 +64,7 @@ def expected_annotation(target: str, cds: str, fragments) -> dict:
     features at all that loop ran zero times and reported no problem, and a CDS shifted three
     bases was never compared against any expected coordinate -- both passed.
     """
-    from clippr import constants as C
+    from ppropt import constants as C
 
     n_term = len(C.N_TERMINAL)
     repeat_aa = len(C.REPEAT_TEMPLATE.format(fifth="X", last="Y"))

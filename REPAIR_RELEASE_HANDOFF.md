@@ -1,4 +1,4 @@
-# CLIPPR repair release — executor handoff, revision 4
+# PPROPT repair release — executor handoff, revision 4
 
 **Executor: Claude. Orchestrator: Codex. Revised 10 October 2026.**
 

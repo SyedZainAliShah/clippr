@@ -5,7 +5,7 @@ That is the optimiser grading its own work, and the saved records do not contain
 before/after QC the M3 result document claims. This recomputes each invariant from the
 original and recoded DNA directly.
 
-Nothing here imports `clippr.qc` or `clippr.codons`. The constraint set, the genetic code
+Nothing here imports `ppropt.qc` or `ppropt.codons`. The constraint set, the genetic code
 handling and the CAI definition are written out below, so agreement with the pilot is
 corroboration rather than an echo.
 
@@ -39,8 +39,8 @@ sys.path.insert(0, str(ROOT / "src"))
 from Bio.Data import CodonTable                                   # noqa: E402
 from Bio.Seq import Seq                                           # noqa: E402
 
-from clippr.parts import select                                   # noqa: E402
-from clippr.products import load_inserts                          # noqa: E402
+from ppropt.parts import select                                   # noqa: E402
+from ppropt.products import load_inserts                          # noqa: E402
 
 SIX = ["AAAAUGUGG", "GCUAAAGAC", "UUACACGUG", "CGUACGUAC", "AUCGAUCGA", "GGCCAAUUG"]
 INTERFACE = 4
@@ -222,7 +222,7 @@ def main() -> int:
          "contract": {"blacklist": BLACKLIST, "gc_band": GC_BAND, "gc_window": GC_WINDOW,
                       "max_homopolymer": MAX_HOMOPOLYMER},
          "independence": ("constraint set, frames and CAI recomputed here; imports no "
-                          "clippr.qc and no clippr.codons"),
+                          "ppropt.qc and no ppropt.codons"),
          "modules": rows}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"\nwrote {out}")
     return 0 if passing == len(intended) else 1

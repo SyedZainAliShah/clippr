@@ -50,13 +50,13 @@ def finish(code=0):
     print("JSON_BEGIN" + json.dumps(out) + "JSON_END")
     sys.exit(code)
 
-import clippr
-from clippr import inventories as inv, workflow as w
-from clippr.ordering import HISTORICAL_OPOOL
+import ppropt
+from ppropt import inventories as inv, workflow as w
+from ppropt.ordering import HISTORICAL_OPOOL
 
-out["import_origin"] = clippr.__file__
+out["import_origin"] = ppropt.__file__
 try:
-    from clippr.manifest import source_fingerprint
+    from ppropt.manifest import source_fingerprint
     out["installed_source_fingerprint"] = source_fingerprint()["sha256"]
 except Exception as exc:
     out["installed_source_fingerprint"] = f"unavailable: {exc}"
@@ -252,7 +252,7 @@ def main() -> int:
         area.mkdir(parents=True)
         cleanup = False
     else:
-        area = Path(tempfile.mkdtemp(prefix="clippr-phasef-"))
+        area = Path(tempfile.mkdtemp(prefix="ppropt-phasef-"))
         cleanup = True
 
     record: dict = {"kept_environment": args.keep_environment}
@@ -313,7 +313,7 @@ def main() -> int:
 
         env = {k: v for k, v in os.environ.items()
                if k not in ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP")}
-        env.update({"CLIPPR_CACHE_DIR": str(area / "cache"), "PYTHONIOENCODING": "utf-8",
+        env.update({"PPROPT_CACHE_DIR": str(area / "cache"), "PYTHONIOENCODING": "utf-8",
                     "PYTHONNOUSERSITE": "1"})
 
         print("\nF2  running the documented paths in the clean environment")
@@ -443,7 +443,7 @@ def main() -> int:
                 "package": "ipython",
                 "installed_after_the_gate_run": True,
                 "ok": extra.returncode == 0,
-                "why": ("notebook cells call display(); it is not a CLIPPR dependency and "
+                "why": ("notebook cells call display(); it is not a PPROPT dependency and "
                         "is not part of the clean-install claim"),
             }
             if extra.returncode:

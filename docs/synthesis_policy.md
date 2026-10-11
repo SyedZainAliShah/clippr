@@ -26,11 +26,11 @@ the one that matters — the validator alone cannot produce it.
 ### An advisory rule enforced as a rejection
 
 Twist publishes, for codon optimisation: *"global GC% of less than 25% or more than 65% and
-local GC windows (50 bp) of less than 35% or more than 65%."* That is CLIPPR's band exactly.
+local GC windows (50 bp) of less than 35% or more than 65%."* That is PPROPT's band exactly.
 But Twist frames it as guidance applied **during optimisation**, and separates it from the
 sequence-acceptance rules that decide whether an order is taken.
 
-CLIPPR enforced it as a hard rejection. Measured cost: about **0.16 CAI**, and 3 of 42 modules
+PPROPT enforced it as a hard rejection. Measured cost: about **0.16 CAI**, and 3 of 42 modules
 returned unchanged rather than improved. The inverse error is just as bad — a soft warning read
 as vendor approval — so the two can never be allowed to share a return value.
 
@@ -65,12 +65,12 @@ There is a test.
 
 ## The shipped profiles
 
-| | `clippr-strict-legacy` | `twist-codon-optimisation-guidance` | `broad-experimental` |
+| | `ppropt-strict-legacy` | `twist-codon-optimisation-guidance` | `broad-experimental` |
 |---|---|---|---|
 | local GC / 50 nt | 0.35–0.65 **hard** | 0.35–0.65 **target** | 0.15–0.85 **hard** |
 | global GC | none | 0.25–0.65 **target** | none |
 | homopolymer | ≤ 4 **hard** | ≤ 4 **target** | ≤ 4 **hard** |
-| source | **unrecorded** | Twist gene resources, read 2026-09-16 | CLIPPR experiment |
+| source | **unrecorded** | Twist gene resources, read 2026-09-16 | PPROPT experiment |
 | for ordering? | yes — the default | yes, with warnings | **no** |
 | mean CAI, 42 modules, 4 seeds | **0.618830** | — | **0.819921** |
 
@@ -200,13 +200,13 @@ strongest and, in this case, was diagnostic of the bug rather than of the result
 
 ## Using one
 
-    from clippr.synthesis_profile import TWIST_CODON_GUIDANCE
-    from clippr.recoding import recode_inventory
+    from ppropt.synthesis_profile import TWIST_CODON_GUIDANCE
+    from ppropt.recoding import recode_inventory
 
     report = recode_inventory(kit, table, label="chlamy", profile=TWIST_CODON_GUIDANCE)
     report.as_dict()["profile"]["version"]      # bound to the result
 
-By name, for a config file or a form: `"clippr-strict-legacy"`,
+By name, for a config file or a form: `"ppropt-strict-legacy"`,
 `"twist-codon-optimisation-guidance"`, `"broad-experimental"`. An unknown name raises rather
 than falling back to a default — a typo must not silently select a different policy.
 

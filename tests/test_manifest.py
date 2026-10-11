@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from clippr import design_oneshot, manifest
+from ppropt import design_oneshot, manifest
 from test_design import TOY_TABLE
 
 
@@ -23,7 +23,7 @@ class TestCodonTableIdentity:
         that and failed.
         """
         import hashlib
-        from clippr.codons import complete_table
+        from ppropt.codons import complete_table
         rec = manifest.codon_table_record(design["codon_table"], 1)
         want = hashlib.sha256(json.dumps(complete_table(design["codon_table"], 1),
                                          sort_keys=True,
@@ -143,7 +143,7 @@ class TestBatchHomogeneity:
 
     def _pair(self, **override):
         from test_design import TOY_TABLE
-        from clippr.design import design_oneshot
+        from ppropt.design import design_oneshot
 
         a = design_oneshot("AAAAUGUGG", codon_table=TOY_TABLE, check_offtarget=False, seed=42)
         b = dict(a)
@@ -152,26 +152,26 @@ class TestBatchHomogeneity:
         return [a, b]
 
     def test_a_homogeneous_batch_is_accepted(self):
-        from clippr import manifest
+        from ppropt import manifest
 
         record = manifest.build(self._pair())
         assert record["configuration"]["n_designs"] == 2
 
     def test_disagreeing_genetic_code_is_refused_and_named(self):
-        from clippr import manifest
+        from ppropt import manifest
 
         with pytest.raises(ValueError, match="genetic_code"):
             manifest.build(self._pair(genetic_code=11))
 
     def test_disagreeing_enzyme_profile_is_refused_and_named(self):
-        from clippr import manifest
+        from ppropt import manifest
 
         with pytest.raises(ValueError, match="enzyme_profile_effective"):
             manifest.build(self._pair(enzyme_profile_effective=("BsaI",)))
 
     def test_key_order_alone_is_not_a_disagreement(self):
         """A dict written in a different order is the same table, not a different one."""
-        from clippr import manifest
+        from ppropt import manifest
 
         pair = self._pair()
         table = pair[0]["codon_table"]
@@ -188,7 +188,7 @@ class TestSourceFingerprintScope:
     """
 
     def test_shipped_data_is_in_scope(self):
-        from clippr.manifest import source_fingerprint
+        from ppropt.manifest import source_fingerprint
 
         fingerprint = source_fingerprint()
         assert fingerprint["by_suffix"][".json"] >= 2
@@ -198,8 +198,8 @@ class TestSourceFingerprintScope:
         """The falsifier: if this passes with the file absent, the scope claim is empty."""
         from pathlib import Path
 
-        from clippr import manifest
-        from clippr.manifest import source_fingerprint
+        from ppropt import manifest
+        from ppropt.manifest import source_fingerprint
 
         package = Path(manifest.__file__).resolve().parent
         before = source_fingerprint()["sha256"]

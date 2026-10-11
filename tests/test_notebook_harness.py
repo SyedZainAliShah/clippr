@@ -26,7 +26,7 @@ def harness():
 
 class TestCellClassification:
     def test_a_pure_install_cell_is_skippable(self, harness):
-        keep, dropped, unsupported = harness.classify_cell("%pip install clippr\n")
+        keep, dropped, unsupported = harness.classify_cell("%pip install ppropt\n")
         assert dropped and not unsupported
         assert not harness._has_statement("\n".join(keep))
 
@@ -49,7 +49,7 @@ class TestCellClassification:
         assert harness._has_statement("\n".join(keep))
 
     def test_an_install_line_beside_real_work_keeps_the_work(self, harness):
-        keep, dropped, _ = harness.classify_cell("%pip install clippr\nx = 2\n")
+        keep, dropped, _ = harness.classify_cell("%pip install ppropt\nx = 2\n")
         assert dropped and harness._has_statement("\n".join(keep))
 
     @pytest.mark.parametrize("magic", ["%time", "%%time", "%matplotlib inline",

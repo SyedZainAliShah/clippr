@@ -35,7 +35,7 @@ Evaluating the contract on what leaves the building, rather than on what we desi
 turned a passing project into a refusing one.
 
 [[FIG: the GC of the coding span versus the GC of the ordered fragment, on the worked example
-| WHAT_CLIPPR_DOES.md]]
+| WHAT_PPROPT_DOES.md]]
 
 ## 3 · The GC band, and where it came from
 
@@ -48,7 +48,7 @@ under this project's own choices rather than among the constants with cited sour
 happens to match one vendor's published codon-optimisation guidance exactly, and we enforce it
 *more strictly* than that vendor states it.
 
-[[FIG: the band's numeric range and window length | src/clippr/policy.py]]
+[[FIG: the band's numeric range and window length | src/ppropt/policy.py]]
 
 We compared our fragments against every vendor rule we could verify first-hand rather than
 assume. [[FIG: how many published vendor rules our refused fragments actually violate |

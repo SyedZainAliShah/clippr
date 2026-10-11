@@ -31,10 +31,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from clippr import inventories as inv                             # noqa: E402
-from clippr.library_search import MODES, optimise_library         # noqa: E402
-from clippr.objectives import codon_adaptation, collection_penalty  # noqa: E402
-from clippr.substrates import substrate_problems                  # noqa: E402
+from ppropt import inventories as inv                             # noqa: E402
+from ppropt.library_search import MODES, optimise_library         # noqa: E402
+from ppropt.objectives import codon_adaptation, collection_penalty  # noqa: E402
+from ppropt.substrates import substrate_problems                  # noqa: E402
 
 K = 20
 
@@ -68,7 +68,7 @@ def main() -> int:
     ap.add_argument("--out", default=str(ROOT / "work" / "phasec"))
     args = ap.parse_args()
 
-    from clippr.codons import complete_table
+    from ppropt.codons import complete_table
 
     raw_table = json.loads((ROOT / "data" / "codon_tables" / "kazusa_3055.json")
                            .read_text(encoding="utf-8"))

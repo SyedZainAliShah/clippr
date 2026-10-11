@@ -9,9 +9,9 @@ from __future__ import annotations
 import pytest
 from Bio.Seq import Seq
 
-from clippr.assembly import reassemble
-from clippr.design import MAX_FRAGMENT_AA, ORGANISMS, design_oneshot
-from clippr.qc import synthesis_qc
+from ppropt.assembly import reassemble
+from ppropt.design import MAX_FRAGMENT_AA, ORGANISMS, design_oneshot
+from ppropt.qc import synthesis_qc
 
 TOY_TABLE = {
     "M": {"ATG": 1.0}, "W": {"TGG": 1.0},
@@ -150,7 +150,7 @@ class TestAudit:
 
     def test_every_candidate_is_accounted_for(self, result):
         """Nothing silently disappears: each achievable overhang gets a verdict."""
-        from clippr.arelf import achievable_overhangs
+        from ppropt.arelf import achievable_overhangs
         a = result["audit"]
         for cut in result["cuts"]:
             n = len(achievable_overhangs(result["protein"], cut))
@@ -158,7 +158,7 @@ class TestAudit:
 
     def test_rejections_name_the_profile(self):
         """A rejection must say what ruled the overhang out, not just that it was."""
-        from clippr.arelf import achievable_overhangs, safe_overhangs
+        from ppropt.arelf import achievable_overhangs, safe_overhangs
         prot = "MAAAAARDAAAAA"
         cut = prot.index("D") + 1
         rejected = set(achievable_overhangs(prot, cut)) - set(
@@ -186,26 +186,26 @@ class TestConstantLayers:
     """Published fact, assembly mechanics and project policy must stay distinguishable."""
 
     def test_three_layers_declared(self):
-        from clippr import constants as C
+        from ppropt import constants as C
         assert set(C.LAYERS) == {"biology", "assembly_spec", "policy"}
 
     def test_policy_holds_no_published_scaffold(self):
-        from clippr import policy
+        from ppropt import policy
         assert not hasattr(policy, "REPEAT_TEMPLATE")
         assert not hasattr(policy, "CODE_TO_BASE")
 
     def test_biology_holds_no_project_choices(self):
-        from clippr import biology
+        from ppropt import biology
         assert not hasattr(biology, "ENZYME_PROFILES")
         assert not hasattr(biology, "ORGANISMS")
 
     def test_enzyme_profiles_are_policy_not_biology(self):
-        from clippr import constants as C
+        from ppropt import constants as C
         assert "ENZYME_PROFILES" in C.LAYERS["policy"]
         assert "REPEAT_TEMPLATE" in C.LAYERS["biology"]
 
     def test_aggregator_still_exposes_everything(self):
-        from clippr import constants as C
+        from ppropt import constants as C
         for names in C.LAYERS.values():
             for n in names:
                 assert hasattr(C, n), f"{n} missing from the aggregator"

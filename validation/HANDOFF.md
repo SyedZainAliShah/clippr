@@ -13,7 +13,7 @@ previous run wrote. **ESTIMATE** — not measured.
 
 | | |
 |---|---|
-| package | `clippr` 0.1.0, MIT |
+| package | `ppropt` 0.1.0, MIT |
 | source fingerprint | covers 27 files — 25 `.py` plus `parts.json` and `scaffold.json` |
 | ligation matrices | Pryor et al. 2020, `BsaI-HFv2` fingerprint `f5e4da3cacff1577` |
 | dependencies | biopython 1.88, dnachisel 3.2.16, numpy 2.5.3, pandas 3.0.5, openpyxl 3.1.5, python_codon_tables 0.1.18 |
@@ -73,8 +73,8 @@ which is how V5 and V6 first failed against it.
 
 | check | result | independence |
 |---|---|---|
-| **V5** digest/ligate | 200/200 CDSs reconstructed; **5/5 corrupt controls detected** | reads only `oligo_sequence_5to3`; imports no CLIPPR assembly code |
-| **V6** constraints | 200/200 satisfy every hard constraint; 0 disagreements with the designs' own verdicts; 200/200 have zero duplicated 20-mers | expectations written out from the contract and the published PPR code; imports no `clippr.qc` or `clippr.codons` |
+| **V5** digest/ligate | 200/200 CDSs reconstructed; **5/5 corrupt controls detected** | reads only `oligo_sequence_5to3`; imports no PPROPT assembly code |
+| **V6** constraints | 200/200 satisfy every hard constraint; 0 disagreements with the designs' own verdicts; 200/200 have zero duplicated 20-mers | expectations written out from the contract and the published PPR code; imports no `ppropt.qc` or `ppropt.codons` |
 | **V7** export semantics | 3 designs, 0 semantic problems, 3/3 malformed controls caught | reparses written files with stock parsers |
 
 V6 rebuilds the **whole expected protein** from the scaffold template rather than decoding
@@ -202,7 +202,7 @@ Table S1 is present. On a checkout without it the kit reconstruction tests skip 
 reason, and the check reports that count instead.
 
 The clean-environment gate builds a wheel, installs it into a throwaway venv with a fresh
-`CLIPPR_CACHE_DIR`, and runs the README's worked example **read out of the README itself**,
+`PPROPT_CACHE_DIR`, and runs the README's worked example **read out of the README itself**,
 requiring its documented output verbatim. Confirmed: it reproduces
 
     AAAAUGUGG (9S) -> 302 aa, 906 nt, 4 fragments. Fidelity 0.828. QC PASS.

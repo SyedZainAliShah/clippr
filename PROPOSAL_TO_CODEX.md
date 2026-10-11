@@ -260,12 +260,12 @@ synthetic.
 
 ## 6. The Colab constraint — and the part of it I overstated
 
-Both notebooks' Setup cell runs `pip install git+https://.../clippr.git`, resolving to the
+Both notebooks' Setup cell runs `pip install git+https://.../ppropt.git`, resolving to the
 **default branch**. Anything a cell imports must exist on `main` when a user opens Colab.
 `validation/run_notebook.py` cannot catch a violation: it puts the working tree's `src/` first on
 `sys.path`. That combination broke every Colab session once — `HANDOVER_TO_CODEX.md` §7 item 9.
 
-Revision 1 called `CLIPPR_inventory.ipynb` cell 2 "the working pattern" for graceful
+Revision 1 called `PPROPT_inventory.ipynb` cell 2 "the working pattern" for graceful
 degradation. **It is a detection pattern, not a degradation pattern**: it prints a banner and
 does not gate anything downstream. And `validation/notebook_on_published_build.py` counts cells
 that complete without raising — it does not assert the requested output was produced. So "every
@@ -424,7 +424,7 @@ psbA (duplicated), first 200 nt of a 1059 nt feature
 ```python
 """Corrected evidence. Occurrences are keyed by FEATURE INDEX, never by gene name."""
 from collections import Counter
-from clippr.offtarget import (load_genome, load_transcripts, scan,
+from ppropt.offtarget import (load_genome, load_transcripts, scan,
                               find_in_transcripts, architecture_advice)
 
 genome, trs = load_genome(), load_transcripts()
@@ -470,7 +470,7 @@ for name in ("rbcL", "psbA"):
               f"{name} in the window is declared intended ({100.0*declared/n:.0f}%)")
 ```
 
-The kit figures in §4 come from `clippr.parts.select` over the same windows, counting
+The kit figures in §4 come from `ppropt.parts.select` over the same windows, counting
 `PartsPlan.available` and distinct `PartsPlan.plates`. The runtime figures in §8 are read from
 `work/runtime/runtime_profile.json` — `oneshot_synthesis_route`, not `chained_routes`.
 

@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from clippr.parts import inventory, select
-from clippr.products import (InsertRecordsInvalid, InsertsUnavailable, OverlapMismatch,
+from ppropt.parts import inventory, select
+from ppropt.products import (InsertRecordsInvalid, InsertsUnavailable, OverlapMismatch,
                              compare_to_synthesis, load_inserts, reconstruct, translate,
                              write)
 
@@ -163,7 +163,7 @@ class TestComparison:
         """Both routes encode the same protein over the declared region, so both slices
         must cover it; unequal lengths would mean the region was mis-declared."""
         from test_design import TOY_TABLE
-        from clippr.design import design_oneshot
+        from ppropt.design import design_oneshot
 
         sequences, source = kit
         plan = select("AAAAUGUGG")
@@ -179,8 +179,8 @@ class TestComparison:
 class TestComparisonRefusesMismatches:
     def test_a_different_targets_cds_is_rejected(self, kit):
         """It returned a plausible tract under 'both encode the same protein'."""
-        from clippr.design import design_oneshot
-        from clippr.products import ScopeMismatch
+        from ppropt.design import design_oneshot
+        from ppropt.products import ScopeMismatch
         from test_design import TOY_TABLE
 
         sequences, source = kit
@@ -195,8 +195,8 @@ class TestComparisonRefusesMismatches:
     def test_a_ragged_region_is_rejected(self, kit):
         """One extra base made 897 nt compare against 898 and still report agreement,
         because both were truncated to whole codons before translating."""
-        from clippr.design import design_oneshot
-        from clippr.products import ScopeMismatch
+        from ppropt.design import design_oneshot
+        from ppropt.products import ScopeMismatch
         from test_design import TOY_TABLE
 
         sequences, source = kit
@@ -209,7 +209,7 @@ class TestComparisonRefusesMismatches:
             compare_to_synthesis(rec, tr, cds + "A")
 
     def test_the_matching_target_reports_its_verified_protein(self, kit):
-        from clippr.design import design_oneshot
+        from ppropt.design import design_oneshot
         from test_design import TOY_TABLE
 
         sequences, source = kit
@@ -238,7 +238,7 @@ class TestExport:
 
     def test_fasta_repeats_the_scope_on_every_record(self, kit, tmp_path):
         """A FASTA travels without its JSON, so each header must carry the caveat itself."""
-        from clippr.products import write_fasta
+        from ppropt.products import write_fasta
 
         sequences, source = kit
         plan = select("AAAAUGUGG")
@@ -250,7 +250,7 @@ class TestExport:
         assert all(source.sha256[:16] in h for h in headers)
 
     def test_fasta_final_record_is_the_product(self, kit, tmp_path):
-        from clippr.products import write_fasta
+        from ppropt.products import write_fasta
 
         sequences, source = kit
         plan = select("AAAAUGUGG")
@@ -269,7 +269,7 @@ class TestExport:
         from Bio import SeqIO
         from Bio.Seq import Seq
 
-        from clippr.products import write_genbank
+        from ppropt.products import write_genbank
 
         sequences, source = kit
         plan = select("AAAAUGUGG")
@@ -288,7 +288,7 @@ class TestExport:
         """Consecutive modules share their four junction bases. That is the assembly."""
         from Bio import SeqIO
 
-        from clippr.products import write_genbank
+        from ppropt.products import write_genbank
 
         sequences, source = kit
         plan = select("AAAAUGUGG")
@@ -309,7 +309,7 @@ class TestExport:
         """No frame was supplied, so none is invented."""
         from Bio import SeqIO
 
-        from clippr.products import write_genbank
+        from ppropt.products import write_genbank
 
         sequences, source = kit
         plan = select("AAAAUGUGG")

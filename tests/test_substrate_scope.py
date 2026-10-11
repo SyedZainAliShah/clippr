@@ -22,10 +22,10 @@ from Bio.Data import CodonTable
 from Bio.Restriction import BsaI
 from Bio.Seq import Seq
 
-from clippr import inventories as inv
-from clippr import joint_search as js
-from clippr import substrates as sub
-from clippr.library_search import MODES, optimise_library
+from ppropt import inventories as inv
+from ppropt import joint_search as js
+from ppropt import substrates as sub
+from ppropt.library_search import MODES, optimise_library
 
 ROOT = Path(__file__).resolve().parents[1]
 TABLE_S1 = ROOT / "data" / "grasp_supp" / "Table S1.xlsx"
@@ -42,7 +42,7 @@ def worst_gc(sequence: str) -> float:
 
     A helper borrowed from the code under test would only prove the check agrees with itself.
     """
-    from clippr.recoding import GC_WINDOW
+    from ppropt.recoding import GC_WINDOW
 
     windows = [sequence[i:i + GC_WINDOW]
                for i in range(max(1, len(sequence) - GC_WINDOW + 1))]
@@ -117,7 +117,7 @@ class TestTheInjectedCandidate:
     def test_the_joint_search_refuses_it_without_consulting_the_recoder(
             self, deposited, table, injected, monkeypatch):
         """Injected past `apply_assignment`, so a correct recoder cannot mask the check."""
-        from clippr.codons import complete_table
+        from ppropt.codons import complete_table
 
         targets = ["AAAAUGUGG"]
         classes = js.junction_classes(deposited, targets)
@@ -170,7 +170,7 @@ def offenders_in(inventory) -> dict[str, tuple[str, ...]]:
 class TestTheOptimiserJudgesWhatItShips:
     """Judged as *introduced*, not absolute.
 
-    One deposited module already carries a run of five Ts and so fails CLIPPR's homopolymer
+    One deposited module already carries a run of five Ts and so fails PPROPT's homopolymer
     rule on arrival. Demanding a clean output would make the deposited inventory unusable as
     a baseline; what the optimiser owes is that it adds nothing.
     """

@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import pytest
 
-from clippr.offtarget import Transcript, find_in_transcripts
-from clippr.targeting import (COORDINATE_CONVENTION, IntendedLocus, Occurrence, SearchSequence,
+from ppropt.offtarget import Transcript, find_in_transcripts
+from ppropt.targeting import (COORDINATE_CONVENTION, IntendedLocus, Occurrence, SearchSequence,
                               enumerate_windows, feature_identity, loci_for_gene,
                               occurrences_in_reference, occurrences_in_source, window_report,
                               screen_window, select_window)
@@ -246,7 +246,7 @@ class TestProvenanceAndHonesty:
 class TestFeedsTheExistingRoutes:
     def test_the_chosen_sequence_is_a_plain_rna_target(self):
         """The whole point of the shape: existing entry points take it unchanged."""
-        from clippr.ppr import describe
+        from ppropt.ppr import describe
 
         sel = select_window(seq_of(UNIQUE), lengths=(9,))
         assert sel.found
@@ -254,7 +254,7 @@ class TestFeedsTheExistingRoutes:
         assert describe(sel.chosen.sequence)["architecture"] == "9S"
 
     def test_the_chosen_sequence_reaches_the_kit_route(self):
-        from clippr.parts import select as select_parts
+        from ppropt.parts import select as select_parts
 
         sel = select_window(seq_of(UNIQUE), lengths=(9,))
         plan = select_parts(sel.chosen.sequence)
@@ -290,7 +290,7 @@ class TestOccurrenceClassification:
 
 @pytest.fixture(scope="module")
 def host():
-    from clippr.offtarget import load_transcripts
+    from ppropt.offtarget import load_transcripts
     try:
         return load_transcripts()
     except Exception as exc:                            # pragma: no cover - needs the cache
@@ -359,27 +359,27 @@ class TestReferenceBinding:
 
     @staticmethod
     def _toy():
-        from clippr.offtarget import Transcript
+        from ppropt.offtarget import Transcript
         return [Transcript("rbcL", "CDS", 1, 100, "AUGCCCGGGAAAUUU"),
                 Transcript("psbA", "CDS", 1, 500, "AUGAAACCCGGGUUU"),
                 Transcript("psbA", "CDS", -1, 900, "AUGAAACCCGGGUUU")]
 
     def test_same_content_matches(self):
-        from clippr.targeting import reference_binding, verify_reference_binding
+        from ppropt.targeting import reference_binding, verify_reference_binding
         trs = self._toy()
         assert verify_reference_binding(
             reference_binding(trs, "toy"), trs)["status"] == "match"
 
     def test_reordering_invalidates_index_based_identities(self):
-        from clippr.targeting import reference_binding, verify_reference_binding
+        from ppropt.targeting import reference_binding, verify_reference_binding
         trs = self._toy()
         saved = reference_binding(trs, "toy")
         assert verify_reference_binding(
             saved, list(reversed(trs)))["status"] == "mismatch"
 
     def test_one_base_change_is_detected(self):
-        from clippr.offtarget import Transcript
-        from clippr.targeting import reference_binding, verify_reference_binding
+        from ppropt.offtarget import Transcript
+        from ppropt.targeting import reference_binding, verify_reference_binding
         trs = self._toy()
         saved = reference_binding(trs, "toy")
         changed = list(trs)
@@ -387,8 +387,8 @@ class TestReferenceBinding:
         assert verify_reference_binding(saved, changed)["status"] == "mismatch"
 
     def test_strand_and_start_are_bound(self):
-        from clippr.offtarget import Transcript
-        from clippr.targeting import reference_binding, verify_reference_binding
+        from ppropt.offtarget import Transcript
+        from ppropt.targeting import reference_binding, verify_reference_binding
         trs = self._toy()
         saved = reference_binding(trs, "toy")
         for altered in (
@@ -400,15 +400,15 @@ class TestReferenceBinding:
 
     def test_duplicate_features_are_preserved(self):
         """Collapsing duplicates is how a gene name came to stand for two loci."""
-        from clippr.targeting import reference_binding, verify_reference_binding
+        from ppropt.targeting import reference_binding, verify_reference_binding
         trs = self._toy()
         saved = reference_binding(trs, "toy")
         assert saved["features"] == 3
         assert verify_reference_binding(saved, trs[:2])["status"] == "mismatch"
 
     def test_the_same_label_with_different_content_is_caught(self):
-        from clippr.offtarget import Transcript
-        from clippr.targeting import reference_binding, verify_reference_binding
+        from ppropt.offtarget import Transcript
+        from ppropt.targeting import reference_binding, verify_reference_binding
         trs = self._toy()
         saved = reference_binding(trs, "NC_005353.1")
         other = [Transcript("rbcL", "CDS", 1, 100, "AUGCCCGGGAAAUUG"), trs[1], trs[2]]
@@ -417,13 +417,13 @@ class TestReferenceBinding:
         assert verify_reference_binding(saved, other)["status"] == "mismatch"
 
     def test_a_legacy_record_stays_readable_but_unverified(self):
-        from clippr.targeting import verify_reference_binding
+        from ppropt.targeting import verify_reference_binding
         result = verify_reference_binding(None, self._toy())
         assert result["status"] == "unverified"
         assert "historical" in result["detail"]
 
     def test_a_selection_carries_its_binding(self):
-        from clippr.targeting import SearchSequence, select_window
+        from ppropt.targeting import SearchSequence, select_window
         trs = self._toy()
         src = SearchSequence("s", "AUGCCCGGGAAAUUUAAACCC", origin="designed")
         sel = select_window(src, lengths=(9,), transcripts=trs, reference="toy")
@@ -431,7 +431,7 @@ class TestReferenceBinding:
         assert sel.reference_binding["features"] == 3
 
     def test_no_binding_is_recorded_when_nothing_was_screened(self):
-        from clippr.targeting import SearchSequence, select_window
+        from ppropt.targeting import SearchSequence, select_window
         src = SearchSequence("s", "AUGCCCGGGAAAUUUAAACCC", origin="designed")
         sel = select_window(src, lengths=(9,), transcripts=None)
         assert sel.reference_binding is None

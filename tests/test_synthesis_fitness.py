@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from clippr import synthesis_fitness as sf
-from clippr import synthesis_profile as sp
+from ppropt import synthesis_fitness as sf
+from ppropt import synthesis_profile as sp
 
 ROOT = Path(__file__).resolve().parents[1]
 TABLE_S1 = ROOT / "data" / "grasp_supp" / "Table S1.xlsx"
@@ -31,8 +31,8 @@ class TestWhyTheOldAxisWasReplaced:
         The reference uses k=16 where we used 20, which invites the conclusion that the
         parameter was the problem. It is zero at 20, 16, 12 and 10 alike.
         """
-        from clippr import inventories as inv
-        from clippr.objectives import duplicated_kmers
+        from ppropt import inventories as inv
+        from ppropt.objectives import duplicated_kmers
 
         deposited = inv.load_deposited(TABLE_S1)
         for k in (20, 16, 12, 10):
@@ -128,7 +128,7 @@ class TestTheCompositeScore:
 class TestOnTheRealCorpus:
     @staticmethod
     def kit():
-        from clippr import inventories as inv
+        from ppropt import inventories as inv
         return inv.load_deposited(TABLE_S1)
 
     def test_it_is_not_degenerate_on_the_real_corpus(self):
@@ -154,7 +154,7 @@ class TestOnTheRealCorpus:
 
 class TestItIsWiredIntoTheSearch:
     def test_the_declared_directions_use_it(self):
-        from clippr import joint_search as js
+        from ppropt import joint_search as js
 
         assert js.DIRECTIONS == {"fidelity": "max", "adaptation": "max",
                                  "synthesis_fitness": "max"}
@@ -164,9 +164,9 @@ class TestItIsWiredIntoTheSearch:
     def test_the_search_reports_it_and_keeps_the_old_axis_as_a_diagnostic(self):
         import json
 
-        from clippr import inventories as inv
-        from clippr import joint_search as js
-        from clippr.codons import complete_table
+        from ppropt import inventories as inv
+        from ppropt import joint_search as js
+        from ppropt.codons import complete_table
 
         table = complete_table(json.loads(
             (ROOT / "data" / "codon_tables" / "kazusa_3055.json").read_text("utf-8")), 1)

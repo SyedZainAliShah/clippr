@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from clippr.search import (
+from ppropt.search import (
     Candidate,
     certificate,
     explore,
@@ -161,7 +161,7 @@ class TestCertificate:
 @pytest.fixture(scope="module")
 def candidates():
     """One real exploration, shared across the tests below — each costs a codon run."""
-    from clippr.ppr import describe
+    from ppropt.ppr import describe
     protein = describe("AAAAUGUGG")["aa_sequence"]
     return explore(protein, TOY_TABLE, n_fragments=4, destination=None,
                    matrix="BsaI-HFv2", budget=3)

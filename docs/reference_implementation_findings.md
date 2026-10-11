@@ -1,6 +1,6 @@
 # Findings about the GRASP reference implementation
 
-*Everything CLIPPR has established about `grasp-library-designer` — what it does, where it
+*Everything PPROPT has established about `grasp-library-designer` — what it does, where it
 agrees with us, where it differs, what it is better at, and what reading it corrected in our
 own claims.*
 
@@ -12,14 +12,14 @@ outputs come from `github.com/farleykvdg/GRASP` at commit `b569a8c4`.
 The repository declares **no licence**: files are fetched for verification and never
 redistributed, and derived facts (an overhang set, a threshold) may ship while source files may
 not. Reading it to understand the method was authorised 2026-09-16; nothing is copied,
-translated, or renamed into CLIPPR. `docs/methodology_sources.md` §7 carries the posture.
+translated, or renamed into PPROPT. `docs/methodology_sources.md` §7 carries the posture.
 
 **How each finding was obtained** is marked, because it matters:
 
 | mark | meaning |
 |---|---|
 | **[A]** | from exported artefacts — their CSV, `config_as_run`, preserved run JSON |
-| **[E]** | from a controlled experiment on CLIPPR's own code |
+| **[E]** | from a controlled experiment on PPROPT's own code |
 | **[R]** | from reading their source, after authorisation |
 
 ---
@@ -30,7 +30,7 @@ A **codon optimiser with synthesis QC, Golden Gate junction search, and an oligo
 driven by a config dictionary and a Colab control panel. It takes amino-acid sequences plus a
 per-codon coding mask and returns synthesis-ready oligos with a QC verdict. **[A][R]**
 
-Its scope overlaps CLIPPR's design and recoding routes.
+Its scope overlaps PPROPT's design and recoding routes.
 
 **Correction, 2026-09-16.** An earlier version of this line said it "has no concept of a
 reusable versioned inventory: it redesigns all 42 modules from amino acids on every run." That
@@ -40,7 +40,7 @@ compiles a target against it without re-running optimisation. I inferred the abs
 running one entry point — the same error as §5.1, made twice in one document.
 
 What a narrower comparison would still have to establish: whether their exported library carries
-anything equivalent to CLIPPR's content-hashed inventory version, its reload-reproduction
+anything equivalent to PPROPT's content-hashed inventory version, its reload-reproduction
 guarantee, or its refusal to compile against a mismatched interface assignment. That comparison
 has not been done, and the absence of such a contract **cannot** be inferred from the presence
 or absence of an export function.
@@ -58,7 +58,7 @@ These are the most valuable findings, because both systems reached them separate
 | level 1 is not the scored stage | entry point is named `grasp_first_stage_fidelity` **[R]** | level 1 reported unscorable |
 | synthesis QC is judged on the **full oligo** | prefix + CDS + suffix **[R]** | the released fragment / wrapped substrate |
 
-The last four are the same disciplines an independent review demanded of CLIPPR this week. The
+The last four are the same disciplines an independent review demanded of PPROPT this week. The
 reference already kept them. That is corroboration of the review, not of us.
 
 ## 3. Where it works differently
@@ -74,7 +74,7 @@ Their objective is a single scalar maximised by simulated annealing:
 
 Only a forbidden restriction site is an absolute veto (`−1e12`). Weights are configuration.
 
-CLIPPR hands the same limits to DNA Chisel as **hard constraints**, with codon adaptation as
+PPROPT hands the same limits to DNA Chisel as **hard constraints**, with codon adaptation as
 the objective. A candidate one window-point over the band is discarded.
 
 **Consequence.** Theirs trades — a hot GC window for a large codon gain — and ships the result
@@ -87,7 +87,7 @@ paragraph claimed hard and soft enforcement produce identical output and that so
 independent value. That experiment never implemented soft enforcement -- `solver_bounds()`
 returned the same arguments for `hard` and `target` -- and its conclusion was retracted.
 
-Rerun against the repaired solver: enforcing CLIPPR's **strict** band as a target reaches mean
+Rerun against the repaired solver: enforcing PPROPT's **strict** band as a target reaches mean
 CAI 0.819921, identical module for module to widening the band to 0.15-0.85, against 0.618830
 when the same thresholds are hard. So the soft-penalty approach the reference uses recovers the
 full +0.201091 that a wider band buys, while still reporting all 40 out-of-band windows.
@@ -107,11 +107,11 @@ Five named profiles, each with a product URL:
 | Twist · Complex Genes tolerant | 0.25–0.65 | 0.10–0.90 / 50 nt | 3 | ≤ 30 |
 | IDT · gBlocks / eBlocks conservative | 0.25–0.70 | 0.20–0.80 / 40 nt | 3 | — |
 | Generic · conservative (default) | 0.30–… | 0.25–0.75 / 50 nt | 3 | — |
-| **CLIPPR** | **none** | **0.35–0.65 / 50 nt** | 4 | — |
+| **PPROPT** | **none** | **0.35–0.65 / 50 nt** | 4 | — |
 
 **That table is their transcription, not the vendors' pages**, and trusting it produced a false
 claim in `docs/gc_band_and_constraint_model.md`. Twist's own guidance gives **35–65% over 50 bp**
-for codon optimisation — exactly CLIPPR's band, and matching no row above. Read the primary
+for codon optimisation — exactly PPROPT's band, and matching no row above. Read the primary
 pages before adopting any number here.
 
 And three distinct categories where we have one:
@@ -137,7 +137,7 @@ position sits below the floor. A hard constraint outranks a soft preference, the
 bounded, and it is visible in the output (`rescue_codon_count`, `rescue_codon_detail`,
 `rescue_codon_reason`).
 
-CLIPPR has neither the floor nor the repair: we discard the candidate.
+PPROPT has neither the floor nor the repair: we discard the candidate.
 
 ### 3.4 Three Pareto objectives, one of them synthesis fitness **[R]**
 
@@ -145,7 +145,7 @@ CLIPPR has neither the floor nor the repair: we discard the candidate.
 `level_minus1_fidelity`, `level0_fidelity` and `level1_fidelity` **reported alongside but
 excluded from the dominance test**.
 
-CLIPPR's three are fidelity, adaptation and `repeat_burden` — and `repeat_burden` is
+PPROPT's three are fidelity, adaptation and `repeat_burden` — and `repeat_burden` is
 identically 0 at k=20 over distinct inserts, so our search is effectively two-objective. Theirs
 uses a composite synthesis fitness in that slot, which does not degenerate.
 
@@ -157,7 +157,7 @@ continuous preference does.
 ### 3.5 Library similarity inside the solve **[R]**
 
 `sequence_objective(..., external_kmers)` penalises k-mers shared with other library members
-**during** each module's optimisation. CLIPPR recodes each module alone and then runs a
+**during** each module's optimisation. PPROPT recodes each module alone and then runs a
 separate collection optimiser over the finished set — two passes on one axis where they use one.
 
 ### 3.6 Ligation matrices carry their protocol **[R]**
@@ -168,7 +168,7 @@ or cycle steps, ligase, buffer, terminal step, `source_doi`, `source_url`, and a
 of `"surrogate"` or `"proxy"` together with `proxy_for`.
 
 We hold the same Pryor and Potapov matrices with far less provenance attached — which is
-exactly the axis where CLIPPR otherwise claims to be strict.
+exactly the axis where PPROPT otherwise claims to be strict.
 
 ### 3.7 The level-1 reaction composition **[R]**
 
@@ -177,7 +177,7 @@ exactly the axis where CLIPPR otherwise claims to be strict.
 
 **Four** flanking overhangs, both pairs **required**, raising if either is absent.
 
-This resolved an open CLIPPR question — see §5.2.
+This resolved an open PPROPT question — see §5.2.
 
 ### 3.8 Pricing **[R]**
 
@@ -185,12 +185,12 @@ This resolved an open CLIPPR question — see §5.2.
 per-base tiers at €0.038 / €0.025 / €0.013, €1.63 per oligo for phosphorylation, and all three
 scales (1, 10 and 50 pmol) with their distinct count ranges.
 
-CLIPPR models only the 50 pmol scale and **refuses to price at all**, on the grounds that an
+PPROPT models only the 50 pmol scale and **refuses to price at all**, on the grounds that an
 undated number presented as current is worse than none. Their figures are undated too — but
 they are *there*, and ours are not. Whether that is discipline or a gap is a judgement call
 worth making explicitly rather than by default.
 
-## 4. Where CLIPPR is ahead
+## 4. Where PPROPT is ahead
 
 - **Determinism.** Ours is deterministic by construction. Across five preserved runs at their
   declared seed 42, **41 of 42** modules received more than one CDS **[A]**; two further fresh
@@ -200,7 +200,7 @@ worth making explicitly rather than by default.
   target against it (§1) — what is unverified is whether those exports carry an equivalent
   identity-and-mismatch contract. Claiming an advantage here needs that comparison; it is not
   established.
-- **One shared feasibility validator.** Every acceptance path in CLIPPR calls
+- **One shared feasibility validator.** Every acceptance path in PPROPT calls
   `substrates.substrate_problems`. Their constraint logic is distributed across the objective,
   the QC pass and the vendor profile.
 - **Explicit completeness status.** Every reaction reports whether its participants are known.
@@ -227,34 +227,34 @@ has recorded: a narrower observation carrying a wider claim.
 
 ### 5.2 Our level-1 flanking pair was incomplete
 
-CLIPPR derived the PPR block ends as `AATG`/`AGGT … TTCG` from the 28 deposited block plasmids,
+PPROPT derived the PPR block ends as `AATG`/`AGGT … TTCG` from the 28 deposited block plasmids,
 and treated `DESTINATION_OVERHANGS["level1"] = ("GGAG", "CGCT")` as a competing, unverified
 alternative. Their composition (§3.7) shows it is neither competing nor wrong: it is the
 **final cassette** pair, and the real reaction contains both pairs.
 
-| | CLIPPR's current set | under their composition **[E]** |
+| | PPROPT's current set | under their composition **[E]** |
 |---|---:|---:|
 | 9S | 0.998225 | **0.838330** |
 | 19S | 0.996046 | **0.836500** |
 
 This corroborates the independent review's finding — that a PPR-only subset is not the
-reaction's fidelity — from a direction neither the review nor CLIPPR had used.
+reaction's fidelity — from a direction neither the review nor PPROPT had used.
 
 ### 5.3 "Their wrapper is a level-1 BsaI cassette" — **wrong** **[A]**
 
 Digesting their oligos shows all 42 release `ACAT … TTGT`, which is the **level −1**
 destination. Their oligo is the synthetic insert for building the entry clone in pAGM1311;
-CLIPPR's substrate is the level-0 cassette releasing the fragment an assembly consumes. A
+PPROPT's substrate is the level-0 cassette releasing the fragment an assembly consumes. A
 module plasmid is *made* at level −1 and *used* at level 0 — both artefacts are real, for
 different steps, and neither supersedes the other.
 
 ## 6. The measured comparison
 
-| | CLIPPR | reference |
+| | PPROPT | reference |
 |---|---|---|
 | mean CAI, aligned spans **[A]** | 0.621004 | **0.658672** |
 | modules ahead **[A]** | **22** | 20 |
-| ordered sequences clean under CLIPPR's rules **[A]** | **42 / 42** | 6 / 42 |
+| ordered sequences clean under PPROPT's rules **[A]** | **42 / 42** | 6 / 42 |
 | ordered sequences clean under the reference's rules **[A]** | 29 / 42 | **41 / 42** |
 | CDS reproducibility at one declared seed **[A]** | deterministic | 41 / 42 differ |
 
@@ -338,25 +338,25 @@ Read for this document: `synthesis_vendors.py`, `optimizer.py`, `objectives.py`,
 
 §12 asked for matched-condition comparisons. Breaches (under both rule sets) and codon
 adaptation (over the aligned span) were done. Repetition and cross-module sharing had only ever
-been measured for CLIPPR against itself, which is a self-assessment.
+been measured for PPROPT against itself, which is a self-assessment.
 
 Measured 2026-09-17 by `validation/experiments/matched_oracle_benchmark.py`, one implementation
 written in that file and applied to both systems' coding spans — deliberately not either side's
-own scorer, because the reference carries a similarity penalty in its objective and CLIPPR
+own scorer, because the reference carries a similarity penalty in its objective and PPROPT
 carries `collection_sharing` in `synthesis_fitness`, so using either would grade one system with
 the term it was optimising for. k = 12, folded on reverse complement:
 
 | | internal repetition | cross-module sharing | distinct 12-mers |
 |---|---:|---:|---:|
-| CLIPPR | 0.000000 | **0.964147** | 552 |
+| PPROPT | 0.000000 | **0.964147** | 552 |
 | GRASP Designer | 0.000000 | **0.911273** | **1005** |
 
-Per module, CLIPPR shares more on **33 of 42**, less on 2, tied on 7.
+Per module, PPROPT shares more on **33 of 42**, less on 2, tied on 7.
 
 **Neither system produces a module that repeats internally** — no duplicated 12-mer inside any
 single sequence, on either side. That axis is settled and it is a tie.
 
-It also corroborates an earlier result by a different route. `repeat_burden`, CLIPPR's original
+It also corroborates an earlier result by a different route. `repeat_burden`, PPROPT's original
 third Pareto axis, was identically zero at k = 20, 16, 12 and 10 and registered only at k = 8,
 which is why it was replaced: a repeated 10-mer inside a ~100 nt module is genuinely rare. This
 measurement reaches the same conclusion from the reference's sequences as well as ours, so the
@@ -368,7 +368,7 @@ the sequence diversity over the same 42 proteins.
 
 **Why, mechanically — and I had this wrong the first time I wrote it down.**
 
-My first version of this section said nothing in CLIPPR's per-module path sees collection
+My first version of this section said nothing in PPROPT's per-module path sees collection
 sharing. That is false. `library_search.optimise_library` carries a `sharing` term weighted
 **1.0, equal to adaptation** — not an afterthought. What has no sharing term is
 `recoding.recode_inventory`, and that is what produced `work/phaseb/inventory_recoded.json`, the
@@ -390,7 +390,7 @@ their lead of 453.
 Two differences plausibly explain the rest, neither of them measured here. Their similarity
 penalty sits **inside each module's solve**, so every candidate codon choice is scored against
 the rest of the collection as it is made; ours ranks whole proposals *after* a per-module
-optimiser has already produced them, over a bounded proposal budget. And CLIPPR recodes each
+optimiser has already produced them, over a bounded proposal budget. And PPROPT recodes each
 module toward the same codon optimum by default, so identical amino-acid stretches receive
 identical codons unless something actively pushes them apart.
 

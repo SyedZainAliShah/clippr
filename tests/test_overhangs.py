@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from clippr.overhangs import (
+from ppropt.overhangs import (
     best_set,
     enumerate_candidates,
     fidelity_components,
@@ -144,7 +144,7 @@ class TestReactionOverhangs:
         written two ways; the 0.206 gap came from `set_fidelity` not pooling competitors
         across both strands. What survives is the measurement: level 0 sits below 0.8.
         """
-        from clippr import constants as C
+        from ppropt import constants as C
         stored = list(C.DESTINATION_OVERHANGS["level0"])
         present = reaction_overhangs([], "level0")
         assert set_fidelity(stored, "BbsI-HF") == pytest.approx(

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from clippr.qc import DEFAULT_THRESHOLDS, REPEAT_K, synthesis_qc
+from ppropt.qc import DEFAULT_THRESHOLDS, REPEAT_K, synthesis_qc
 
 import random
 

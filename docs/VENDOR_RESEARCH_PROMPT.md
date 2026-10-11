@@ -1,4 +1,4 @@
-# Prompt: vendor sequence-rule research for CLIPPR
+# Prompt: vendor sequence-rule research for PPROPT
 
 *Hand this to a web-research agent verbatim. Self-contained — it assumes no knowledge of the
 project.*

@@ -1,4 +1,4 @@
-"""Generate the CLIPPR reusable-inventory notebook.
+"""Generate the PPROPT reusable-inventory notebook.
 
 Split out of the designer notebook. It is a second complete workflow for a different reader --
 someone who already holds the deposited GRASP module kit -- and appending it underneath the
@@ -10,15 +10,15 @@ from pathlib import Path
 from notebook_inventory_cells import cells as inventory_cells
 from notebook_kit import code, colab_url, md, setup_cell, write_notebook
 
-OUT = Path("notebooks/CLIPPR_inventory.ipynb")
-NAME = "CLIPPR_inventory.ipynb"
-DESIGNER_COLAB = colab_url("CLIPPR_designer.ipynb")
+OUT = Path("notebooks/PPROPT_inventory.ipynb")
+NAME = "PPROPT_inventory.ipynb"
+DESIGNER_COLAB = colab_url("PPROPT_designer.ipynb")
 
 cells = [
     md(f"""
 <div align="center">
 
-# CLIPPR — reusable inventory
+# PPROPT — reusable inventory
 
 ### Build PPRs from the deposited GRASP module kit instead of ordering new DNA
 
@@ -31,7 +31,7 @@ cells = [
 ---
 
 **Use this notebook if you hold the kit.** If you want a PPR designed and synthesised from
-scratch, use [CLIPPR_designer.ipynb]({DESIGNER_COLAB}) instead — the other route, which
+scratch, use [PPROPT_designer.ipynb]({DESIGNER_COLAB}) instead — the other route, which
 needs no kit.
 
 Recode the kit once for your host, then *compile* targets from it: the DNA is ordered once
@@ -51,7 +51,7 @@ recode works from a *saved inventory* carrying its own sequences, so Table S1 is
 #@markdown ImportError twelve cells down is a worse way to find that out.
 import importlib.util
 
-_needed = ["clippr.inventories", "clippr.workflow", "clippr.ordering", "clippr.substrates"]
+_needed = ["ppropt.inventories", "ppropt.workflow", "ppropt.ordering", "ppropt.substrates"]
 _missing = [m for m in _needed if importlib.util.find_spec(m) is None]
 
 from IPython.display import HTML, display
@@ -59,7 +59,7 @@ from IPython.display import HTML, display
 if _missing:
     display(HTML(
         '<div style="border-left:3px solid #a8402c;padding:.6em 1em;font-size:13px;'
-        'line-height:1.55">The installed CLIPPR does not carry the reusable-inventory '
+        'line-height:1.55">The installed PPROPT does not carry the reusable-inventory '
         'workflow.<br>Missing: <code>' + ", ".join(_missing) + '</code><br><br>'
         'Nothing below this cell will run until the published build includes it. The '
         'designer notebook is unaffected.</div>'))

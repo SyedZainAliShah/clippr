@@ -1,7 +1,7 @@
 """Derive the GRASP module inventory from the published supplementary tables.
 
 PRIMARY SOURCE ONLY. Reads Dennis et al. (2025) Supplementary Table S1 and emits
-`src/clippr/parts.json`. Nothing is taken from the reference implementation, which ships the
+`src/ppropt/parts.json`. Nothing is taken from the reference implementation, which ships the
 same modules as its own Geneious plasmid exports; this reads the paper's published table
 instead, and `validation/compare_parts.py` checks the two agree.
 
@@ -32,7 +32,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 SUP = ROOT / "data" / "grasp_supp"
-OUT = ROOT / "src" / "clippr" / "parts.json"
+OUT = ROOT / "src" / "ppropt" / "parts.json"
 
 #: 5th residue + last residue -> the base that pair reads. Same mapping as biology.py, repeated
 #: here because this script must run standalone against the paper.

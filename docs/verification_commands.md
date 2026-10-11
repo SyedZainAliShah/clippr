@@ -17,7 +17,7 @@ discovered.
 **Import and validate an inventory**
 
 ```bash
-python -c "import sys;sys.path.insert(0,'src');from clippr import inventories as inv;lib=inv.load_deposited('data/grasp_supp/Table S1.xlsx');print(len(lib),lib.version);print(inv.validate(lib) or 'valid');print(inv.synthesis_profile_notes(lib))"
+python -c "import sys;sys.path.insert(0,'src');from ppropt import inventories as inv;lib=inv.load_deposited('data/grasp_supp/Table S1.xlsx');print(len(lib),lib.version);print(inv.validate(lib) or 'valid');print(inv.synthesis_profile_notes(lib))"
 ```
 
 Needs Supplementary Table S1 (not shipped — see `NOTICE.md`). Prints module count, content
@@ -26,7 +26,7 @@ version, structural problems, and any module outside the synthesis profile.
 **Recode all 42 modules with fixed interfaces**
 
 ```bash
-python -c "import sys,json;sys.path.insert(0,'src');from clippr import workflow as w;t=json.load(open('data/codon_tables/kazusa_3055.json'));r=w.recode_for_host('data/grasp_supp/Table S1.xlsx',t,'out/recode',label='chlamy',seeds=8,wall_seconds=600);print(r.summary);print(r.artefacts)"
+python -c "import sys,json;sys.path.insert(0,'src');from ppropt import workflow as w;t=json.load(open('data/codon_tables/kazusa_3055.json'));r=w.recode_for_host('data/grasp_supp/Table S1.xlsx',t,'out/recode',label='chlamy',seeds=8,wall_seconds=600);print(r.summary);print(r.artefacts)"
 ```
 
 **`seeds=8` is required to reproduce the saved inventory.** Four attempts give a different
@@ -39,7 +39,7 @@ attempt result.
 **Optimise a library as a collection**
 
 ```bash
-python -c "import sys,json;sys.path.insert(0,'src');from clippr import workflow as w;t=json.load(open('data/codon_tables/kazusa_3055.json'));r=w.optimise_collection('work/phaseb/inventory_recoded.json',t,'out/collection',mode='greedy',max_proposals=168,wall_seconds=600);print(r.summary)"
+python -c "import sys,json;sys.path.insert(0,'src');from ppropt import workflow as w;t=json.load(open('data/codon_tables/kazusa_3055.json'));r=w.optimise_collection('work/phaseb/inventory_recoded.json',t,'out/collection',mode='greedy',max_proposals=168,wall_seconds=600);print(r.summary)"
 ```
 
 **`max_proposals=168` is required to reproduce the reported table.** Two different defaults
@@ -60,7 +60,7 @@ draw proposals from a seeded generator; none is seed-free deterministic.
 **Search junction/codon alternatives and export the observed front**
 
 ```bash
-python -c "import sys,json;sys.path.insert(0,'src');from clippr import workflow as w;t=json.load(open('data/codon_tables/kazusa_3055.json'));r=w.explore_interfaces('work/phaseb/inventory_recoded.json',['AAAAUGUGG','UUACACGUGCGUAC','CUAUCACAUCACAUAAGCG'],t,'out/front',max_evaluations=100,wall_seconds=600);print(r.summary);print(r.data['recommended'])"
+python -c "import sys,json;sys.path.insert(0,'src');from ppropt import workflow as w;t=json.load(open('data/codon_tables/kazusa_3055.json'));r=w.explore_interfaces('work/phaseb/inventory_recoded.json',['AAAAUGUGG','UUACACGUGCGUAC','CUAUCACAUCACAUAAGCG'],t,'out/front',max_evaluations=100,wall_seconds=600);print(r.summary);print(r.data['recommended'])"
 ```
 
 Searches **level-0 junction classes only**. Block joins belong to a level-1 reaction whose
@@ -70,7 +70,7 @@ that can be scored.
 **Commit to a candidate and rebuild from it**
 
 ```bash
-python -c "import sys;sys.path.insert(0,'src');from clippr import workflow as w;s=w.select_interface('work/phaseb/inventory_recoded.json','out/front/interface_front.json','out/selected',choice='recommended');print(s.summary);c=w.load_and_compile(s.artefacts['inventory'],['AAAAUGUGG'],'out/recompiled');print(c.summary);i=w.order_items_for(s.artefacts['inventory'],'out/items');print(i.summary)"
+python -c "import sys;sys.path.insert(0,'src');from ppropt import workflow as w;s=w.select_interface('work/phaseb/inventory_recoded.json','out/front/interface_front.json','out/selected',choice='recommended');print(s.summary);c=w.load_and_compile(s.artefacts['inventory'],['AAAAUGUGG'],'out/recompiled');print(c.summary);i=w.order_items_for(s.artefacts['inventory'],'out/items');print(i.summary)"
 ```
 
 `choice='incumbent'` is a valid path. Selecting anything else changes the interface version
@@ -81,7 +81,7 @@ and requires recompilation, which the result states.
 **Compile targets from an inventory version**
 
 ```bash
-python -c "import sys;sys.path.insert(0,'src');from clippr import workflow as w;r=w.load_and_compile('work/phaseb/inventory_recoded.json',['AAAAUGUGG','UUACACGUGCGUAC','CUAUCACAUCACAUAAGCG'],'out/compiled');print(r.summary);print(r.data['inventory_version'])"
+python -c "import sys;sys.path.insert(0,'src');from ppropt import workflow as w;r=w.load_and_compile('work/phaseb/inventory_recoded.json',['AAAAUGUGG','UUACACGUGCGUAC','CUAUCACAUCACAUAAGCG'],'out/compiled');print(r.summary);print(r.data['inventory_version'])"
 ```
 
 **Validate complete exported products and annotations**
@@ -96,7 +96,7 @@ python validation/independent/v7_export_semantics.py
 **Evaluate oPools eligibility and pool plans**
 
 ```bash
-python -c "import sys,json;sys.path.insert(0,'src');from pathlib import Path;from clippr import workflow as w;from clippr.ordering import CURRENT_OPOOL_50PMOL;i=w.order_items_for('work/phaseb/inventory_recoded.json','out/items');items=json.loads(Path(i.artefacts['order_items']).read_text());r=w.plan_order(items,CURRENT_OPOOL_50PMOL,'out/order');print(r.summary);print(r.data['eligibility']['eligible'], r.data['pool_count'], r.data['optimality']);print(r.data['vendor_approval'])"
+python -c "import sys,json;sys.path.insert(0,'src');from pathlib import Path;from ppropt import workflow as w;from ppropt.ordering import CURRENT_OPOOL_50PMOL;i=w.order_items_for('work/phaseb/inventory_recoded.json','out/items');items=json.loads(Path(i.artefacts['order_items']).read_text());r=w.plan_order(items,CURRENT_OPOOL_50PMOL,'out/order');print(r.summary);print(r.data['eligibility']['eligible'], r.data['pool_count'], r.data['optimality']);print(r.data['vendor_approval'])"
 ```
 
 `CURRENT_OPOOL_50PMOL` carries the published rules (40–350 nt, 2–384 oligos per pool at
@@ -158,7 +158,7 @@ Count from the collection total and the summary line, never from progress dots.
 | fitness | python -m pytest tests/test_synthesis_fitness.py | pins that repeat_burden is zero at k=20,16,12,10 |
 | runtime | python validation/experiments/runtime_profile.py | work/runtime/runtime_profile.json; isolated stage medians **and** measured end-to-end chain times under two policies |
 | regressions are not vacuous | python validation/falsify_boundaries.py | reverts each policy repair in a scratch worktree and checks the boundary suite goes red; exits non-zero if any defect leaves it green |
-| the notebook runs on the build users install | see below | 21/21 cells against a pip-installed CLIPPR; the in-tree notebook harness cannot catch a version split |
+| the notebook runs on the build users install | see below | 21/21 cells against a pip-installed PPROPT; the in-tree notebook harness cannot catch a version split |
 
 Each accepts `--out` so a reviewer can write to their own directory.
 
@@ -175,7 +175,7 @@ the notebook against the code being edited. It cannot catch a notebook that depe
 something the *published* package lacks — and that failure has happened here, taking out every
 Colab session while the in-tree harness stayed green.
 
-Three steps. Build a throwaway environment, install CLIPPR the way the notebook's Setup cell
+Three steps. Build a throwaway environment, install PPROPT the way the notebook's Setup cell
 does, then run the notebook's code cells against it.
 
 ```bash
@@ -187,7 +187,7 @@ python -m venv .sim
 ```
 
 ```bash
-.sim/Scripts/python validation/notebook_on_published_build.py   --notebook notebooks/CLIPPR_designer.ipynb   --workdir work/sim_designer --out work/sim_designer.json   --expect "result['final_artifacts']['status'] == 'fail'"   --expect "result['synthesis_ready'] is False"
+.sim/Scripts/python validation/notebook_on_published_build.py   --notebook notebooks/PPROPT_designer.ipynb   --workdir work/sim_designer --out work/sim_designer.json   --expect "result['final_artifacts']['status'] == 'fail'"   --expect "result['synthesis_ready'] is False"
 ```
 
 The positional form this file used to show was replaced: the harness now takes named
@@ -209,7 +209,7 @@ The block-join geometry is derived; the rest of the reaction is not supplied by 
 material. A user who has those parts can say so:
 
 ```bash
-python -c "import sys;sys.path.insert(0,'src');from clippr import workflow as w;chain={'linker':['CTTC','GTGA'],'editing_domain':['GTGA','CACG'],'bridge':['CACG','TTCG'],'final_cassette':['TTCG','CGCT']};r=w.level1_readiness(['AATG','CTTC'],'out/level1',roles=chain,evidence='your source here');print(r.summary)"
+python -c "import sys;sys.path.insert(0,'src');from ppropt import workflow as w;chain={'linker':['CTTC','GTGA'],'editing_domain':['GTGA','CACG'],'bridge':['CACG','TTCG'],'final_cassette':['TTCG','CGCT']};r=w.level1_readiness(['AATG','CTTC'],'out/level1',roles=chain,evidence='your source here');print(r.summary)"
 ```
 
 An incomplete list is refused and names the roles it lacks; it is never scored, because a
@@ -260,7 +260,7 @@ hand. The window is a plain RNA target, so it feeds `design_oneshot`, `design_li
 `parts.select` unchanged.
 
 ```bash
-python -c "import sys;sys.path.insert(0,'src');from clippr import SearchSequence,select_window,loci_for_gene,window_report;from clippr.offtarget import load_transcripts;trs=load_transcripts();f=next(t for t in trs if t.name=='rbcL');s=SearchSequence('rbcL_200',f.sequence[:200],origin='native');print(window_report(select_window(s,lengths=(9,),transcripts=trs,intended_loci=loci_for_gene('rbcL',trs),reference='NC_005353.1')))"
+python -c "import sys;sys.path.insert(0,'src');from ppropt import SearchSequence,select_window,loci_for_gene,window_report;from ppropt.offtarget import load_transcripts;trs=load_transcripts();f=next(t for t in trs if t.name=='rbcL');s=SearchSequence('rbcL_200',f.sequence[:200],origin='native');print(window_report(select_window(s,lengths=(9,),transcripts=trs,intended_loci=loci_for_gene('rbcL',trs),reference='NC_005353.1')))"
 ```
 
 In the designer notebook this is *Pick the target window for me*, under Optional extras. It

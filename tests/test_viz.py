@@ -12,10 +12,10 @@ from pathlib import Path
 
 import pytest
 
-from clippr.viz import (FAIL, FILL_OPACITY, MUTED, PASS, WELL_R,
+from ppropt.viz import (FAIL, FILL_OPACITY, MUTED, PASS, WELL_R,
                         assembly_svg, kit_plate_svg, plate_svg)
 
-PARTS = Path(__file__).resolve().parents[1] / "src" / "clippr" / "parts.json"
+PARTS = Path(__file__).resolve().parents[1] / "src" / "ppropt" / "parts.json"
 
 
 @pytest.fixture(scope="module")
@@ -93,8 +93,8 @@ class TestPlateMap:
 
 @pytest.fixture(scope="module")
 def design():
-    from clippr.codons import table_from_kazusa
-    from clippr.design import design_oneshot
+    from ppropt.codons import table_from_kazusa
+    from ppropt.design import design_oneshot
 
     return design_oneshot("AAAAUGUGG", codon_table=table_from_kazusa(),
                           check_offtarget=False)

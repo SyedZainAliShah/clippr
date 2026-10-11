@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from clippr import design, offtarget, qc
+from ppropt import design, offtarget, qc
 
-from clippr.offtarget import (
+from ppropt.offtarget import (
     Transcript,
     architecture_advice,
     expected_by_chance,

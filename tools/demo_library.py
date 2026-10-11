@@ -1,4 +1,4 @@
-"""Demo: design an orthogonal CLIPPR regulator library and the matching PPR binders."""
+"""Demo: design an orthogonal PPROPT regulator library and the matching PPR binders."""
 from __future__ import annotations
 
 import sys
@@ -6,13 +6,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from clippr import crosstalk_report, describe, design_orthogonal_set  # noqa: E402
+from ppropt import crosstalk_report, describe, design_orthogonal_set  # noqa: E402
 
 N = 8
 LENGTH = 9
 
 print("=" * 74)
-print(f"CLIPPR regulator library: {N} orthogonal targets, {LENGTH} nt")
+print(f"PPROPT regulator library: {N} orthogonal targets, {LENGTH} nt")
 print("=" * 74)
 print()
 

@@ -6,7 +6,7 @@ configuration but not the source that produced the rows. That corpus is kept as 
 evidence and is not relabelled; this writes a new one that is pinned.
 
 Long by design -- roughly three and a half hours, dominated by 19S -- so it runs through
-`clippr.experiment`, which journals each row as it completes, checkpoints elapsed time per
+`ppropt.experiment`, which journals each row as it completes, checkpoints elapsed time per
 item, quarantines an interrupted trailing write and refuses a resume whose identity differs.
 An interrupted run resumes; it does not restart.
 
@@ -27,9 +27,9 @@ sys.path.insert(0, str(ROOT / "validation"))
 
 from integration import corpus                                    # noqa: E402
 
-from clippr import experiment, manifest                           # noqa: E402
-from clippr.design import design_oneshot                          # noqa: E402
-from clippr.overhangs import cache_stats                          # noqa: E402
+from ppropt import experiment, manifest                           # noqa: E402
+from ppropt.design import design_oneshot                          # noqa: E402
+from ppropt.overhangs import cache_stats                          # noqa: E402
 
 TABLE = ROOT / "data" / "codon_tables" / "kazusa_3055.json"
 

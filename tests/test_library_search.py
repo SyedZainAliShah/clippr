@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from clippr import inventories as inv
-from clippr.library_search import MODES, collection_objectives, optimise_library
-from clippr.recoding import module_constraint_problems
+from ppropt import inventories as inv
+from ppropt.library_search import MODES, collection_objectives, optimise_library
+from ppropt.recoding import module_constraint_problems
 
 TABLE_S1 = Path(__file__).resolve().parents[1] / "data" / "grasp_supp" / "Table S1.xlsx"
 CODON_TABLE = Path(__file__).resolve().parents[1] / "data" / "codon_tables" / "kazusa_3055.json"
@@ -29,7 +29,7 @@ def table():
 class TestCollectionObjectives:
     def test_sharing_is_normalised_by_pair_count(self):
         """Otherwise the term grows with inventory size rather than with actual sharing."""
-        from clippr.codons import complete_table
+        from ppropt.codons import complete_table
         t = complete_table({"K": {"AAA": 1.0, "AAG": 0.5}}, 1)
         two = collection_objectives({"a": "AAAAAAAAAAAA", "b": "AAAAAAAAAAAA"},
                                     {"a": 0, "b": 0}, t, k=4)
@@ -38,7 +38,7 @@ class TestCollectionObjectives:
         assert two["sharing_per_pair"] == pytest.approx(four["sharing_per_pair"])
 
     def test_the_scalar_reports_the_k_it_used(self):
-        from clippr.codons import complete_table
+        from ppropt.codons import complete_table
         t = complete_table({"K": {"AAA": 1.0}}, 1)
         got = collection_objectives({"a": "AAAAAA"}, {"a": 0}, t, k=7)
         assert got["k"] == 7
@@ -75,7 +75,7 @@ class TestSearchContract:
     def test_the_search_never_introduces_a_violation(self, deposited, table, mode):
         """The guarantee is about what the search produces, not what it inherited.
 
-        One deposited module (`pPR-1_D_LD5T`) contains `TTTTT` and so already fails CLIPPR's
+        One deposited module (`pPR-1_D_LD5T`) contains `TTTTT` and so already fails PPROPT's
         max-homopolymer-4 rule. A module the search leaves untouched keeps whatever the input
         had; what must never happen is the search *creating* a violation.
         """
@@ -92,7 +92,7 @@ class TestSearchContract:
                                                                               deposited):
         """A user ordering the deposited kit should learn this before, not after.
 
-        CLIPPR's homopolymer limit of 4 is an engineering choice, not a published rule, so
+        PPROPT's homopolymer limit of 4 is an engineering choice, not a published rule, so
         this is a statement about fit to our synthesis profile -- not a defect in the kit.
         """
         offenders = {m: module_constraint_problems(r.dna)

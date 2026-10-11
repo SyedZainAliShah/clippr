@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from clippr.viz import (FRAME_INSET, PAD, PITCH, TRACK, WELL_R, assembly_svg,
+from ppropt.viz import (FRAME_INSET, PAD, PITCH, TRACK, WELL_R, assembly_svg,
                         plate_svg)
 
 SVG_NS = "{http://www.w3.org/2000/svg}"

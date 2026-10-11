@@ -15,12 +15,12 @@ from pathlib import Path
 
 import pytest
 
-from clippr.design import design_oneshot
+from ppropt.design import design_oneshot
 
 from test_design import TOY_TABLE
 
 ROOT = Path(__file__).resolve().parents[1]
-NOTEBOOK = ROOT / "notebooks" / "CLIPPR_designer.ipynb"
+NOTEBOOK = ROOT / "notebooks" / "PPROPT_designer.ipynb"
 
 
 @pytest.fixture(scope="module")

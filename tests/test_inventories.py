@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from clippr import inventories as inv
-from clippr.parts import FUSION_SITES, inventory as kit_index
+from ppropt import inventories as inv
+from ppropt.parts import FUSION_SITES, inventory as kit_index
 
 TABLE_S1 = Path(__file__).resolve().parents[1] / "data" / "grasp_supp" / "Table S1.xlsx"
 

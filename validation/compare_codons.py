@@ -31,8 +31,8 @@ from Bio.Seq import Seq
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from clippr.codons import BLACKLIST_ENZYMES, optimize_cds, table_from_kazusa
-from clippr.ppr import describe
+from ppropt.codons import BLACKLIST_ENZYMES, optimize_cds, table_from_kazusa
+from ppropt.ppr import describe
 
 MAX_HOMOPOLYMER = 4
 GC_BOUNDS, GC_WINDOW = (0.35, 0.65), 50

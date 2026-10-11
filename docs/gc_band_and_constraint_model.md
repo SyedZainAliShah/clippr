@@ -13,7 +13,7 @@ the validator; what it deliberately does **not** settle is which profile should 
 
 ## 0. The short version
 
-CLIPPR enforces `GC_BAND = (0.35, 0.65)` over every 50-nt window of a synthesised sequence.
+PPROPT enforces `GC_BAND = (0.35, 0.65)` over every 50-nt window of a synthesised sequence.
 That constant is the **single largest determinant of our headline codon-adaptation figure** —
 worth about 0.16 CAI — and it has **no recorded source in this repository**.
 
@@ -34,7 +34,7 @@ What survives the correction, and it is still the point:
   a policy; the product is. Twist's own page separates this guidance from its sequence
   acceptance and complexity rules.
 - **We enforce the local half and not the global half.** Twist pairs the 50-bp window with a
-  global 25–65% band. CLIPPR has no global band at all — so we are not simply "stricter", we
+  global 25–65% band. PPROPT has no global band at all — so we are not simply "stricter", we
   are *differently* scoped, which is harder to defend than either.
 - **We enforce as hard what Twist frames as optimisation guidance.** That reading is worth the
   0.16 CAI on its own.
@@ -49,12 +49,12 @@ change — see §7.1.
 The matched oracle benchmark scores both systems' delivered sequences with one scorer, over the
 translated span they share:
 
-| | CLIPPR | reference |
+| | PPROPT | reference |
 |---|---:|---:|
 | mean CAI, aligned spans | 0.621004 | **0.658672** |
 | modules ahead | **22** | 20 |
 
-The reference is ahead on the mean while CLIPPR wins the per-module split, so their advantage
+The reference is ahead on the mean while PPROPT wins the per-module split, so their advantage
 is concentrated rather than uniform. The question this document answers is *why*, and whether
 it is something to copy.
 
@@ -100,7 +100,7 @@ the two optimisers equivalent would go beyond what was measured.
 
 ## 3. Where our band came from
 
-    src/clippr/recoding.py:33
+    src/ppropt/recoding.py:33
     GC_BAND = (0.35, 0.65)
     GC_WINDOW = 50
     MAX_HOMOPOLYMER = 4
@@ -132,18 +132,18 @@ The reference carries **five named vendor profiles**, each with a product URL, a
 | Twist · Complex Genes tolerant | 0.25–0.65 | 0.10–0.90 / 50 nt | 3 | ≤ 30 |
 | **IDT · gBlocks / eBlocks conservative** | 0.25–0.70 | 0.20–0.80 / 40 nt | 3 | — |
 | Generic · conservative (default) | 0.30–… | 0.25–0.75 / 50 nt | 3 | — |
-| **CLIPPR** | **none** | **0.35–0.65 / 50 nt** | 4 | — |
+| **PPROPT** | **none** | **0.35–0.65 / 50 nt** | 4 | — |
 
 **Read that table with care — it is the reference's transcription, not the vendors' pages.**
 Trusting it is how this document originally reached a false conclusion. Twist's own page gives
 **35–65% over 50 bp** for codon optimisation, which no row above reproduces, and which is
-exactly CLIPPR's band.
+exactly PPROPT's band.
 
 What the primary pages support, product by product:
 
 | primary source | supports | does **not** support |
 |---|---|---|
-| Twist gene resources (read 2026-09-16) | global 25–65%, local 35–65% over 50 bp, as **codon-optimisation** guidance | treating it as an acceptance rule, or as CLIPPR's historical source |
+| Twist gene resources (read 2026-09-16) | global 25–65%, local 35–65% over 50 bp, as **codon-optimisation** guidance | treating it as an acceptance rule, or as PPROPT's historical source |
 | Twist Complex Genes | 50-bp GC outside 10–90% among high-complexity criteria | universal acceptance bounds |
 | IDT gBlocks FAQ *(orchestrator's reading; the page redirect-loops for me)* | GC below 25% or above 75% can cause synthesis problems; acceptance is multifactorial | applying gBlocks rules to oPools |
 | IDT oPools product page | length and scale-dependent pool counts; **no numeric GC threshold** | that any sequence will be accepted |
@@ -227,7 +227,7 @@ a constraint-veto reading *for those modules and those attempts*. "Every unchang
 the band vetoed every possible improvement" is a wider claim and was not tested.)
 
 **7.2 — Source the band, or declare it.** Either attach a citation to `GC_BAND`, or relabel it
-as a CLIPPR engineering choice and publish the codon adaptation it costs. Matching Twist's
+as a PPROPT engineering choice and publish the codon adaptation it costs. Matching Twist's
 published guidance is not the same as having been derived from it, and the repository still
 records no source.
 
@@ -254,10 +254,10 @@ decision, which is the whole point of this document.
     python - <<'PY'
     import sys, json, statistics; sys.path.insert(0, "src")
     from Bio.Seq import Seq
-    from clippr import inventories as inv, constants as C
-    from clippr.codons import complete_table, optimize_cds
-    from clippr.objectives import codon_adaptation
-    from clippr.recoding import locked_interface_sites
+    from ppropt import inventories as inv, constants as C
+    from ppropt.codons import complete_table, optimize_cds
+    from ppropt.objectives import codon_adaptation
+    from ppropt.recoding import locked_interface_sites
     table = complete_table(json.load(open("data/codon_tables/kazusa_3055.json")), 1)
     dep = inv.load_deposited("data/grasp_supp/Table S1.xlsx")
     for name, kw in {"ours": dict(gc_bounds=(0.35, 0.65), max_homopolymer=4),

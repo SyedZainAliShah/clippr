@@ -45,10 +45,10 @@ sys.path.insert(0, str(ROOT / "src"))
 from Bio.Data import CodonTable                                   # noqa: E402
 from Bio.Seq import Seq                                           # noqa: E402
 
-from clippr import constants as C                                 # noqa: E402
-from clippr.codons import complete_table, optimize_cds            # noqa: E402
-from clippr.parts import select                                   # noqa: E402
-from clippr.products import load_inserts                          # noqa: E402
+from ppropt import constants as C                                 # noqa: E402
+from ppropt.codons import complete_table, optimize_cds            # noqa: E402
+from ppropt.parts import select                                   # noqa: E402
+from ppropt.products import load_inserts                          # noqa: E402
 
 SIX = ["AAAAUGUGG", "GCUAAAGAC", "UUACACGUG", "CGUACGUAC", "AUCGAUCGA", "GGCCAAUUG"]
 INTERFACE = 4

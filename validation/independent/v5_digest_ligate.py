@@ -1,7 +1,7 @@
-"""V5 — digest and ligate CLIPPR's exported oligos from first principles, and check the product.
+"""V5 — digest and ligate PPROPT's exported oligos from first principles, and check the product.
 
 This deliberately shares nothing with the code it checks. It does not import
-`clippr.assembly`, never calls `split_cds`, `build_oligos` or `reassemble`, and does not read
+`ppropt.assembly`, never calls `split_cds`, `build_oligos` or `reassemble`, and does not read
 the `payload_5to3` column -- reading the payload would be reading the answer. It takes the
 `oligo_sequence_5to3` strings a user would actually order, finds the Type IIS sites in them,
 computes the cuts, recovers the sticky ends, joins compatible ends, and compares the product
@@ -307,7 +307,7 @@ def main() -> int:
          "corrupt_controls_total": len(corrupt_controls(rows[0])),
          "model": "BsaI GGTCTC(1/5), 4-base 5' overhang; double-stranded fragments only",
          "independence": ("reads only oligo_sequence_5to3 from exported records; imports no "
-                          "clippr assembly code and does not read payload_5to3")},
+                          "ppropt assembly code and does not read payload_5to3")},
         indent=2) + "\n", encoding="utf-8")
     print(f"\nwrote {out}")
     # Compared against the number of controls there actually are, not a literal. Two

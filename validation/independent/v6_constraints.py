@@ -1,12 +1,12 @@
-"""V6 — check CLIPPR's own designs against the declared hard constraints, independently.
+"""V6 — check PPROPT's own designs against the declared hard constraints, independently.
 
 The existing codon comparison re-optimises under the *reference's* cut positions and locked
-overhangs, so it never exercises the plans CLIPPR chooses for itself. This checks those
+overhangs, so it never exercises the plans PPROPT chooses for itself. This checks those
 plans, and it derives every expectation from the declared contract rather than from the
 design result or its QC verdict -- a checker that reads `constraints_ok` and agrees with it
 has measured nothing.
 
-Nothing here imports `clippr.qc` or `clippr.codons`. Enzyme recognition sites, the GC band,
+Nothing here imports `ppropt.qc` or `ppropt.codons`. Enzyme recognition sites, the GC band,
 the window size and the homopolymer limit are written out below.
 
 **One stated dependency.** The full-protein check rebuilds the expected sequence from
@@ -91,7 +91,7 @@ def expected_protein(target: str) -> str | None:
     authors' deposited construct in V3 -- not from `describe()`, which is the function whose
     output this is meant to test.
     """
-    from clippr.biology import N_TERMINAL, REPEAT_TEMPLATE
+    from ppropt.biology import N_TERMINAL, REPEAT_TEMPLATE
 
     inverse = {base: pair for pair, base in CODE.items()}
     repeats = []
@@ -227,7 +227,7 @@ def main() -> int:
          "contract": {"blacklist": BLACKLIST, "gc_band": GC_BAND, "gc_window": GC_WINDOW,
                       "max_homopolymer": MAX_HOMOPOLYMER},
          "independence": ("expectations derived from the declared contract and the published "
-                          "PPR code; imports no clippr.qc or clippr.codons")},
+                          "PPR code; imports no ppropt.qc or ppropt.codons")},
         indent=2) + "\n", encoding="utf-8")
     print(f"\nwrote {out}")
     return 0 if clean == len(rows) else 1

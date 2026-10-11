@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from clippr import inventories as inv
-from clippr.recoding import (GC_BAND, locked_interface_sites, module_constraint_problems,
+from ppropt import inventories as inv
+from ppropt.recoding import (GC_BAND, locked_interface_sites, module_constraint_problems,
                              recode_inventory)
 
 TABLE_S1 = Path(__file__).resolve().parents[1] / "data" / "grasp_supp" / "Table S1.xlsx"

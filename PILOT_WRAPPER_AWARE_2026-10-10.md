@@ -33,7 +33,7 @@ re-roll of the solver.
 targets  AAAAUGUGG (9S), UUACACGUGCGUAC (14S), CUAUCACAUCACAUAAGCG (19S)
 seeds    1, 42, 1234
 budget   600 s per attempt, 5400 s total
-policy   clippr-strict-legacy — local GC 0.35-0.65 over 50 nt, homopolymer <= 4
+policy   ppropt-strict-legacy — local GC 0.35-0.65 over 50 nt, homopolymer <= 4
 frozen   protein, genetic code, codon table, policy, fragment boundaries,
          overhang assignment, construction DNA
 changed  synonymous codon choices only
@@ -96,7 +96,7 @@ In `work/repair_release_20261010-232032/pilot/`:
 ## Reproduction
 
 ```powershell
-Set-Location -LiteralPath 'C:\CodePractice\Drylab\clippr'
+Set-Location -LiteralPath 'C:\CodePractice\Drylab\ppropt'
 $Py = '.\.venv\Scripts\python.exe'
 $Out = "work\pilot_$(Get-Date -Format yyyyMMdd-HHmmss)"
 

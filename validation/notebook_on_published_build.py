@@ -4,7 +4,7 @@
 the notebook agrees with the code being edited. It cannot catch the failure that matters to a
 user: the notebook depending on something the **installed** package does not have.
 
-This runs the notebook under the interpreter of an environment where CLIPPR is installed, and
+This runs the notebook under the interpreter of an environment where PPROPT is installed, and
 refuses to proceed if the import does not resolve inside that environment. Earlier versions
 deleted `ROOT/src` from `sys.path` and then `chdir`-ed into the repository, which left every
 file in the checkout reachable -- a notebook could read an input nobody had declared and the
@@ -12,7 +12,7 @@ run would still look clean. The working directory is now a scratch directory and
 staged into it explicitly, with their hashes recorded.
 
     <installed-env>/python validation/notebook_on_published_build.py \\
-        --notebook notebooks/CLIPPR_designer.ipynb \\
+        --notebook notebooks/PPROPT_designer.ipynb \\
         --workdir work/run/notebook_designer \\
         --out work/run/notebook_designer.json \\
         --input data/codon_tables/kazusa_3055.json=data/codon_tables/kazusa_3055.json
@@ -36,7 +36,7 @@ REPO = Path(__file__).resolve().parents[1]
 
 #: Written into a working directory this runner created, so a later run can tell its
 #: own scratch space from a directory someone else owns.
-OWNERSHIP_MARKER = ".clippr-run"
+OWNERSHIP_MARKER = ".ppropt-run"
 
 #: Lines a run may drop before executing a cell: dependency installation and extension
 #: loading, which mean nothing outside IPython. Dropping the LINE is all this permits.
@@ -108,7 +108,7 @@ def main() -> int:
     ap.add_argument("--env", action="append", default=[], metavar="NAME=VALUE",
                     help=("set an environment variable before the build is imported. A "
                           "relative VALUE resolves inside the working directory, which is "
-                          "how CLIPPR_CACHE_DIR points at a staged cache so the bytes the "
+                          "how PPROPT_CACHE_DIR points at a staged cache so the bytes the "
                           "run consumes are declared and hashed. Repeatable."))
     ap.add_argument("--require-input", action="append", default=[], metavar="DEST",
                     help=("a declared input this notebook needs; the run refuses to "
@@ -160,10 +160,10 @@ def main() -> int:
         shutil.copy(source, target)
         staged[dest] = {"from": str(source), "sha256": _sha256(source)}
 
-    # Before the build is imported, so a cache override is in place when clippr resolves
+    # Before the build is imported, so a cache override is in place when ppropt resolves
     # its paths. Without this the installed wheel read a user-level cache whose bytes no
     # record named: the designer notebook consumed a codon table and a genome from
-    # %LOCALAPPDATA%\clippr and declared no inputs at all.
+    # %LOCALAPPDATA%\ppropt and declared no inputs at all.
     environment = {}
     for pair in args.env:
         name, sep, value = pair.partition("=")
@@ -198,14 +198,14 @@ def main() -> int:
     os.chdir(workdir)
 
     try:
-        import clippr
+        import ppropt
     except Exception as exc:                        # noqa: BLE001 - reported, not hidden
-        print(f"cannot import clippr: {type(exc).__name__}: {exc}")
+        print(f"cannot import ppropt: {type(exc).__name__}: {exc}")
         return 1
-    origin = Path(clippr.__file__).resolve()
+    origin = Path(ppropt.__file__).resolve()
     prefix = Path(sys.prefix).resolve()
     inside = prefix == origin or prefix in origin.parents
-    print(f"clippr imported from {origin}")
+    print(f"ppropt imported from {origin}")
     print(f"resolves inside this environment ({sys.prefix}): {inside}")
     if not inside:
         print("refusing to report on a build that is not the installed one")
@@ -216,9 +216,9 @@ def main() -> int:
     # what happened once: nine files differed and the run still passed.
     installed_fp = source_fp = None
     try:
-        from clippr.manifest import source_fingerprint
+        from ppropt.manifest import source_fingerprint
         installed_fp = source_fingerprint()["sha256"]
-        checkout = REPO / "src" / "clippr" / "manifest.py"
+        checkout = REPO / "src" / "ppropt" / "manifest.py"
         if checkout.is_file():
             import importlib.util
             spec = importlib.util.spec_from_file_location("_checkout_manifest", checkout)

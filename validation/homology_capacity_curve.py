@@ -38,8 +38,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from clippr.biology import REPEAT_TEMPLATE          # noqa: E402
-from clippr.homology import longest_shared          # noqa: E402
+from ppropt.biology import REPEAT_TEMPLATE          # noqa: E402
+from ppropt.homology import longest_shared          # noqa: E402
 
 K = 20
 REPEATS_PER_MEMBER = 9
@@ -54,8 +54,8 @@ def encoding_pool(size, seed=0):
     from Bio import Restriction
     from Bio.Seq import Seq
 
-    from clippr import constants as C
-    from clippr.codons import complete_table, table_from_kazusa
+    from ppropt import constants as C
+    from ppropt.codons import complete_table, table_from_kazusa
 
     region = REPEAT_TEMPLATE.format(fifth="T", last="N")
     table = complete_table(table_from_kazusa(3055), 1)

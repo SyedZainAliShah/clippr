@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from clippr.parts import (
+from ppropt.parts import (
     BUILDABLE_LENGTHS,
     LINKERS,
     LOOP_BLOCKS,

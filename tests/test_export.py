@@ -5,14 +5,14 @@ import pytest
 from Bio import SeqIO
 from Bio.Seq import Seq
 
-from clippr.assembly import build_oligos, split_cds
-from clippr.export import (
+from ppropt.assembly import build_oligos, split_cds
+from ppropt.export import (
     write_fasta,
     write_gene_fasta,
     write_genbank,
     write_oligo_csv,
 )
-from clippr.ppr import describe
+from ppropt.ppr import describe
 
 TARGET = "AAAAUGUGG"
 
@@ -21,7 +21,7 @@ TARGET = "AAAAUGUGG"
 def design():
     protein = describe(TARGET)["aa_sequence"]
     # a plain back-translation is enough; these tests are about serialising, not design
-    from clippr import constants as C
+    from ppropt import constants as C
     cds = "".join(C.SYNONYMOUS_CODONS[a][0] for a in protein)
     cuts = [88, 171, 238]
     frags = split_cds(cds, cuts)

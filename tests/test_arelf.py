@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import pytest
 
-from clippr import constants as C
-from clippr.arelf import (
+from ppropt import constants as C
+from ppropt.arelf import (
     achievable_overhangs,
     candidate_cuts,
     cut_context,
@@ -12,7 +12,7 @@ from clippr.arelf import (
     offsets_from_motif,
     tunable_cuts,
 )
-from clippr.ppr import describe
+from ppropt.ppr import describe
 
 #: Residue offsets from the preceding ARELF at which the corpus designs cut.
 #: Measured across all 200 stored designs by validation/compare_cuts.py.
@@ -63,7 +63,7 @@ class TestCutContext:
 class TestAchievable:
     def test_contains_the_actual_context(self, protein):
         """Whatever a cut currently reads must be one of the options it can reach."""
-        from clippr.arelf import cut_context as ctx
+        from ppropt.arelf import cut_context as ctx
         cds = "".join(C.SYNONYMOUS_CODONS[a][0] for a in protein)
         for cut in (50, 88, 171, 238):
             assert ctx(cds, cut) in achievable_overhangs(protein, cut)
@@ -129,7 +129,7 @@ class TestSafeOverhangsProperty:
 
     @pytest.mark.parametrize("profile", ["none", "assembly", "igem_rfc1000", "moclo_compat"])
     def test_sound_and_complete_on_every_residue_pair(self, profile):
-        from clippr.arelf import safe_overhangs
+        from ppropt.arelf import safe_overhangs
         residues = sorted(C.SYNONYMOUS_CODONS)
         checked = 0
         for a in residues:
@@ -146,7 +146,7 @@ class TestSafeOverhangsProperty:
         assert checked > 2000, f"only {checked} combinations exercised"
 
     def test_agrees_on_a_real_protein(self):
-        from clippr.arelf import safe_overhangs
+        from ppropt.arelf import safe_overhangs
         prot = describe("AAAGCGGCACUUGUGAAGU")["aa_sequence"]
         for cut in range(2, len(prot), 7):
             accepted = set(safe_overhangs(prot, cut))
@@ -155,7 +155,7 @@ class TestSafeOverhangsProperty:
                     prot, cut, oh, C.DEFAULT_ENZYME_PROFILE)
 
     def test_accepted_is_always_a_subset_of_achievable(self):
-        from clippr.arelf import safe_overhangs
+        from ppropt.arelf import safe_overhangs
         prot = describe("AAAAUGUGG")["aa_sequence"]
         for cut in range(2, len(prot) + 1):
             assert set(safe_overhangs(prot, cut)) <= set(achievable_overhangs(prot, cut))
@@ -167,7 +167,7 @@ class TestSafeOverhangsProperty:
         C wobble from an M at cut-2 has no realization and must be rejected even though
         the surrounding sequence is entirely free of restriction sites.
         """
-        from clippr.arelf import safe_overhangs
+        from ppropt.arelf import safe_overhangs
         prot = "AMKAAA"
         cut = 3                                   # residues cut-2, cut-1 are M, K
         assert prot[cut - 2] == "M" and prot[cut - 1] == "K"
@@ -180,7 +180,7 @@ class TestSafeOverhangs:
     """Regression cover for the failure that broke 13 of 50 19S designs."""
 
     def test_subset_of_achievable(self, protein):
-        from clippr.arelf import safe_overhangs
+        from ppropt.arelf import safe_overhangs
         for cut in (73, 88, 175, 262):
             assert set(safe_overhangs(protein, cut)) <= set(
                 achievable_overhangs(protein, cut))
@@ -193,7 +193,7 @@ class TestSafeOverhangs:
         or G, as alanine's do, the result is GAGACC or GAGACG: BsaI or BsmBI reverse
         complement. A forward-only scan misses this entire class.
         """
-        from clippr.arelf import safe_overhangs
+        from ppropt.arelf import safe_overhangs
         prot = "MAAAAARDAAAAA"
         cut = prot.index("D") + 1
         assert prot[cut - 2] == "R" and prot[cut - 1] == "D"
@@ -217,13 +217,13 @@ class TestSafeOverhangs:
 
     def test_an_escape_keeps_the_overhang_available(self):
         """Same overhang, but a next residue whose codons can start with A or T."""
-        from clippr.arelf import safe_overhangs
+        from ppropt.arelf import safe_overhangs
         prot = "MAAAAARDMAAAA"          # methionine follows: ATG starts with A
         cut = prot.index("D") + 1
         assert "AGAC" in safe_overhangs(prot, cut)
 
     def test_keeps_overhangs_with_an_escape(self, protein):
-        from clippr.arelf import safe_overhangs
+        from ppropt.arelf import safe_overhangs
         assert safe_overhangs(protein, 88), "no safe overhang at a routine cut"
 
     @pytest.mark.parametrize("profile,expect", [
@@ -239,7 +239,7 @@ class TestSafeOverhangs:
         This case is exactly the trade to decide deliberately: BsmBI is excluded only to
         keep later MoClo levels open, and excluding it is what makes AGAC infeasible here.
         """
-        from clippr.arelf import safe_overhangs
+        from ppropt.arelf import safe_overhangs
         prot = "MAAAAARDAAAAA"
         cut = prot.index("D") + 1
         assert ("AGAC" in safe_overhangs(prot, cut, enzymes=profile)) is expect
@@ -310,7 +310,7 @@ class TestCandidateCuts:
 
 class TestBalancedCuts:
     def test_returns_most_balanced_first(self, protein):
-        from clippr.arelf import balanced_cuts
+        from ppropt.arelf import balanced_cuts
         splits = balanced_cuts(protein, 4, 40, 120, limit=20)
         n = len(protein)
 
@@ -321,11 +321,11 @@ class TestBalancedCuts:
         assert spread(splits[0]) <= spread(splits[-1])
 
     def test_respects_the_limit(self, protein):
-        from clippr.arelf import balanced_cuts
+        from ppropt.arelf import balanced_cuts
         assert len(balanced_cuts(protein, 4, 40, 120, limit=7)) <= 7
 
     def test_all_splits_are_legal(self, protein):
-        from clippr.arelf import balanced_cuts
+        from ppropt.arelf import balanced_cuts
         n = len(protein)
         for cuts in balanced_cuts(protein, 4, 60, 95, limit=20):
             b = [0] + cuts + [n]
@@ -335,7 +335,7 @@ class TestBalancedCuts:
     def test_scales_to_the_largest_architecture(self):
         """19S split seven ways is where exhaustive enumeration became infeasible."""
         import time
-        from clippr.arelf import balanced_cuts
+        from ppropt.arelf import balanced_cuts
         big = describe("AAAGCGGCACUUGUGAAGU")["aa_sequence"]
         t0 = time.time()
         splits = balanced_cuts(big, 7, 40, 90, limit=40)

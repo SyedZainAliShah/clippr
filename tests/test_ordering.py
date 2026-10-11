@@ -10,7 +10,7 @@ import csv
 import json
 from pathlib import Path
 
-from clippr.ordering import (HISTORICAL_OPOOL, ProductProfile, check_eligibility,
+from ppropt.ordering import (HISTORICAL_OPOOL, ProductProfile, check_eligibility,
                              load_profile, plan_pools, write_order_files)
 
 

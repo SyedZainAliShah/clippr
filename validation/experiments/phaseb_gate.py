@@ -11,7 +11,7 @@ Gate B, from the full-workflow plan:
 Adaptation gains are reported **separately** from the capability pass. A gate that mixed them
 would let a large CAI improvement paper over a module that never compiled.
 
-Nothing here imports `clippr.qc` or `clippr.codons`. The constraint set, the frames and the
+Nothing here imports `ppropt.qc` or `ppropt.codons`. The constraint set, the frames and the
 product join are written out or recomputed, so agreement with the production path is
 corroboration rather than an echo of it.
 
@@ -29,8 +29,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from Bio.Seq import Seq                                           # noqa: E402
 
-from clippr import inventories as inv                             # noqa: E402
-from clippr.parts import FUSION_SITES, inventory as kit_index     # noqa: E402
+from ppropt import inventories as inv                             # noqa: E402
+from ppropt.parts import FUSION_SITES, inventory as kit_index     # noqa: E402
 
 INTERFACE = 4
 BLACKLIST = {"BsaI": "GGTCTC", "BbsI": "GAAGAC", "SapI": "GCTCTTC"}
@@ -279,7 +279,7 @@ def main() -> int:
         "corruption_probes": rejected,
         "adaptation_gains_reported_separately": gains_summary,
         "independence": ("constraints, frames and the product join recomputed here; "
-                         "imports no clippr.qc and no clippr.codons"),
+                         "imports no ppropt.qc and no ppropt.codons"),
         "gate": "PASS" if passed else "FAIL",
     }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"wrote {out}")

@@ -3,8 +3,11 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "clippr"
-version = "0.1.0"
+name = "ppropt"
+# Read from `ppropt.__version__` rather than repeated here. The two copies could disagree,
+# and the packaged one is what `pip` and `importlib.metadata` report while the module one is
+# what `release_check` prints -- so a drift between them would be invisible from either side.
+dynamic = ["version"]
 description = "Design tooling for synthetic PPR regulators (iGEM Marburg 2026)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -34,14 +37,17 @@ dependencies = [
 dev = ["pytest>=8.0"]
 figures = ["matplotlib>=3.7"]
 
+[tool.setuptools.dynamic]
+version = { attr = "ppropt.__version__" }
+
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["clippr*"]
+include = ["ppropt*"]
 
 [tool.setuptools.package-data]
 # The ligation matrices must travel with the package: without them `set_fidelity` cannot
 # score anything, and an install that omits them fails at design time rather than at import.
-clippr = ["scaffold.json", "parts.json", "data/matrices/*.xlsx"]
+ppropt = ["scaffold.json", "parts.json", "data/matrices/*.xlsx"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

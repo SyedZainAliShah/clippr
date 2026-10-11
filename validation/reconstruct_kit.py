@@ -22,9 +22,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from clippr.homology import longest_shared                          # noqa: E402
-from clippr.parts import select                                     # noqa: E402
-from clippr.products import (InsertRecordsInvalid, InsertsUnavailable,  # noqa: E402
+from ppropt.homology import longest_shared                          # noqa: E402
+from ppropt.parts import select                                     # noqa: E402
+from ppropt.products import (InsertRecordsInvalid, InsertsUnavailable,  # noqa: E402
                              load_inserts, reconstruct, translate, write)
 
 TARGETS = ["AAAAUGUGG", "GCUAAAGAC", "UUACACGUG", "CGUACGUAC", "AUCGAUCGA", "GGCCAAUUG"]

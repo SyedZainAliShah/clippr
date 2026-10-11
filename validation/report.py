@@ -14,7 +14,7 @@ on any checkout that lacks it. They are the stronger claim -- byte-level parity 
 reader cannot confirm them, and this report must never let a machine that happens to hold
 the corpus imply otherwise.
 
-Set `CLIPPR_ORACLE_PYTHON` for the few checks that additionally need an external
+Set `PPROPT_ORACLE_PYTHON` for the few checks that additionally need an external
 interpreter; they are absent from most checkouts and are skipped rather than dropped.
 """
 from __future__ import annotations
@@ -30,8 +30,8 @@ ROOT = Path(__file__).resolve().parents[1]
 OUR_PY = ROOT / ".venv" / "Scripts" / "python.exe"
 
 #: Interpreter for checks that need an external oracle, if this checkout has one.
-ORACLE_PY = Path(os.environ["CLIPPR_ORACLE_PYTHON"]) if os.environ.get(
-    "CLIPPR_ORACLE_PYTHON") else None
+ORACLE_PY = Path(os.environ["PPROPT_ORACLE_PYTHON"]) if os.environ.get(
+    "PPROPT_ORACLE_PYTHON") else None
 
 #: The reference corpus. Absent from every checkout but the ones it was built on.
 CORPUS = ROOT / "results" / "_designs"
@@ -72,7 +72,7 @@ def run(script: str, python: Path | None, args: list[str],
     if needs == "corpus" and not CORPUS.exists():
         return "SKIP", 0.0, "reference corpus not present in this checkout"
     if python is None:
-        return "SKIP", 0.0, "set CLIPPR_ORACLE_PYTHON to run this check"
+        return "SKIP", 0.0, "set PPROPT_ORACLE_PYTHON to run this check"
     if not python.exists():
         return "SKIP", 0.0, f"{python.name} not found"
     t0 = time.time()

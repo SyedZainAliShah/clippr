@@ -35,13 +35,13 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "validation"))
 
 from integration import corpus                                        # noqa: E402
-from clippr import constants as C                                     # noqa: E402
-from clippr.arelf import balanced_cuts, safe_overhangs                # noqa: E402
-from clippr.design import (MAX_FRAGMENT_AA, MIN_FRAGMENT_AA, SPLIT_BUDGET,  # noqa: E402
+from ppropt import constants as C                                     # noqa: E402
+from ppropt.arelf import balanced_cuts, safe_overhangs                # noqa: E402
+from ppropt.design import (MAX_FRAGMENT_AA, MIN_FRAGMENT_AA, SPLIT_BUDGET,  # noqa: E402
                            _plan_fragments)
-from clippr.overhangs import (SCORER_VERSION, cache_stats, clear_cache,  # noqa: E402
+from ppropt.overhangs import (SCORER_VERSION, cache_stats, clear_cache,  # noqa: E402
                               enumerate_candidates, matrix_fingerprint)
-from clippr.ppr import describe                                       # noqa: E402
+from ppropt.ppr import describe                                       # noqa: E402
 
 MATRIX = "BsaI-HFv2"
 

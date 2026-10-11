@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from clippr import workflow as w
-from clippr.ordering import HISTORICAL_OPOOL
+from ppropt import workflow as w
+from ppropt.ordering import HISTORICAL_OPOOL
 
 TABLE_S1 = Path(__file__).resolve().parents[1] / "data" / "grasp_supp" / "Table S1.xlsx"
 CODON_TABLE = Path(__file__).resolve().parents[1] / "data" / "codon_tables" / "kazusa_3055.json"
@@ -93,7 +93,7 @@ class TestOrderTask:
 
     def test_a_multi_pool_order_succeeds(self, tmp_path):
         """The per-pool maximum was applied to the whole order, refusing every split."""
-        from clippr.ordering import ProductProfile
+        from ppropt.ordering import ProductProfile
 
         profile = ProductProfile(
             name="t", vendor="v", region="",
@@ -173,7 +173,7 @@ class TestFrontBinding:
             assert binding[field] is not None
 
     def test_a_mismatched_inventory_is_refused(self, deposited_path, table, tmp_path):
-        from clippr import inventories as inv
+        from ppropt import inventories as inv
 
         _recoded, front = self._front(deposited_path, table, tmp_path)
         other = inv.load_deposited(deposited_path)
@@ -232,7 +232,7 @@ class TestPackageInstances:
 class TestAssemblyReadyOrdering:
     def test_order_items_are_assembly_ready_by_default(self, deposited_path, tmp_path):
         """A bare insert is not an assembly substrate."""
-        from clippr import inventories as inv
+        from ppropt import inventories as inv
 
         inv.save(inv.load_deposited(deposited_path), tmp_path / "inv.json")
         got = w.order_items_for(tmp_path / "inv.json", tmp_path / "items")
@@ -240,7 +240,7 @@ class TestAssemblyReadyOrdering:
         assert got.data["enzyme"] == "BbsI"
 
     def test_every_substrate_exposes_a_level_zero_end_pair(self, deposited_path, tmp_path):
-        from clippr import inventories as inv
+        from ppropt import inventories as inv
 
         inv.save(inv.load_deposited(deposited_path), tmp_path / "inv.json")
         got = w.order_items_for(tmp_path / "inv.json", tmp_path / "items")
@@ -249,7 +249,7 @@ class TestAssemblyReadyOrdering:
             assert five in level0 and three in level0
 
     def test_substrates_differ_from_their_inserts(self, deposited_path, tmp_path):
-        from clippr import inventories as inv
+        from ppropt import inventories as inv
 
         inv.save(inv.load_deposited(deposited_path), tmp_path / "inv.json")
         items = json.loads(Path(
@@ -258,7 +258,7 @@ class TestAssemblyReadyOrdering:
         assert all(i["sequence"] != i["released"] for i in items)
 
     def test_raw_inserts_remain_available_and_are_labelled(self, deposited_path, tmp_path):
-        from clippr import inventories as inv
+        from ppropt import inventories as inv
 
         inv.save(inv.load_deposited(deposited_path), tmp_path / "inv.json")
         got = w.order_items_for(tmp_path / "inv.json", tmp_path / "raw",
@@ -268,7 +268,7 @@ class TestAssemblyReadyOrdering:
         assert all("not an assembly substrate" in i["note"] for i in items)
 
     def test_an_unknown_form_is_refused(self, deposited_path, tmp_path):
-        from clippr import inventories as inv
+        from ppropt import inventories as inv
 
         inv.save(inv.load_deposited(deposited_path), tmp_path / "inv.json")
         with pytest.raises(ValueError, match="assembly_ready"):
@@ -305,8 +305,8 @@ class TestOrderRejectsContractBreaches:
     def test_a_failing_substrate_makes_the_order_step_fail(self, deposited_path, tmp_path,
                                                            monkeypatch):
         """Exporting a sequence outside the band while reporting success is the defect."""
-        from clippr import inventories as inv
-        from clippr import substrates as sub
+        from ppropt import inventories as inv
+        from ppropt import substrates as sub
 
         inv.save(inv.load_deposited(deposited_path), tmp_path / "inv.json")
         real = sub.build
@@ -339,7 +339,7 @@ class TestDefaultCodonTableResolution:
             calls.append((args, kwargs))
             return table
 
-        monkeypatch.setattr("clippr.codons.table_from_kazusa", fake)
+        monkeypatch.setattr("ppropt.codons.table_from_kazusa", fake)
         resolved = w._resolve_table(None)
         assert calls, "the default must come from the cache loader"
         assert resolved
@@ -354,7 +354,7 @@ class TestDefaultCodonTableResolution:
         def unavailable(*args, **kwargs):
             raise OSError("no cached table and no network")
 
-        monkeypatch.setattr("clippr.codons.table_from_kazusa", unavailable)
+        monkeypatch.setattr("ppropt.codons.table_from_kazusa", unavailable)
         with pytest.raises(FileNotFoundError) as excinfo:
             w._resolve_table(None)
         message = str(excinfo.value)
@@ -366,7 +366,7 @@ class TestDefaultCodonTableResolution:
         def broken(*args, **kwargs):
             raise RuntimeError("a genuine defect")
 
-        monkeypatch.setattr("clippr.codons.table_from_kazusa", broken)
+        monkeypatch.setattr("ppropt.codons.table_from_kazusa", broken)
         with pytest.raises(RuntimeError):
             w._resolve_table(None)
 
@@ -377,7 +377,7 @@ class TestDefaultCodonTableResolution:
             seen.append(code)
             return tbl
 
-        monkeypatch.setattr("clippr.codons.complete_table", spy)
+        monkeypatch.setattr("ppropt.codons.complete_table", spy)
         w._resolve_table({"*": {"TAA": 1.0}}, 11)
         assert seen == [11], "completing under a code the caller did not declare"
 

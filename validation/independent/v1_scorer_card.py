@@ -1,7 +1,7 @@
-"""V1 preflight — state exactly what CLIPPR's fidelity number is, before comparing it.
+"""V1 preflight — state exactly what PPROPT's fidelity number is, before comparing it.
 
 The orchestrator's point: a discrepancy against NEB's viewer is uninterpretable until both
-the *data* and the *formula* are pinned on each side. CLIPPR implements one aggregation
+the *data* and the *formula* are pinned on each side. PPROPT implements one aggregation
 convention (A) and documents a second (B) that can reverse rankings between sets, so
 "we disagree with NEB" could mean a wrong table, a wrong condition, a different aggregation,
 a different treatment of reverse complements, or an actual defect.
@@ -25,7 +25,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from clippr.overhangs import (SCORER_VERSION, _clean, _index,  # noqa: E402
+from ppropt.overhangs import (SCORER_VERSION, _clean, _index,  # noqa: E402
                               fidelity_components, matrix_fingerprint,
                               reaction_overhangs, reverse_complement, set_fidelity,
                               valid_set)
@@ -60,7 +60,7 @@ INPUT_HANDLING = {
 def convention_b(overhangs, matrix: str) -> float:
     """The documented alternative: one product of per-junction ratios, both strands summed.
 
-    Kept here rather than in the package because it is not what CLIPPR ships; it exists so
+    Kept here rather than in the package because it is not what PPROPT ships; it exists so
     the card can report both and so neither is chosen after seeing an external number.
     """
     ohs = _clean(overhangs)
@@ -88,7 +88,7 @@ def main() -> int:
     PANEL["full_reaction_9S"] = reaction_overhangs(["ATTC", "AATG", "AGCG"], "level0")
 
     card = {
-        "purpose": "pin CLIPPR's fidelity model before any external comparison",
+        "purpose": "pin PPROPT's fidelity model before any external comparison",
         "scorer_version": SCORER_VERSION,
         "data": {},
         "model": {
@@ -123,7 +123,7 @@ def main() -> int:
 
     import openpyxl
     for matrix, sheet in MATRICES.items():
-        path = ROOT / "src" / "clippr" / "data" / "matrices" / f"{matrix}.xlsx"
+        path = ROOT / "src" / "ppropt" / "data" / "matrices" / f"{matrix}.xlsx"
         counts, labels = _index(matrix)[0], None
         wb = openpyxl.load_workbook(path, read_only=True)
         card["data"][matrix] = {

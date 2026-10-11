@@ -1,7 +1,7 @@
 """Secondary-structure scan of the ordered fragments, baseline against wrapper-aware.
 
 IDT's own explanation of complexity screening says GC is a proxy: *"Regions with extreme GC
-content may have higher propensity to form stable secondary structures."* CLIPPR enforces the
+content may have higher propensity to form stable secondary structures."* PPROPT enforces the
 proxy and has never measured the quantity it stands for. This measures it.
 
 It also answers a question the wrapper-aware work raised and did not address: that experiment

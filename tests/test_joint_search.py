@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from clippr import inventories as inv, joint_search as js
+from ppropt import inventories as inv, joint_search as js
 
 TABLE_S1 = Path(__file__).resolve().parents[1] / "data" / "grasp_supp" / "Table S1.xlsx"
 CODON_TABLE = Path(__file__).resolve().parents[1] / "data" / "codon_tables" / "kazusa_3055.json"
@@ -22,7 +22,7 @@ def deposited():
 
 @pytest.fixture(scope="module")
 def table():
-    from clippr.codons import complete_table
+    from ppropt.codons import complete_table
     return complete_table(json.loads(CODON_TABLE.read_text(encoding="utf-8")), 1)
 
 
@@ -158,7 +158,7 @@ class TestEvaluate:
 
     def test_repeat_burden_is_measured_on_what_is_ordered(self, deposited, classes, table):
         """The objective was documented as order sequences and computed over products."""
-        from clippr.objectives import duplicated_kmers
+        from ppropt.objectives import duplicated_kmers
 
         incumbent = {c.key: c.deposited for c in classes}
         got = js.evaluate(deposited, classes, incumbent, TARGETS, table)
@@ -196,7 +196,7 @@ class TestEvaluate:
         from Bio.Data import CodonTable
         from Bio.Seq import Seq
 
-        from clippr.recoding import module_constraint_problems
+        from ppropt.recoding import module_constraint_problems
 
         offender = next(m for m, r in deposited.modules.items()
                         if module_constraint_problems(r.dna))

@@ -22,8 +22,8 @@ from Bio.Seq import Seq
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from clippr.assembly import reassemble, split_cds
-from clippr.design import design_oneshot
+from ppropt.assembly import reassemble, split_cds
+from ppropt.design import design_oneshot
 
 ARCH_LEN = {"9S": 9, "14S": 14, "19S": 19}
 

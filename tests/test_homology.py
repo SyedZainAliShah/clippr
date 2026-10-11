@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from clippr.homology import (
+from ppropt.homology import (
     HR_THRESHOLD_NT,
     assess,
     block_profile,
@@ -217,7 +217,7 @@ class TestDiversify:
     """Real runs, kept to three members. The property is that it can never make things worse."""
 
     def test_never_regresses_and_reports_both_sides(self):
-        from clippr.homology import diversify_library
+        from ppropt.homology import diversify_library
         res = diversify_library(["AAAAUGUGG", "GCUAAAGAC", "UUACACGUG"],
                                 codon_table=TOY_TABLE, check_offtarget=False, retries=2)
         assert res["max_after"] <= res["max_before"], (
@@ -229,8 +229,8 @@ class TestDiversify:
     def test_proteins_survive_diversification(self):
         from Bio.Seq import Seq
 
-        from clippr.homology import diversify_library
-        from clippr.ppr import describe
+        from ppropt.homology import diversify_library
+        from ppropt.ppr import describe
         targets = ["AAAAUGUGG", "GCUAAAGAC"]
         res = diversify_library(targets, codon_table=TOY_TABLE, check_offtarget=False,
                                 retries=1)
@@ -248,9 +248,9 @@ class TestDiversify:
         the loop can go back to varying the seed; if the second fails, the loop is inert
         again and `diversify_library` is not doing what its docstring claims.
         """
-        from clippr.biology import N_TERMINAL
-        from clippr.design import design_oneshot
-        from clippr.homology import scaffold_encoding
+        from ppropt.biology import N_TERMINAL
+        from ppropt.design import design_oneshot
+        from ppropt.homology import scaffold_encoding
 
         base = design_oneshot("AAAAUGUGG", codon_table=TOY_TABLE, check_offtarget=False)
         prefixes = [scaffold_encoding(i, N_TERMINAL, base["codon_table"],
@@ -272,7 +272,7 @@ class TestDiversify:
 
     def test_a_rejected_member_records_no_encoding(self):
         """A member that falls back to its baseline locked no scaffold, so it has none."""
-        from clippr.homology import diversify_library
+        from ppropt.homology import diversify_library
         res = diversify_library(["AAAAUGUGG", "GCUAAAGAC", "UUACACGUG"],
                                 codon_table=TOY_TABLE, check_offtarget=False, retries=1)
         for t, cds in res["cds"].items():

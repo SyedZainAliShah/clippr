@@ -38,7 +38,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from clippr.parts import select                      # noqa: E402
+from ppropt.parts import select                      # noqa: E402
 
 SUP = ROOT / "data" / "grasp_supp"
 

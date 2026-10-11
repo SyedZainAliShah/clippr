@@ -1,8 +1,8 @@
-# CLIPPR
+# PPROPT
 
 **Design tooling for synthetic PPR regulators.** iGEM Marburg 2026.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SyedZainAliShah/clippr/blob/main/notebooks/CLIPPR_designer.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SyedZainAliShah/clippr/blob/main/notebooks/PPROPT_designer.ipynb)
 [![License: MIT](https://img.shields.io/badge/License-MIT-1a7f5a.svg)](LICENSE)
 
 
@@ -23,7 +23,7 @@ in. Any host can be used by supplying a codon table.
 
 ## Install
 
-**Nothing to install** — [open the notebook in Colab](https://colab.research.google.com/github/SyedZainAliShah/clippr/blob/main/notebooks/CLIPPR_designer.ipynb). It is form-driven, needs no
+**Nothing to install** — [open the notebook in Colab](https://colab.research.google.com/github/SyedZainAliShah/clippr/blob/main/notebooks/PPROPT_designer.ipynb). It is form-driven, needs no
 code, and installs the package for you. This is the route to take if you want to see what the
 tool does.
 
@@ -52,7 +52,7 @@ proves what.
 
 ```python
 import json
-from clippr import design_oneshot
+from ppropt import design_oneshot
 
 codon_table = json.load(open("kazusa_3055.json", encoding="utf-8"))   # see "Inputs" below
 r = design_oneshot("AAAAUGUGG", codon_table=codon_table, genetic_code=1,
@@ -91,9 +91,9 @@ design runs offline. To be explicit and reproducible, fetch the table once, keep
 and pass it as `codon_table=` — as the example does — recording its hash alongside your
 results.
 
-Cached downloads live in your user cache directory (`%LOCALAPPDATA%\clippr` on Windows,
-`~/.cache/clippr` otherwise), or in `data/` when you are working from a source checkout.
-`CLIPPR_CACHE_DIR` overrides both — **set it before importing `clippr`**, because the cache
+Cached downloads live in your user cache directory (`%LOCALAPPDATA%\ppropt` on Windows,
+`~/.cache/ppropt` otherwise), or in `data/` when you are working from a source checkout.
+`PPROPT_CACHE_DIR` overrides both — **set it before importing `ppropt`**, because the cache
 location is resolved at import time.
 
 The target's length picks the architecture: 9, 14 or 19 bases give 9S, 14S or 19S. Four
@@ -131,7 +131,7 @@ design can be interrogated rather than taken on trust.
 
 **1. It optimises for the right host.** The published GRASP workflow targets
 *E. coli*. Its coding sequences score CAI 0.411 against the *Chlamydomonas* nuclear table.
-CLIPPR uses the host's own codon usage. (A codon-usage statement, not an expression claim —
+PPROPT uses the host's own codon usage. (A codon-usage statement, not an expression claim —
 no expression was measured.)
 
 **2. It removes the repeats that tandem-repeat proteins produce.** "Use the best codon
@@ -175,7 +175,7 @@ at.
 Fifty regulators is not fifty designs in fifty folders — it is one order, if they pass.
 
 ```python
-from clippr import design_library
+from ppropt import design_library
 
 lib = design_library(my_targets, outdir="library")
 print(lib.summary())
@@ -224,12 +224,12 @@ PPR motifs, while the GRASP scaffold here is **S-type**. All four code pairs GRA
 score their cognate base highest in that table, which is reassuring, but a P-type model has
 not been shown to apply to an S-type scaffold. So a high score means *look*, never *fail*.
 
-**The table is not distributed with CLIPPR.** PPRmatcher carries no licence, so vendoring
+**The table is not distributed with PPROPT.** PPRmatcher carries no licence, so vendoring
 it would be a rights problem however useful it is. Supply your own path; with no table the
 module reports tier A alone and says so.
 
 ```python
-from clippr import compare_tiers, load_ppr_scores
+from ppropt import compare_tiers, load_ppr_scores
 
 scores = load_ppr_scores("Yan.tsv")          # obtained separately
 print(lib.crosstalk(scores=scores))
@@ -341,7 +341,7 @@ The fix is constructive. Each member gets its own synonymous encoding of the sca
 place — deterministic in the member index, so a library stays reproducible.
 
 ```python
-from clippr import diversify_library
+from ppropt import diversify_library
 
 res = diversify_library(my_targets)
 print(res["max_before"], "->", res["max_after"])   # 84 -> 47
@@ -371,7 +371,7 @@ Everything above designs DNA to be **synthesised**. But the GRASP authors deposi
 42-plasmid kit, and a lab that holds it can assemble many PPRs from parts it already has.
 
 ```python
-from clippr import parts_report, select_parts
+from ppropt import parts_report, select_parts
 
 print(parts_report(select_parts("AAAAUGUGG")))
 ```
@@ -429,7 +429,7 @@ hierarchy** rather than arbitrary weights:
 4. tie-break on fidelity
 
 ```python
-from clippr import design_searched
+from ppropt import design_searched
 
 r = design_searched("AAAAUGUGG", budget=8)
 print(r["certificate"])
@@ -476,7 +476,7 @@ design_oneshot("AAAAUGUGG", enzyme_profile="moclo_compat")
 
 The package keeps published fact, assembly mechanics and project choices in separate
 modules (`biology.py`, `assembly_spec.py`, `policy.py`) so a reader can tell what GRASP
-requires from what CLIPPR chose.
+requires from what PPROPT chose.
 
 ## Standards and formats this interoperates with
 
@@ -548,7 +548,7 @@ Every constant traces to a primary published source, not to any other implementa
 
 ### Computable properties versus model-based annotations
 
-CLIPPR keeps these apart deliberately. Sequence uniqueness, restriction-site absence,
+PPROPT keeps these apart deliberately. Sequence uniqueness, restriction-site absence,
 translation, codon constraints and assembly geometry are **directly computable** — the
 package either satisfies them or reports that it could not. Predicted ligation fidelity,
 synthesis QC verdicts and host-occurrence warnings are **annotations**, useful for ranking

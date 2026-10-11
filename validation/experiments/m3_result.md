@@ -51,7 +51,7 @@ constraint regressed.
 
 The pilot calls the production optimiser and records whatever `constraints_ok` it returned —
 the optimiser grading its own work. `m3_independent_qc.py` recomputes each promise from the
-original and recoded DNA, importing neither `clippr.qc` nor `clippr.codons`, and deriving the
+original and recoded DNA, importing neither `ppropt.qc` nor `ppropt.codons`, and deriving the
 reading frames from the kit layout rather than reading them from the pilot.
 
 **21 of 21 intended modules pass every invariant.** All 21 required by the six targets are in

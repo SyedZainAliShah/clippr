@@ -1,4 +1,4 @@
-"""Shared cell constructors for the CLIPPR notebooks.
+"""Shared cell constructors for the PPROPT notebooks.
 
 Both notebooks are generated rather than hand-edited so cell order, titles and Colab form
 metadata stay consistent, and so either can be regenerated after an API change instead of
@@ -29,7 +29,7 @@ def code(text, title=None, form=True):
 #: The install cell. Identical in both notebooks, so it lives here: a fix to the private-repo
 #: fallback or the version banner should never land in one notebook and not the other.
 _SETUP = '''
-#@markdown Installs CLIPPR, or updates it when this notebook is newer than the copy you
+#@markdown Installs PPROPT, or updates it when this notebook is newer than the copy you
 #@markdown already have. Safe to re-run. About a minute the first time, seconds after that.
 #@markdown
 #@markdown **If it fails:** run it again — a dropped network call is the usual cause. If it
@@ -44,7 +44,7 @@ import importlib.metadata as _md, json as _json, sys, urllib.request
 def _installed():
     """(kind, commit) for the copy already on this machine, without importing it."""
     try:
-        info = _json.loads(_md.distribution("clippr").read_text("direct_url.json") or "{}")
+        info = _json.loads(_md.distribution("ppropt").read_text("direct_url.json") or "{}")
     except Exception as exc:
         return ("absent", None) if isinstance(exc, _md.PackageNotFoundError) else ("other", None)
     if "vcs_info" in info:
@@ -65,7 +65,7 @@ def _latest():
         return None
 
 
-# A bare `import clippr` succeeding is not evidence that the copy is current. An older build
+# A bare `import ppropt` succeeding is not evidence that the copy is current. An older build
 # imports fine and then fails deep in a later cell on a key it never returned, which reads as
 # a bug in the notebook. The version string is static, so the commit is what distinguishes
 # them. A local checkout is left alone: it is someone working on the package.
@@ -74,7 +74,7 @@ _want = _latest()
 #: Whether a previous cell already imported it. Reinstalling cannot replace a module object
 #: that is already in memory, and the commit check above reads the disk, so "current" says
 #: nothing about what this kernel is actually running.
-_already = "clippr" in sys.modules
+_already = "ppropt" in sys.modules
 
 if _kind == "local":
     _msg = "local checkout in use, left alone"
@@ -89,9 +89,9 @@ elif _kind == "absent" or (_kind == "github" and _want and _have != _want):
            else f"git+https://github.com/{REPO}.git")
     if _kind == "absent":
         %pip install --quiet $url
-        import clippr                               # fail here, not three cells later
-        _msg = f"installed clippr @ {(_want or '?')[:7]}"
-    elif "clippr" in sys.modules:
+        import ppropt                               # fail here, not three cells later
+        _msg = f"installed ppropt @ {(_want or '?')[:7]}"
+    elif "ppropt" in sys.modules:
         # Already imported: reinstalling cannot replace the module object in memory, so the
         # only honest thing to report is that a restart is still required.
         %pip install --quiet --force-reinstall --no-deps $url
@@ -100,14 +100,14 @@ elif _kind == "absent" or (_kind == "github" and _want and _have != _want):
     else:
         # Dependencies are already present; a newly added one fails loudly on import.
         %pip install --quiet --force-reinstall --no-deps $url
-        import clippr
+        import ppropt
         _msg = f"updated to {(_want or '?')[:7]}"
 elif _kind == "other" or not _have:
-    _msg = "clippr installed, but not from git, so it cannot be checked against main"
+    _msg = "ppropt installed, but not from git, so it cannot be checked against main"
 elif _want is None:
-    _msg = f"clippr @ {_have[:7]}, could not reach GitHub to check it is current"
+    _msg = f"ppropt @ {_have[:7]}, could not reach GitHub to check it is current"
 else:
-    _msg = f"clippr @ {_have[:7]}, current with {REPO}@main"
+    _msg = f"ppropt @ {_have[:7]}, current with {REPO}@main"
     if _already:
         _msg += ("  —  already imported in this session; if it was updated since, "
                  "Runtime > Restart session")
@@ -120,7 +120,7 @@ display(HTML(
 
 
 def setup_cell():
-    return code(_SETUP.replace("__REPO__", REPO), title="Setup — install CLIPPR")
+    return code(_SETUP.replace("__REPO__", REPO), title="Setup — install PPROPT")
 
 
 def write_notebook(cells, out: Path, name: str) -> None:

@@ -112,7 +112,7 @@ def check_clean_install(run_it: bool) -> dict:
         return _result("3. clean-environment install", "RAN", False,
                        "could not find the worked example and its expected output in README")
 
-    area = Path(tempfile.mkdtemp(prefix="clippr-release-"))
+    area = Path(tempfile.mkdtemp(prefix="ppropt-release-"))
     try:
         build = subprocess.run([str(PYTHON), "-m", "build", "--wheel", "--outdir",
                                 str(area / "dist")], cwd=ROOT, capture_output=True, text=True)
@@ -144,12 +144,12 @@ def check_clean_install(run_it: bool) -> dict:
         # this check exists to rule out.
         env = {k: v for k, v in os.environ.items()
                if k not in ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP")}
-        env.update({"CLIPPR_CACHE_DIR": str(area / "cache"), "PYTHONIOENCODING": "utf-8",
+        env.update({"PPROPT_CACHE_DIR": str(area / "cache"), "PYTHONIOENCODING": "utf-8",
                     "PYTHONNOUSERSITE": "1"})
 
         origin = subprocess.run(
-            [str(python), "-c", "import clippr,sys;print(clippr.__file__);"
-                                "print(clippr.__version__ if hasattr(clippr,'__version__') "
+            [str(python), "-c", "import ppropt,sys;print(ppropt.__file__);"
+                                "print(ppropt.__version__ if hasattr(ppropt,'__version__') "
                                 "else '')"],
             cwd=area, capture_output=True, text=True, env=env)
         imported = (origin.stdout or "").strip().splitlines()
@@ -163,7 +163,7 @@ def check_clean_install(run_it: bool) -> dict:
                       and printed[-1] == expected.group(1).strip())
         ok = reproduced and resolved_inside
         if not resolved_inside:
-            detail = (f"clippr imported from {imported[0] if imported else '?'}, which is "
+            detail = (f"ppropt imported from {imported[0] if imported else '?'}, which is "
                       f"outside the clean environment; the example did not exercise the wheel")
         elif reproduced:
             detail = f"example reproduced its documented output verbatim: {printed[-1]!r}"
@@ -333,7 +333,7 @@ def _git_head() -> str:
 
 def _package_source_sha256() -> str:
     sys.path.insert(0, str(ROOT / "src"))
-    from clippr.manifest import source_fingerprint
+    from ppropt.manifest import source_fingerprint
 
     return source_fingerprint()["sha256"]
 
@@ -390,7 +390,7 @@ def check_optional_inputs() -> dict:
 
 def check_notebook() -> dict:
     """7. The notebook exposes supported workflows, not deferred experiments."""
-    path = ROOT / "notebooks" / "CLIPPR_designer.ipynb"
+    path = ROOT / "notebooks" / "PPROPT_designer.ipynb"
     if not path.is_file():
         return _result("7. notebook scope", "MANUAL", None, "notebook not found")
     text = path.read_text(encoding="utf-8")

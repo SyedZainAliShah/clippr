@@ -51,9 +51,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 #: Primary GenBank records, read for verification and never redistributed (`NOTICE.md`).
-#: Set CLIPPR_GRASP_PRIMARY to point elsewhere; an absolute path here would pin this script
+#: Set PPROPT_GRASP_PRIMARY to point elsewhere; an absolute path here would pin this script
 #: to one machine.
-PRIMARY = Path(os.environ.get("CLIPPR_GRASP_PRIMARY")
+PRIMARY = Path(os.environ.get("PPROPT_GRASP_PRIMARY")
                or ROOT.parent / "work" / "provenance" / "grasp_primary")
 LEVEL0_BLOCKS = PRIMARY / "9SDYW_level0.gb"
 LEVEL1_PRODUCTS = PRIMARY / "9SrpoaDYW_variants_level1.gb"
@@ -156,7 +156,7 @@ def main() -> int:
     # --- falsifier 2: the module table must say the same thing, independently ---
     table_agrees, table_ends = None, {}
     if TABLE_S1.is_file():
-        from clippr import inventories as inv
+        from ppropt import inventories as inv
 
         deposited = inv.load_deposited(TABLE_S1)
         for record in deposited.modules.values():
@@ -175,7 +175,7 @@ def main() -> int:
         print(f"   agrees with the block-plasmid derivation: {table_agrees}")
 
     # --- what it is worth: level-1 versus level-0 fidelity ---
-    from clippr.overhangs import set_fidelity
+    from ppropt.overhangs import set_fidelity
 
     def score(overhangs, matrix):
         got = set_fidelity(list(overhangs), matrix=matrix)

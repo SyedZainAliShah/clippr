@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from clippr import overhangs
-from clippr.overhangs import best_set, cache_stats, clear_cache, matrix_fingerprint
+from ppropt import overhangs
+from ppropt.overhangs import best_set, cache_stats, clear_cache, matrix_fingerprint
 
 POOLS = [["AGCG", "ATTC"], ["AATG", "GGTA"], ["CGCT", "ACTC"]]
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from clippr.library import design_library, write_library
+from ppropt.library import design_library, write_library
 
 # The toy table from test_design, so these run without a network call for codon usage.
 from test_design import TOY_TABLE
@@ -77,7 +77,7 @@ class TestCrosstalk:
         assert mixed.closest_pairs() == []
 
     def test_two_tier_report_when_scores_are_supplied(self, lib, tmp_path):
-        from clippr.crosstalk import load_ppr_scores
+        from ppropt.crosstalk import load_ppr_scores
 
         p = tmp_path / "scores.tsv"
         p.write_text("For motif types: P\n5th/last\tA\tC\tG\tU\n"
@@ -119,7 +119,7 @@ def _verdict(design: dict, *, ready: bool, assessed: bool = True) -> dict:
 
 
 def _library(**designs):
-    from clippr.library import LibraryResult
+    from ppropt.library import LibraryResult
     return LibraryResult(designs=dict(designs))
 
 
@@ -263,10 +263,10 @@ class TestRejectedDesignsNeverBecomeOrders:
     def test_the_public_workflow_does_not_call_a_rejected_library_complete(
             self, lib, tmp_path, monkeypatch):
         """Through `design_for_synthesis`, not just the direct result's keys."""
-        from clippr import workflow as w
+        from ppropt import workflow as w
         target, design = next(iter(lib.designs.items()))
         rejected = _library(**{target: _verdict(design, ready=False)})
-        monkeypatch.setattr("clippr.library.design_library", lambda *a, **k: rejected)
+        monkeypatch.setattr("ppropt.library.design_library", lambda *a, **k: rejected)
         result = w.design_for_synthesis([target], TOY_TABLE, tmp_path / "out")
         assert result.ok is False
         assert result.failures, "a rejected design must appear as a failure"

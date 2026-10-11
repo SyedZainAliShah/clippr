@@ -4,9 +4,9 @@
 > form `[[FIG: what it is | source]]`. Grep for `[[FIG:` to find them all. They were left out
 > deliberately so each one can be checked against its source before it ships.
 
-## What CLIPPR is
+## What PPROPT is
 
-CLIPPR designs synthetic PPR proteins that bind a chosen RNA sequence, and turns that design
+PPROPT designs synthetic PPR proteins that bind a chosen RNA sequence, and turns that design
 into DNA somebody can actually order. You give it an RNA target; it gives you back a protein,
 the DNA that encodes it, the fragments to order, and a verdict on whether those fragments are
 fit to be ordered at all.
@@ -41,7 +41,7 @@ then proving the choice is sound, is where the software earns its place.
 
 **1 · Read the target.** You enter an RNA sequence. Its length picks the architecture —
 9, 14 or 19 bases give a 9S, 14S or 19S protein of
-[[FIG: residue counts per architecture | src/clippr/constants.py]] residues respectively.
+[[FIG: residue counts per architecture | src/ppropt/constants.py]] residues respectively.
 
 **2 · Pick the repeats.** Each base is looked up in the table above.
 

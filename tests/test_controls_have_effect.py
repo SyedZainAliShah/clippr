@@ -14,7 +14,7 @@ from __future__ import annotations
 import pytest
 from Bio import Restriction
 
-from clippr import design_oneshot
+from ppropt import design_oneshot
 from test_design import TOY_TABLE
 
 BASE = dict(target_rna="AAAAUGUGG", seed=42, check_offtarget=False,
@@ -97,7 +97,7 @@ class TestNotebookControlsAreWired:
         import json
         from pathlib import Path
 
-        nb_path = Path(__file__).resolve().parents[1] / "notebooks" / "CLIPPR_designer.ipynb"
+        nb_path = Path(__file__).resolve().parents[1] / "notebooks" / "PPROPT_designer.ipynb"
         if not nb_path.exists():
             pytest.skip("notebook not present")
         nb = json.loads(nb_path.read_text(encoding="utf-8"))

@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-NOTEBOOK = ROOT / "notebooks" / "CLIPPR_designer.ipynb"
+NOTEBOOK = ROOT / "notebooks" / "PPROPT_designer.ipynb"
 GENERATOR = ROOT / "tools" / "build_notebook.py"
 
 
@@ -104,25 +104,25 @@ class TestStructure:
 
 
 class TestNamesResolve:
-    """Every clippr name the notebook imports must still exist. This is the silent one."""
+    """Every ppropt name the notebook imports must still exist. This is the silent one."""
 
     def test_imported_names_exist(self, all_code):
-        import clippr
+        import ppropt
 
         missing = []
-        for module, names in re.findall(r"from (clippr[.\w]*) import ([^\n(]+)", all_code):
-            mod = clippr
-            if module != "clippr":
+        for module, names in re.findall(r"from (ppropt[.\w]*) import ([^\n(]+)", all_code):
+            mod = ppropt
+            if module != "ppropt":
                 mod = __import__(module, fromlist=["_"])
             for name in (n.strip() for n in names.split(",")):
-                # `from clippr import inventories as inv` imports `inventories`; the alias
+                # `from ppropt import inventories as inv` imports `inventories`; the alias
                 # is a local name and is not an attribute to look for. Matching the whole
                 # "inventories as inv" string reported a missing name that exists.
                 name = name.split(" as ")[0].strip()
                 if not name or hasattr(mod, name):
                     continue
                 # A submodule is not an attribute of its package until something imports
-                # it, but `from clippr import inventories` is valid Python either way.
+                # it, but `from ppropt import inventories` is valid Python either way.
                 # `hasattr` alone reported the notebook's submodule imports as missing.
                 try:
                     __import__(f"{module}.{name}", fromlist=["_"])
@@ -134,7 +134,7 @@ class TestNamesResolve:
         """A renamed or removed parameter breaks 'Run all' while the suite stays green."""
         import inspect
 
-        from clippr import design_oneshot
+        from ppropt import design_oneshot
 
         accepted = set(inspect.signature(design_oneshot).parameters)
         call = re.search(r"design_oneshot\(\s*(.*?)\)\s*$", all_code,
@@ -155,27 +155,27 @@ class TestFormDefaults:
                 assert default, f"{name} has no default"
 
     def test_default_target_is_a_valid_architecture(self, all_code):
-        from clippr import describe
+        from ppropt import describe
 
         default = next(d for n, d, _ in params(all_code) if n == "target_rna")
         assert describe(default.strip('"'))["architecture"] in ("9S", "14S", "19S")
 
     def test_organism_options_all_resolve(self, all_code):
-        from clippr import ORGANISMS
+        from ppropt import ORGANISMS
 
         spec = next(s for n, _, s in params(all_code) if n == "organism")
         for option in re.findall(r'"([^"]+)"', spec):
             assert option in ORGANISMS, f"organism dropdown offers unknown {option!r}"
 
     def test_enzyme_profile_options_all_resolve(self, all_code):
-        from clippr import ENZYME_PROFILES
+        from ppropt import ENZYME_PROFILES
 
         spec = next(s for n, _, s in params(all_code) if n == "enzyme_profile")
         for option in re.findall(r'"([^"]+)"', spec):
             assert option in ENZYME_PROFILES, f"unknown enzyme profile {option!r}"
 
     def test_destination_options_all_resolve(self, all_code):
-        from clippr import DESTINATION_OVERHANGS
+        from ppropt import DESTINATION_OVERHANGS
 
         spec = next(s for n, _, s in params(all_code) if n == "destination_level")
         for option in re.findall(r'"([^"]+)"', spec):
@@ -183,7 +183,7 @@ class TestFormDefaults:
 
     def test_ligation_table_options_exist_as_files(self, all_code):
         spec = next(s for n, _, s in params(all_code) if n == "ligation_table")
-        matrices = ROOT / "src" / "clippr" / "data" / "matrices"
+        matrices = ROOT / "src" / "ppropt" / "data" / "matrices"
         for option in re.findall(r'"([^"]+)"', spec):
             assert (matrices / f"{option}.xlsx").exists(), f"no matrix file for {option!r}"
 
@@ -221,7 +221,7 @@ class TestGeneratedNotebookIsCurrent:
         after = NOTEBOOK.read_bytes()
         if before != after:
             NOTEBOOK.write_bytes(before)      # leave the tree as we found it
-            pytest.fail("notebooks/CLIPPR_designer.ipynb differs from what "
+            pytest.fail("notebooks/PPROPT_designer.ipynb differs from what "
                         "tools/build_notebook.py generates — edit the generator, not the "
                         "notebook, then rebuild")
 

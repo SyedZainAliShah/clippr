@@ -80,7 +80,7 @@ class TestTheAlignmentItself:
 class TestAgainstTheSavedCorpus:
     @staticmethod
     def rows():
-        from clippr import inventories as inv
+        from ppropt import inventories as inv
 
         lib = inv.load(INVENTORY)
         raw = json.loads(CODON_TABLE.read_text(encoding="utf-8"))

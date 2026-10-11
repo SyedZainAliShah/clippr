@@ -48,7 +48,7 @@ piece of volatile or unavailable state placed somewhere that is compared for equ
     read-only `state_table.py` exiting 0 afterwards.
   - **A notebook `except ImportError` reported a missing Biopython** as "this build has no window
     selection", with a remedy that cannot install a dependency. The import is unguarded now and
-    the guard is `hasattr(clippr, "select_window")`.
+    the guard is `hasattr(ppropt, "select_window")`.
 
 Four of ten review angles were lost to a rate limit, so the sweep is incomplete: the line-by-line,
 removed-behaviour, conventions and claims-versus-code angles did not finish. Worth re-running.
@@ -144,7 +144,7 @@ Two consequences worth a reviewer's attention:
 **`b33a383` — the notebook split in two and cut down.** The reviewer could not make sense of
 the inventory results, and the cause was structural: one document carried two complete
 workflows sharing nothing but a Setup cell, so a reader reached the inventory route holding
-the wrong mental model. It is now `notebooks/CLIPPR_inventory.ipynb`, with its own header,
+the wrong mental model. It is now `notebooks/PPROPT_inventory.ipynb`, with its own header,
 host form and setup; both builders share `tools/notebook_kit.py` so a fix to the install cell
 cannot land in one and not the other.
 
@@ -268,7 +268,7 @@ and we enforce the local half without the global 25–65% it is paired with.
 
 ## 2. The constraint profile — implemented, then twice found not to be
 
-`src/clippr/synthesis_profile.py`. One versioned object carrying thresholds **and** their
+`src/ppropt/synthesis_profile.py`. One versioned object carrying thresholds **and** their
 provenance, consumed by every stage that judges a sequence.
 
 **The three-way enforcement split you asked for:**
@@ -291,7 +291,7 @@ consumer independently declining to honour it.
 never share a return value, so a soft warning cannot silently become approval and a target
 breach cannot silently block a strict export.
 
-**Three shipped profiles.** `clippr-strict-legacy` is the default with `source` recorded as
+**Three shipped profiles.** `ppropt-strict-legacy` is the default with `source` recorded as
 *unrecorded*; `twist-codon-optimisation-guidance` adds the global band and makes both advisory
 as that page frames them; `broad-experimental` is measurement-only.
 
@@ -299,7 +299,7 @@ as that page frames them; `broad-experimental` is measurement-only.
 
 | profile | mean CAI | improved / unchanged |
 |---|---:|---|
-| `clippr-strict-legacy` | **0.618830** | 39 / 3 |
+| `ppropt-strict-legacy` | **0.618830** | 39 / 3 |
 | `broad-experimental` | **0.819921** | 42 / 0 |
 
 0.819921 is unreachable by patching the validator alone. That is why the regression asserts it
@@ -428,7 +428,7 @@ back to 0.917 s.
 ## 5. Runtime — §12's dimension, measured twice
 
 Neither system had instrumentation. The reference's 21 modules contain no timing at all;
-CLIPPR had one figure for the 200-design corpus.
+PPROPT had one figure for the 200-design corpus.
 
 **The first version of this section was wrong about its own method.** Its script claimed in its
 docstring to time stages "in isolation and again as a chain", and no chain existed: it called
@@ -457,7 +457,7 @@ Rewritten and rerun, 2 repeats, `validation/experiments/runtime_profile.py`:
 
 | route | end to end (median) | front | export |
 |---|---:|---|---|
-| default (`clippr-strict-legacy`) | **4.696 s** | 48 / 100 feasible, 9 on the front | 42 items, 0 failures |
+| default (`ppropt-strict-legacy`) | **4.696 s** | 48 / 100 feasible, 9 on the front | 42 items, 0 failures |
 | explicit `broad-experimental` | **6.260 s** | 85 / 100 feasible, 15 on the front | 42 items, 0 failures |
 
 Two things worth noting. The broad route costs **33% more wall clock** and returns nearly twice
@@ -478,7 +478,7 @@ speed.
 `final_cassette (GGAG/CGCT) + ppr_outer (AGGT/TTCG) + block_joins`. Searching its whole package
 shows the P2L2S2 linker and DYW domain appear **only in bundled GenBank data, never in reaction
 composition** — and it emits `level1_fidelity` from that incomplete set regardless. On this
-point CLIPPR is now stricter than the reference.
+point PPROPT is now stricter than the reference.
 
 What their code *did* give us is the composition rule: four flanking overhangs, not two. Our
 `DESTINATION_OVERHANGS["level1"] = ("GGAG","CGCT")` was never a rival to the derived
@@ -597,7 +597,7 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
    export. It worked. The full suite passed, and `validation/run_notebook.py` reported every
    cell executing.
 
-   It broke every Colab session. The cell imports `clippr.synthesis_profile`, which exists on
+   It broke every Colab session. The cell imports `ppropt.synthesis_profile`, which exists on
    this branch and **not on `main`** — and the notebook's own Setup cell installs with
    `pip install git+https://github.com/SyedZainAliShah/clippr.git`, which resolves to the
    default branch. So cell 1b raised `ModuleNotFoundError`, `policy` was never bound, and every
@@ -612,7 +612,7 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
 
    **The repair, and what is now in the repository.**
    `validation/notebook_on_published_build.py` runs the notebook's code cells against a
-   virtualenv with CLIPPR pip-installed from GitHub, with the working tree kept off the path.
+   virtualenv with PPROPT pip-installed from GitHub, with the working tree kept off the path.
    Current result, measured rather than recalled: **21 cells ran, 0 failed** against the `main`
    build, and the same against this branch's build — so merging cannot break the notebook.
 
@@ -644,7 +644,7 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
     keeping all 40 advisories, so the choice is no longer "conservative or optimised" but
     "refuse or record". It ships out-of-band sequences the strict default refuses to produce.
     That is a judgement about risk, and it is not mine to make.
-14. **Region-based targeting. First increment built: `src/clippr/targeting.py`.** Scoped and
+14. **Region-based targeting. First increment built: `src/ppropt/targeting.py`.** Scoped and
     reviewed in `PROPOSAL_TO_CODEX.md`.
 
     **What is in.** Window selection from a *supplied* sequence — the review's reading B — with
@@ -778,8 +778,8 @@ co-assembled ends gives a ten-overhang 19S set scoring **0.623247**, *below* lev
 | `validation/falsify_boundaries.py` | proof those regressions are not vacuous — run it |
 | `validation/notebook_on_published_build.py` | runs the notebook against a pip-installed build, which is the only test that can catch a notebook/package version split |
 | `validation/state_table.py` | renders this document's State table from measured artefacts and fails when it drifts. `release_check.py` check 11. The three figures it exists to prevent are named in its docstring |
-| `CLIPPR_FOR_THE_WET_LAB.md` | the briefing written for biologists — the metric glossary in Part 3 is the plainest statement of what every number means |
+| `PPROPT_FOR_THE_WET_LAB.md` | the briefing written for biologists — the metric glossary in Part 3 is the plainest statement of what every number means |
 
 **Reproduction:** every experiment above writes a JSON artefact under `work/`, and every
 command is in `docs/verification_commands.md`. The primary GenBank records resolve relative to
-the repository or via `CLIPPR_GRASP_PRIMARY`; there are no absolute developer paths left.
+the repository or via `PPROPT_GRASP_PRIMARY`; there are no absolute developer paths left.

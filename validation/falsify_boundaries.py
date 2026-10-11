@@ -28,14 +28,14 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 PY = Path(sys.executable)
-WORK = Path(tempfile.gettempdir()) / "clippr_falsify_tree"
+WORK = Path(tempfile.gettempdir()) / "ppropt_falsify_tree"
 
 #: Each entry reverts one repair by patching the *current* source back to its broken form, and
 #: names the tests that must go red. `old` is what the repaired code says; `new` is the defect.
 DEFECTS = [
     dict(
         name="F3 target collapses back to hard",
-        file="src/clippr/synthesis_profile.py",
+        file="src/ppropt/synthesis_profile.py",
         old='''                "global_gc_bounds": tuple(self.global_gc) if self.global_gc else None,
                 "soft_rules": self.soft_rules}''',
         new='''                "global_gc_bounds": tuple(self.global_gc) if self.global_gc else None,
@@ -50,7 +50,7 @@ DEFECTS = [
     # code was actually in is both at once: a plain dict, handed to the child by reference.
     dict(
         name="F5 as it was: a plain dict, shared with the child",
-        file="src/clippr/synthesis_profile.py",
+        file="src/ppropt/synthesis_profile.py",
         old='''        object.__setattr__(self, "enforcement", MappingProxyType(dict(self.enforcement)))''',
         new='''        object.__setattr__(self, "enforcement", self.enforcement)''',
         expect=["test_the_enforcement_map_refuses_mutation",
@@ -58,14 +58,14 @@ DEFECTS = [
     ),
     dict(
         name="an enzyme site may be declared soft",
-        file="src/clippr/synthesis_profile.py",
+        file="src/ppropt/synthesis_profile.py",
         old='''            if rule in NEVER_SOFT and how != HARD:''',
         new='''            if False:''',
         expect=["test_an_enzyme_site_can_never_be_declared_a_preference"],
     ),
     dict(
         name="F1 export ignores the profile it was handed",
-        file="src/clippr/workflow.py",
+        file="src/ppropt/workflow.py",
         old='''                 for s in sub.substrates_for(library, profile)]''',
         new='''                 for s in sub.substrates_for(library)]''',
         expect=["test_two_policies_over_one_inventory_give_two_verdicts",
@@ -73,7 +73,7 @@ DEFECTS = [
     ),
     dict(
         name="F1 substrates ignore the profile they were built with",
-        file="src/clippr/substrates.py",
+        file="src/ppropt/substrates.py",
         old='''def substrate_problems(insert: str, block: str, profile=None) -> list[str]:''',
         new='''def substrate_problems(insert: str, block: str, profile=None) -> list[str]:
     profile = None''',
@@ -82,14 +82,14 @@ DEFECTS = [
     ),
     dict(
         name="F4 the collection solver drops the bounds",
-        file="src/clippr/library_search.py",
+        file="src/ppropt/library_search.py",
         old='''    bounds = _resolve(profile).solver_bounds()''',
         new='''    bounds = {}''',
         expect=["test_a_proposal_is_solved_under_the_profile_not_the_default"],
     ),
     dict(
         name="F2 the front records no policy",
-        file="src/clippr/joint_search.py",
+        file="src/ppropt/joint_search.py",
         old='''"synthesis_profile": _resolve_profile(profile).as_dict()''',
         new='''"synthesis_profile": None''',
         expect=["test_a_front_records_the_policy_it_was_measured_under",
@@ -97,7 +97,7 @@ DEFECTS = [
     ),
     dict(
         name="F2 selection publishes after a failed verification",
-        file="src/clippr/workflow.py",
+        file="src/ppropt/workflow.py",
         old='''    if not verified.feasible:
         # Never publish an artefact the verifier just rejected.''',
         new='''    if False:
@@ -106,7 +106,7 @@ DEFECTS = [
     ),
     dict(
         name="F6 completeness is prose plus one overhang",
-        file="src/clippr/assembly_spec.py",
+        file="src/ppropt/assembly_spec.py",
         old='''    complete = bool(evidence) and not missing and not malformed and chain_ok''',
         new='''    complete = bool(evidence) and bool(subset)''',
         expect=["test_prose_and_one_overhang_do_not_establish_completeness",
@@ -114,7 +114,7 @@ DEFECTS = [
     ),
     dict(
         name="F6 completeness stops requiring a citation",
-        file="src/clippr/assembly_spec.py",
+        file="src/ppropt/assembly_spec.py",
         old='''    complete = bool(evidence) and not missing and not malformed and chain_ok''',
         new='''    complete = not missing and not malformed and chain_ok''',
         expect=["test_an_otherwise_complete_set_is_refused_for_the_citation_alone"],
@@ -154,7 +154,7 @@ def main() -> int:
 
     # The tests and the repaired sources come from the working tree; only one file at a time
     # is reverted, so everything else is the current code.
-    for path in ("src/clippr", "tests", "pyproject.toml", "data", "work"):
+    for path in ("src/ppropt", "tests", "pyproject.toml", "data", "work"):
         source, target = REPO / path, WORK / path
         if source.is_dir():
             shutil.rmtree(target, ignore_errors=True)

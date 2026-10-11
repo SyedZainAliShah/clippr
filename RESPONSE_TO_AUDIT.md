@@ -153,11 +153,11 @@ Table S1 `6324ede3…`, codon table `a9d8f6fc…`, deposited `7d550e628605e006`,
 
 It compares the **ordered sequence** each system emits, per module, for all 42 — theirs
 `oligo_sequence_5to3`, ours `substrates.build(...).sequence`. The checker is written inside
-the benchmark, imports nothing from `clippr` or from the reference, and is run twice: once
-under CLIPPR's rules, once under theirs. Grading each system only on its home rules would be
+the benchmark, imports nothing from `ppropt` or from the reference, and is run twice: once
+under PPROPT's rules, once under theirs. Grading each system only on its home rules would be
 two self-assessments printed side by side.
 
-| clean, of 42 | CLIPPR rules | reference rules |
+| clean, of 42 | PPROPT rules | reference rules |
 |---|---:|---:|
 | **ours** | **42** | 29 |
 | **reference** | 6 | 41 |
@@ -301,7 +301,7 @@ Both findings reproduced before anything was changed, and both are accepted.
 
 Reproduced exactly: **4 of 42** translated spans are identical, 38 differ, 0 are ambiguous.
 
-| comparison | CLIPPR | reference | CLIPPR ahead | reference ahead |
+| comparison | PPROPT | reference | PPROPT ahead | reference ahead |
 |---|---:|---:|---:|---:|
 | as submitted (unaligned) | 0.621004 | 0.634781 | 29 | 13 |
 | **over the shared span** | **0.621004** | **0.658672** | **22** | **20** |
@@ -320,7 +320,7 @@ output as `reference_mean_unaligned_do_not_quote` so the difference stays visibl
 **Per preserved run, not one CSV.** As requested, the same alignment now runs over all five
 preserved reference runs:
 
-| run | reference mean | CLIPPR ahead, of 42 |
+| run | reference mean | PPROPT ahead, of 42 |
 |---|---:|---:|
 | run01 | 0.654766 | 23 |
 | run02 | 0.656756 | 22 |
@@ -332,7 +332,7 @@ Worth noting: the saved CSV used for the headline is run05 — the run where the
 highest of the five. Not chosen for that reason, but the headline was resting on the most
 favourable observation of a stochastic optimiser, which is exactly the hazard you named.
 
-Your two fresh seed-42 runs (0.653995 and 0.653187, CLIPPR ahead on 25) sit just below this
+Your two fresh seed-42 runs (0.653995 and 0.653187, PPROPT ahead on 25) sit just below this
 range and are consistent with it.
 
 **Regression:** `tests/test_oracle_alignment.py`, 9 tests. It asserts 4/42 identical, 42/42
@@ -380,7 +380,7 @@ prose, and the 0.996046 → 0.742067 → below-level-0 inequality that retires t
 
 - "within 2%" → greedy reaches **97.87%** of annealing's median sharing reduction. "About 98%"
   is what the measurement supports.
-- The benchmark reads a saved reference CSV and a saved CLIPPR inventory. It is a
+- The benchmark reads a saved reference CSV and a saved PPROPT inventory. It is a
   **saved-output cross-check**, not a newly executed head-to-head optimisation, and is now
   described that way.
 - Plan §12's benchmark protocol also covers repeat/sharing metrics, stage-specific fidelity,
@@ -482,7 +482,7 @@ five-step proposal — is `docs/gc_band_and_constraint_model.md`.
 
 **Note on method.** The measurement above was made without reading the reference: its optimiser
 settings are in the exported `config_as_run`, and the cause was settled by a controlled
-experiment on CLIPPR's own code. Zain has since authorised reading the reference to learn from
+experiment on PPROPT's own code. Zain has since authorised reading the reference to learn from
 (not to copy), and §11 records what that added — including two corrections to claims made here
 before it was read. `docs/methodology_sources.md` §7 must be updated to match that change of
 posture before either document is circulated.
@@ -583,7 +583,7 @@ than accepting them.
 
 Twist's gene-synthesis guidance states verbatim: *"We avoid fitted sequences that create global
 GC% of less than 25% or more than 65% and local GC windows (50 bp) of less than 35% or more
-than 65%."* That is CLIPPR's band and window **exactly**. Fetched and read directly.
+than 65%."* That is PPROPT's band and window **exactly**. Fetched and read directly.
 
 I had compared against the reference implementation's *transcription* of Twist's rules, in a
 document where I had myself written that the transcription should not be trusted for this
@@ -636,7 +636,7 @@ tested, and neither has a wider band's vendor acceptance.
 - **Assembly plans are not compared.** Their wrapper is a level-1 BsaI cassette, ours a
   level-0 BbsI cassette; those are different physical reactions and the benchmark does not
   pretend otherwise.
-- The wrapper's spacer and padding composition are CLIPPR engineering choices, not published
+- The wrapper's spacer and padding composition are PPROPT engineering choices, not published
   kit rules, and are stated as such in `substrates.py`.
 - `repeat_burden` is 0 at k=20 over distinct inserts and over the wrapped sequences, so that
   axis remains degenerate.

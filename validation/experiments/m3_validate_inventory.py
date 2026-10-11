@@ -30,8 +30,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from Bio.Seq import Seq                                           # noqa: E402
 
-from clippr.parts import select                                   # noqa: E402
-from clippr.products import load_inserts                          # noqa: E402
+from ppropt.parts import select                                   # noqa: E402
+from ppropt.products import load_inserts                          # noqa: E402
 
 SIX = ["AAAAUGUGG", "GCUAAAGAC", "UUACACGUG", "CGUACGUAC", "AUCGAUCGA", "GGCCAAUUG"]
 BLACKLIST = {"BsaI": "GGTCTC", "BbsI": "GAAGAC", "SapI": "GCTCTTC"}
@@ -183,7 +183,7 @@ def main() -> int:
                         for t in SIX}
         old_products = {t: join([m.plasmid_id for m in select(t).modules], originals)[0]
                         for t in SIX}
-        from clippr.homology import longest_shared
+        from ppropt.homology import longest_shared
         worst_new = max(longest_shared(new_products[a], new_products[b])[0]
                         for a, b in combinations(SIX, 2))
         worst_old = max(longest_shared(old_products[a], old_products[b])[0]

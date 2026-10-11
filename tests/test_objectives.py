@@ -9,7 +9,7 @@ import math
 
 import pytest
 
-from clippr.objectives import (codon_adaptation, collection_penalty, distinct_repeated_words,
+from ppropt.objectives import (codon_adaptation, collection_penalty, distinct_repeated_words,
                                dominates, duplicated_kmers, nondominated,
                                relative_adaptiveness, worst_shared_tract)
 

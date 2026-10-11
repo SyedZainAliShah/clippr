@@ -33,11 +33,11 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from Bio.Seq import Seq                                           # noqa: E402
 
-from clippr import inventories as inv, joint_search as js         # noqa: E402
-from clippr.junctions import valid_assignment                     # noqa: E402
-from clippr.objectives import nondominated                        # noqa: E402
-from clippr.overhangs import palindromic, reverse_complement      # noqa: E402
-from clippr.substrates import substrate_problems                  # noqa: E402
+from ppropt import inventories as inv, joint_search as js         # noqa: E402
+from ppropt.junctions import valid_assignment                     # noqa: E402
+from ppropt.objectives import nondominated                        # noqa: E402
+from ppropt.overhangs import palindromic, reverse_complement      # noqa: E402
+from ppropt.substrates import substrate_problems                  # noqa: E402
 
 TARGETS = ["AAAAUGUGG", "UUACACGUGCGUAC", "CUAUCACAUCACAUAAGCG"]
 
@@ -156,7 +156,7 @@ def main() -> int:
     ap.add_argument("--out", default=str(ROOT / "work" / "phased"))
     args = ap.parse_args()
 
-    from clippr.codons import complete_table
+    from ppropt.codons import complete_table
 
     print("D1  synthetic Pareto and convention checks")
     synthetic = synthetic_checks()

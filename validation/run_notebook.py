@@ -26,7 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-NOTEBOOK = ROOT / "notebooks" / "CLIPPR_designer.ipynb"
+NOTEBOOK = ROOT / "notebooks" / "PPROPT_designer.ipynb"
 
 #: The inventory cells short-circuit when this file is absent, and the absent branch is the
 #: cheap one. Running only that branch is what let the inventory half of the notebook ship

@@ -153,8 +153,8 @@ def main() -> int:
                     help="reference runs to average; it does not reproduce under its own seed")
     args = ap.parse_args()
 
-    from clippr.codons import complete_table
-    from clippr.products import load_inserts
+    from ppropt.codons import complete_table
+    from ppropt.products import load_inserts
 
     if not REF_PYTHON.is_file():
         print(f"reference interpreter not found at {REF_PYTHON}")

@@ -1,12 +1,12 @@
 # Third-party material and attribution
 
-CLIPPR itself is MIT-licensed; see [LICENSE](LICENSE). This file records material that
+PPROPT itself is MIT-licensed; see [LICENSE](LICENSE). This file records material that
 travels with the package but originates elsewhere, and the sources every scientific
 constant is derived from.
 
 ## Data redistributed with the package
 
-**`src/clippr/data/matrices/BsaI-HFv2.xlsx`** and **`src/clippr/data/matrices/BbsI-HF.xlsx`**
+**`src/ppropt/data/matrices/BsaI-HFv2.xlsx`** and **`src/ppropt/data/matrices/BbsI-HF.xlsx`**
 
 Supplementary Tables S1 and S4 of:
 
@@ -23,7 +23,7 @@ without them, which is why they ship inside the package rather than being downlo
 
 **PPR specificity scores (`Yan.tsv`, as distributed with
 [PPRmatcher](https://github.com/ian-small/PPRmatcher))** are supported by
-`src/clippr/crosstalk.py` but are **not** included in this package.
+`src/ppropt/crosstalk.py` but are **not** included in this package.
 
 That repository declares no licence, so no redistribution permission is granted and none
 can be inferred. `load_ppr_scores` therefore takes a path the user supplies; with no table,
@@ -37,8 +37,8 @@ criterion.
 
 ## Sources of derived constants
 
-**Scaffold sequences, the PPR code and the repeat template** in `src/clippr/biology.py`
-and `src/clippr/scaffold.json` are derived from:
+**Scaffold sequences, the PPR code and the repeat template** in `src/ppropt/biology.py`
+and `src/ppropt/scaffold.json` are derived from:
 
 > Dennis M, Low SY, Viljoen A, Pullakhandam A, Colas des Francs-Small C, Campbell-Clause L, Bond CS, Small I, Kwok van der Giezen FM (2025). GRASP: a modular toolkit for building synthetic pentatricopeptide repeat RNA-binding proteins. Nucleic Acids Research.
 > https://doi.org/10.1093/nar/gkaf1169
@@ -47,7 +47,7 @@ and `src/clippr/scaffold.json` are derived from:
 supplementary tables, following the published recipe. Re-run that script rather than
 editing the values by hand.
 
-**The GRASP module inventory** in `src/clippr/parts.json` is derived from Supplementary Table S1
+**The GRASP module inventory** in `src/ppropt/parts.json` is derived from Supplementary Table S1
 of the same paper by `tools/derive_parts.py`: plasmid identity, Golden Gate overhangs, plate
 positions and insert *lengths*. **Insert sequences are deliberately not included** — selecting
 modules does not need them, since the point of the route is that the user already holds the
@@ -64,7 +64,7 @@ assembly documentation.
 
 ## What is *not* derived from a published source
 
-`src/clippr/policy.py` holds this project's own choices: which enzyme sites to exclude,
+`src/ppropt/policy.py` holds this project's own choices: which enzyme sites to exclude,
 which host to optimise for, where QC thresholds sit. Each carries its reason in the file.
 The three-layer split across `biology.py`, `assembly_spec.py` and `policy.py` exists so
 that published fact stays distinguishable from project policy.

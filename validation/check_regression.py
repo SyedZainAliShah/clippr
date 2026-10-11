@@ -33,7 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from clippr.design import design_oneshot          # noqa: E402
+from ppropt.design import design_oneshot          # noqa: E402
 from integration import corpus                    # noqa: E402
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "design_hashes.json"

@@ -25,9 +25,9 @@ from Bio.Seq import Seq
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from clippr.assembly import build_oligos, split_cds
-from clippr.export import write_fasta, write_genbank
-from clippr.ppr import describe
+from ppropt.assembly import build_oligos, split_cds
+from ppropt.export import write_fasta, write_genbank
+from ppropt.ppr import describe
 
 
 

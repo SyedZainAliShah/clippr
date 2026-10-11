@@ -43,9 +43,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from clippr.design import design_oneshot            # noqa: E402
-from clippr.ppr import describe                     # noqa: E402
-from clippr.search import explore, select           # noqa: E402
+from ppropt.design import design_oneshot            # noqa: E402
+from ppropt.ppr import describe                     # noqa: E402
+from ppropt.search import explore, select           # noqa: E402
 from integration import corpus                      # noqa: E402
 
 BUDGET = 6

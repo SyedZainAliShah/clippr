@@ -11,7 +11,7 @@ import inspect
 
 import pytest
 
-from clippr.codons import optimize_cds
+from ppropt.codons import optimize_cds
 
 from test_design import TOY_TABLE
 
@@ -27,7 +27,7 @@ class TestTheHookIsOptional:
         """If a shipped route starts using it, that is a default change, not an experiment."""
         from pathlib import Path
 
-        src = Path(__file__).resolve().parents[1] / "src" / "clippr"
+        src = Path(__file__).resolve().parents[1] / "src" / "ppropt"
         callers = [f.name for f in src.rglob("*.py")
                    if "extra_constraints" in f.read_text(encoding="utf-8")]
         assert callers == ["codons.py"], (
@@ -104,9 +104,9 @@ class TestThePilotConstraint:
     def test_it_scores_the_flanks_not_just_the_slice(self):
         """A slice inside the band whose flanks push it out must be reported."""
         pilot = self._pilot()
-        from clippr.synthesis_profile import resolve
+        from ppropt.synthesis_profile import resolve
 
-        policy = resolve("clippr-strict-legacy")
+        policy = resolve("ppropt-strict-legacy")
         # 60 nt of pure AT: every window of the slice alone is GC 0.0, outside the band,
         # so a constraint reading the slice reports it. With GC-rich flanks the windows
         # that span the junction move too -- the point is that flanks are included.
@@ -124,9 +124,9 @@ class TestThePilotConstraint:
     def test_a_balanced_fragment_passes(self):
         """The positive side: flanks and slice together inside the band score zero."""
         pilot = self._pilot()
-        from clippr.synthesis_profile import resolve
+        from ppropt.synthesis_profile import resolve
 
-        policy = resolve("clippr-strict-legacy")
+        policy = resolve("ppropt-strict-legacy")
         balanced = "ATGC" * 30                     # GC 0.5 everywhere
         fragments = [{"fragment_id": "F1", "cds_start": 0, "cds_end": len(balanced),
                       "left": "ATGC" * 5, "right": "ATGC" * 5}]

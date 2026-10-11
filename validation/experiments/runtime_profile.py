@@ -1,8 +1,8 @@
 """Per-stage runtime, measured rather than asserted.
 
-Section 12 of the agreed plan asks for runtime under comparable conditions. Neither CLIPPR nor
+Section 12 of the agreed plan asks for runtime under comparable conditions. Neither PPROPT nor
 the GRASP reference had any timing instrumentation: grepping the reference's 21 modules for
-`perf_counter`, `elapsed` or equivalent finds nothing, and CLIPPR only ever recorded a single
+`perf_counter`, `elapsed` or equivalent finds nothing, and PPROPT only ever recorded a single
 figure for the 200-design corpus. "How long does the workflow take" therefore had no answer
 from either side, and a whole-workflow speed comparison would have been invented.
 
@@ -92,11 +92,11 @@ class Stopwatch:
 
 def timed_isolated(args, raw, table) -> dict:
     """Every stage from the same fixed input, so the stages are comparable with each other."""
-    from clippr import inventories as inv
-    from clippr import joint_search as js
-    from clippr import library_search as ls
-    from clippr import ordering, substrates
-    from clippr.recoding import recode_inventory
+    from ppropt import inventories as inv
+    from ppropt import joint_search as js
+    from ppropt import library_search as ls
+    from ppropt import ordering, substrates
+    from ppropt.recoding import recode_inventory
 
     watch = Stopwatch()
     for _ in range(args.repeats):
@@ -132,7 +132,7 @@ def timed_chain(args, raw, profile, label: str) -> dict:
     and what the published artefacts come from. Every inventory path handed to a stage is the
     path the previous stage wrote.
     """
-    from clippr import workflow as w
+    from ppropt import workflow as w
 
     watch = Stopwatch()
     totals: list[float] = []
@@ -199,7 +199,7 @@ def timed_oneshot(args, raw) -> dict:
     ~2 kb coding sequence carrying a local GC band, a homopolymer cap and three forbidden
     recognition sites at once.
     """
-    from clippr.design import design_oneshot
+    from ppropt.design import design_oneshot
 
     watch = Stopwatch()
     sizes = {}
@@ -242,8 +242,8 @@ def main() -> int:
         print(f"missing {TABLE_S1}; the deposited kit is needed to time the inventory route")
         return 2
 
-    from clippr import synthesis_profile as sp
-    from clippr.codons import complete_table
+    from ppropt import synthesis_profile as sp
+    from ppropt.codons import complete_table
 
     raw = json.loads(CODON_TABLE.read_text(encoding="utf-8"))
     table = complete_table(raw, 1)

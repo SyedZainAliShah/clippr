@@ -10,7 +10,7 @@ recipe. Nothing here is copied from any third-party implementation.
 Module ids encode their variable residues: "<block>_L<last>5<fifth>", e.g. B_LD5N has
 last=D, fifth=N. Table S2 refers to them as "<block>_<last><fifth>", e.g. B_DN.
 
-Emits src/clippr/scaffold.json. Run once; re-run only if the source tables change.
+Emits src/ppropt/scaffold.json. Run once; re-run only if the source tables change.
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from Bio.Seq import Seq
 
 ROOT = Path(__file__).resolve().parents[1]
 SUP = ROOT / "data" / "grasp_supp"
-OUT = ROOT / "src" / "clippr" / "scaffold.json"
+OUT = ROOT / "src" / "ppropt" / "scaffold.json"
 
 
 def load_modules() -> dict[str, dict]:

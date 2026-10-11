@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import pytest
 
-from clippr import constants as C
-from clippr.ppr import (
+from ppropt import constants as C
+from ppropt.ppr import (
     architecture_of,
     code_to_protein,
     code_to_rna,

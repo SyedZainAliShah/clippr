@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from clippr import inventories as inv
-from clippr import substrates as sub
+from ppropt import inventories as inv
+from ppropt import substrates as sub
 
 ROOT = Path(__file__).resolve().parents[1]
 TABLE_S1 = ROOT / "data" / "grasp_supp" / "Table S1.xlsx"
@@ -22,7 +22,7 @@ TABLE_S1 = ROOT / "data" / "grasp_supp" / "Table S1.xlsx"
 #: Resolved rather than hardcoded: an absolute developer path pins a repository to one
 #: machine, and these tests skip cleanly where the records are absent.
 def _primary_records() -> Path:
-    override = os.environ.get("CLIPPR_GRASP_PRIMARY")
+    override = os.environ.get("PPROPT_GRASP_PRIMARY")
     if override:
         return Path(override)
     return ROOT.parent / "work" / "provenance" / "grasp_primary"
@@ -158,7 +158,7 @@ class TestSynthesisContractOnWhatIsOrdered:
 
     def test_the_shipped_inventory_has_no_contract_breaches(self, deposited):
         """Recoding now targets the released fragment, so this must come out empty."""
-        from clippr import inventories as _inv
+        from ppropt import inventories as _inv
 
         path = Path(__file__).resolve().parents[1] / "work" / "phaseb" / "inventory_recoded.json"
         if not path.is_file():

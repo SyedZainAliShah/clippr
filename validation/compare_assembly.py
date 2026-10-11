@@ -27,7 +27,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from clippr.assembly import build_oligos, reassemble, split_cds
+from ppropt.assembly import build_oligos, reassemble, split_cds
 
 
 def cds_of(df: pd.DataFrame) -> str:

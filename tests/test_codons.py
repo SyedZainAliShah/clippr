@@ -6,7 +6,7 @@ import json
 import pytest
 from Bio.Seq import Seq
 
-from clippr.codons import (
+from ppropt.codons import (
     BLACKLIST_ENZYMES,
     _table_name,
     complete_table,
@@ -146,7 +146,7 @@ class TestOptimize:
 
     def test_locked_sites_are_verbatim(self):
         """Locked overhangs must be reachable by synonymous substitution, so derive them."""
-        from clippr.arelf import achievable_overhangs
+        from ppropt.arelf import achievable_overhangs
         locked = {3 * c - 4: achievable_overhangs(PROTEIN, c)[0] for c in (10, 20, 30)}
         r = optimize_cds(PROTEIN, locked_sites=locked, codon_table=TOY_TABLE)
         for start, want in locked.items():
@@ -203,27 +203,27 @@ class TestHosts:
     """Every host offered must resolve; a listed host that cannot is worse than none."""
 
     def test_every_listed_host_has_a_source_and_a_code(self):
-        from clippr import constants as C
+        from ppropt import constants as C
         for name, (source, code) in C.ORGANISMS.items():
             assert isinstance(source, (int, str)), name
             assert code in (1, 11), f"{name}: unexpected genetic code {code}"
 
     def test_organelles_use_the_plastid_code(self):
-        from clippr import constants as C
+        from ppropt import constants as C
         for name, (_, code) in C.ORGANISMS.items():
             if "chloroplast" in name:
                 assert code == 11, f"{name} must use NCBI table 11"
 
     def test_organelles_are_derived_not_looked_up(self):
         """Kazusa has no confirmed organelle entry, so these must come from a genome."""
-        from clippr import constants as C
+        from ppropt import constants as C
         for name, (source, _) in C.ORGANISMS.items():
             if "chloroplast" in name:
                 assert isinstance(source, str), f"{name} must be a genome accession"
 
     @pytest.mark.parametrize("aa", ["L", "A", "G", "V"])
     def test_derived_chloroplast_table_covers_the_common_residues(self, aa):
-        from clippr.codons import table_from_genome
+        from ppropt.codons import table_from_genome
         try:
             table = table_from_genome()
         except Exception as e:
@@ -236,7 +236,7 @@ class TestHosts:
         Chlamydomonas nucleus prefers Leu CTG; its chloroplast prefers TTA. Measured at
         0.73 and 0.74 respectively -- near-mirror images, not a rounding difference.
         """
-        from clippr.codons import table_from_genome, table_from_kazusa
+        from ppropt.codons import table_from_genome, table_from_kazusa
         try:
             plastid = table_from_genome()
             nuclear = table_from_kazusa()
@@ -246,6 +246,6 @@ class TestHosts:
         assert max(nuclear["L"], key=nuclear["L"].get).startswith("CT")
 
     def test_a_derived_table_needs_enough_codons(self):
-        from clippr.codons import table_from_genome
+        from ppropt.codons import table_from_genome
         with pytest.raises(Exception):
             table_from_genome("NC_000000.0")

@@ -36,10 +36,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from clippr import constants as C                                     # noqa: E402
-from clippr.assembly import wrapper_intended_sites                    # noqa: E402
-from clippr.substrates import rc                                      # noqa: E402
-from clippr.synthesis_profile import resolve                          # noqa: E402
+from ppropt import constants as C                                     # noqa: E402
+from ppropt.assembly import wrapper_intended_sites                    # noqa: E402
+from ppropt.substrates import rc                                      # noqa: E402
+from ppropt.synthesis_profile import resolve                          # noqa: E402
 
 
 def _gc(seq: str) -> float:
@@ -125,7 +125,7 @@ def main() -> int:
 
     policy = resolve(args.profile)
     from Bio.Restriction import RestrictionBatch
-    from clippr.design import final_artifact_report          # production, for comparison
+    from ppropt.design import final_artifact_report          # production, for comparison
     import pandas as pd
 
     active = C.enzymes_for(C.DEFAULT_ENZYME_PROFILE)

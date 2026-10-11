@@ -1,4 +1,4 @@
-# CLIPPR release status — 10 October 2026, revision 2
+# PPROPT release status — 10 October 2026, revision 2
 
 **This document supersedes the release-status paragraphs in the frozen audit pack**
 (`docs/*.md`, `RESPONSE_TO_AUDIT.md`, `PROPOSAL_TO_CODEX.md`) and revision 1 of this file.
@@ -17,7 +17,7 @@ changes are local and uncommitted on `479690b53663c397926aa431e72f4965dfbe4998`.
 
 ## 1. What the software does today, in one paragraph
 
-CLIPPR turns a short target RNA into a synthetic PPR protein's coding sequence, splits it
+PPROPT turns a short target RNA into a synthetic PPR protein's coding sequence, splits it
 into Golden Gate fragments, and checks the sequences that would actually be ordered. It has
 two routes. The **inventory route** takes the deposited 42-module GRASP kit, recodes it for a
 host, picks a junction interface and produces an order plan — this route works end to end and
@@ -189,7 +189,7 @@ From the repository root. `$Run` is a **new** directory: Gate F refuses to overw
 previous run's retained environment, which is deliberate.
 
 ```powershell
-Set-Location -LiteralPath 'C:\CodePractice\Drylab\clippr'
+Set-Location -LiteralPath 'C:\CodePractice\Drylab\ppropt'
 $Py  = '.\.venv\Scripts\python.exe'
 $Run = "work\release_$(Get-Date -Format yyyyMMdd-HHmmss)"
 New-Item -ItemType Directory -Force $Run | Out-Null
@@ -217,16 +217,16 @@ claim.
 record.** Without this the installed wheel resolves its cache to a per-user directory, and
 the bytes a run consumed appear in no record — the designer notebook previously declared no
 inputs at all while reading a codon table and a chloroplast genome from that cache. `--env`
-points `CLIPPR_CACHE_DIR` at a staged cache inside the working directory.
+points `PPROPT_CACHE_DIR` at a staged cache inside the working directory.
 
 ```powershell
 $Env = "$Run\phasef\environment\env\Scripts\python.exe"
 & $Env -m pip install -q ipython
 
 & $Env validation\notebook_on_published_build.py `
-    --notebook notebooks\CLIPPR_designer.ipynb `
+    --notebook notebooks\PPROPT_designer.ipynb `
     --workdir "$Run\nb_designer" --out "$Run\notebook_designer.json" `
-    --env "CLIPPR_CACHE_DIR=cache" `
+    --env "PPROPT_CACHE_DIR=cache" `
     --input "cache/codon_tables/kazusa_3055.json=data\codon_tables\kazusa_3055.json" `
     --input "cache/genomes/NC_005353.1.gb=data\genomes\NC_005353.1.gb" `
     --require-input "cache/codon_tables/kazusa_3055.json" `
@@ -241,9 +241,9 @@ $Env = "$Run\phasef\environment\env\Scripts\python.exe"
     --expect "'NOT ORDERABLE' in card"
 
 & $Env validation\notebook_on_published_build.py `
-    --notebook notebooks\CLIPPR_inventory.ipynb `
+    --notebook notebooks\PPROPT_inventory.ipynb `
     --workdir "$Run\nb_inventory" --out "$Run\notebook_inventory.json" `
-    --env "CLIPPR_CACHE_DIR=cache" `
+    --env "PPROPT_CACHE_DIR=cache" `
     --input "Table S1.xlsx=data\grasp_supp\Table S1.xlsx" `
     --input "cache/codon_tables/kazusa_3055.json=data\codon_tables\kazusa_3055.json" `
     --require-input "Table S1.xlsx" `

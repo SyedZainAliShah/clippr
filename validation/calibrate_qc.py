@@ -25,9 +25,9 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from clippr.codons import optimize_cds, table_from_kazusa
-from clippr.ppr import describe
-from clippr.qc import DEFAULT_THRESHOLDS, synthesis_qc
+from ppropt.codons import optimize_cds, table_from_kazusa
+from ppropt.ppr import describe
+from ppropt.qc import DEFAULT_THRESHOLDS, synthesis_qc
 
 CACHE = ROOT / "results" / "our_cds.json"
 

@@ -18,7 +18,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "validation"))
 
-from clippr.viz import (FAIL, FRAGMENT_HUES, PASS, WARN, kit_plate_svg,  # noqa: E402
+from ppropt.viz import (FAIL, FRAGMENT_HUES, PASS, WARN, kit_plate_svg,  # noqa: E402
                         plate_svg)
 
 MODULES = [{"plasmid_id": "pA", "plate": "A1"}, {"plasmid_id": "pB", "plate": "B2"}]

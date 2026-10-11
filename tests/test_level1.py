@@ -18,8 +18,8 @@ from pathlib import Path
 
 import pytest
 
-from clippr import assembly_spec as spec
-from clippr import inventories as inv
+from ppropt import assembly_spec as spec
+from ppropt import inventories as inv
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 #: Resolved rather than hardcoded: an absolute developer path pins a repository to one
 #: machine, and these tests skip cleanly where the records are absent.
 def _primary_records() -> Path:
-    override = os.environ.get("CLIPPR_GRASP_PRIMARY")
+    override = os.environ.get("PPROPT_GRASP_PRIMARY")
     if override:
         return Path(override)
     return ROOT.parent / "work" / "provenance" / "grasp_primary"
@@ -50,7 +50,7 @@ EXPECTED = {
 def table():
     import json
 
-    from clippr.codons import complete_table
+    from ppropt.codons import complete_table
     return complete_table(json.loads(
         (ROOT / "data" / "codon_tables" / "kazusa_3055.json").read_text("utf-8")), 1)
 
@@ -102,7 +102,7 @@ class TestTheGeometryIsEstablishedButTheReactionIsNot:
         A subset score sitting in `fidelity` or `reaction_overhangs` would read as the
         reaction's own number while describing a tube that does not exist.
         """
-        from clippr import joint_search as js
+        from ppropt import joint_search as js
 
         targets = ["CUAUCACAUCACAUAAGCG"]
         classes = js.junction_classes(deposited, targets)
@@ -123,8 +123,8 @@ class TestTheGeometryIsEstablishedButTheReactionIsNot:
         Values are the sensitivity calculation, not a reconstructed reaction: the true
         participant list is still unknown and may move it further.
         """
-        from clippr.assembly_spec import LEVEL1_KNOWN_COASSEMBLED_ENDS
-        from clippr.overhangs import set_fidelity
+        from ppropt.assembly_spec import LEVEL1_KNOWN_COASSEMBLED_ENDS
+        from ppropt.overhangs import set_fidelity
 
         subset = EXPECTED["CUAUCACAUCACAUAAGCG"]
         with_known = subset + list(LEVEL1_KNOWN_COASSEMBLED_ENDS)
@@ -243,7 +243,7 @@ class TestFlatRoleListsCannotEstablishTopology:
     }
 
     def _call(self, roles, evidence="synthetic control; not a biological assembly"):
-        from clippr.assembly_spec import level1_participants
+        from ppropt.assembly_spec import level1_participants
         return level1_participants(roles["ppr_blocks"], roles=roles, evidence=evidence)
 
     def test_a_path_plus_a_disjoint_cycle_is_not_complete(self):
@@ -285,9 +285,9 @@ class TestFlatRoleListsCannotEstablishTopology:
 
     def test_the_readiness_api_does_not_reach_the_scorer(self, tmp_path, monkeypatch):
         """Spy on the scorer: an unverified topology must never be scored."""
-        from clippr import workflow as w
+        from ppropt import workflow as w
         called = []
-        monkeypatch.setattr("clippr.overhangs.set_fidelity",
+        monkeypatch.setattr("ppropt.overhangs.set_fidelity",
                             lambda *a, **k: called.append(a) or 1.0)
         result = w.level1_readiness(["AAAA", "AAAC"], tmp_path,
                                     roles=self.DISCONNECTED, evidence="synthetic control")

@@ -1,12 +1,12 @@
 """Read design rows out of an experiment journal, ignoring its bookkeeping lines.
 
-A journal written by `clippr.experiment` is not a plain list of designs. It opens with a run
+A journal written by `ppropt.experiment` is not a plain list of designs. It opens with a run
 identity record, and appends a checkpoint after each row plus one at the end of every run, so
 a 200-design corpus is a 403-line file. A checker that reads every line blindly sees those
 records as malformed designs -- which is exactly what happened to V5 and V6 the first time
 they were pointed at a journal rather than at a flat corpus.
 
-The reserved keys are written out here rather than imported from `clippr.experiment`, so the
+The reserved keys are written out here rather than imported from `ppropt.experiment`, so the
 independent checkers stay independent of production code. They are a file format, not a
 measurement, but restating them costs one line and keeps the claim simple.
 """
@@ -57,7 +57,7 @@ def provenance(validator: str, jsonl: str | Path | None = None) -> dict:
 
     root = Path(__file__).resolve().parents[2]
     sys.path.insert(0, str(root / "src"))
-    from clippr.manifest import source_fingerprint
+    from ppropt.manifest import source_fingerprint
 
     record = {
         "validator": Path(validator).name,

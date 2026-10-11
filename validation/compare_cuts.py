@@ -7,7 +7,7 @@ third-party code and can run in our own venv:
 
 For every fragment boundary in every stored assembly plan it asserts three things:
 
-  1. the concatenated fragment protein equals what `clippr.ppr.describe` builds
+  1. the concatenated fragment protein equals what `ppropt.ppr.describe` builds
   2. `arelf.cut_context(cds, cut_aa)` equals the overhang the corpus actually uses
   3. that overhang is reachable by synonymous substitution from the protein alone,
      i.e. `arelf.achievable_overhangs` contains it
@@ -27,8 +27,8 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from clippr.arelf import achievable_overhangs, cut_context, find_motifs, offsets_from_motif
-from clippr.ppr import describe
+from ppropt.arelf import achievable_overhangs, cut_context, find_motifs, offsets_from_motif
+from ppropt.ppr import describe
 
 
 def cds_of(df: pd.DataFrame) -> str:
@@ -64,7 +64,7 @@ def main() -> None:
         if protein == describe(rna)["aa_sequence"]:
             n_prot_ok += 1
         else:
-            failures.append(f"{rna}: protein differs from clippr.ppr.describe")
+            failures.append(f"{rna}: protein differs from ppropt.ppr.describe")
 
         if len(cds) != 3 * len(protein):
             failures.append(f"{rna}: cds {len(cds)} nt != 3 x {len(protein)} aa")
