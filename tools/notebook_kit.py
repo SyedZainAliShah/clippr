@@ -134,7 +134,13 @@ def write_notebook(cells, out: Path, name: str) -> None:
         "nbformat": 4,
         "nbformat_minor": 0,
     }
-    out.write_text(json.dumps(nb, indent=1, ensure_ascii=False), encoding="utf-8")
+    # newline="\n" or the generated file is platform-dependent. `.gitattributes` marks
+    # *.ipynb as `-text`, so notebooks are stored byte-for-byte as committed and never
+    # converted on checkout. Writing them from Windows without this put CRLF in the
+    # repository, and `test_regenerating_would_not_change_it` then compared a CRLF checkout
+    # against an LF regeneration on Linux and failed -- passing here and only here.
+    out.write_text(json.dumps(nb, indent=1, ensure_ascii=False),
+                   encoding="utf-8", newline="\n")
     print(f"wrote {out}  ({len(cells)} cells: "
           f"{sum(1 for c in cells if c['cell_type'] == 'code')} code, "
           f"{sum(1 for c in cells if c['cell_type'] == 'markdown')} markdown)")

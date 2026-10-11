@@ -923,6 +923,8 @@ cells.append(md(f"""
 Building from the deposited 42-module kit instead? [PPROPT_inventory.ipynb]({INVENTORY_COLAB})
 """))
 
-DIAGRAM.write_text(pipeline_svg(), encoding="utf-8")
+# newline="\n" for the same reason as the notebooks: a generated file must not depend on
+# the platform that generated it.
+DIAGRAM.write_text(pipeline_svg(), encoding="utf-8", newline="\n")
 print(f"wrote {DIAGRAM} ({DIAGRAM.stat().st_size} B)")
 write_notebook(cells, OUT, NAME)
