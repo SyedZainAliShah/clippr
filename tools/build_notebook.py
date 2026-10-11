@@ -17,7 +17,7 @@ DIAGRAM = Path("notebooks/pipeline.svg")
 #: `release_check.py` check 12 fails when this does not equal what the suite reports, so it
 #: cannot drift unnoticed -- reading it from `work/` instead made a fresh clone fail
 #: `tests/test_notebook.py`, because that directory is gitignored.
-TESTS = 1108
+TESTS = 1193
 #: Served from the repository rather than inlined -- see pipeline_svg().
 DIAGRAM_URL = f"https://raw.githubusercontent.com/{REPO}/main/{DIAGRAM.as_posix()}"
 
@@ -390,6 +390,20 @@ SYNTHESIS verdict on the result card above, and under the strict policy the curr
 designs are refused. `oh5` and `oh3` are the four-base Golden Gate overhangs that
 join each fragment to its neighbours.
 """))
+
+# The diagram before the table: the shape of the assembly is the thing a reader checks
+# first, and the overhangs are easier to match up drawn than read off a column.
+cells.append(code('''
+from clippr.viz import assembly_svg
+
+display(HTML(assembly_svg(
+    result["oligos"],
+    title=f'{result["target_rna"]}  ({result["architecture"]})',
+    orderable=result["synthesis_ready"],
+    verdict=("Orderable under the declared software checks."
+             if result["synthesis_ready"]
+             else "NOT ORDERABLE - " + (result["not_ready_because"] or ["refused"])[0]))))
+''', title="Draw the assembly"))
 
 cells.append(code('''
 cols = {"fragment_id": "fragment", "assembly_order": "order", "aa_length": "residues",

@@ -274,6 +274,26 @@ else:
         print(f"   unresolved: {rule}")
 ''', title="Step 7 — eligibility and pool plan"))
 
+    # Where to put the pipette. The order names 42 modules, and a list of plasmid
+    # identifiers gets transcribed by hand into a picking order -- which is the step that
+    # goes wrong.
+    out.append(code('''
+from clippr.viz import kit_plate_svg
+
+if order_items is None:
+    print("Run the cells above first.")
+else:
+    import importlib.resources as _res
+    _modules = _json.loads(_res.files("clippr").joinpath("parts.json")
+                           .read_text(encoding="utf-8"))["modules"]
+    _wanted = [i["module"] for i in items]
+    display(HTML(kit_plate_svg(
+        _wanted, _modules,
+        title=f"GRASP kit — {len(_wanted)} wells to pick",
+        note=f"{len(_wanted)} modules for this build, from inventory "
+             f"{selected.data['to_version']}")))
+''', title="Step 7b — where to put the pipette"))
+
     out.append(md("""
 ## Take the package
 

@@ -41,7 +41,7 @@ actually measured in:
 python -m venv .venv
 .venv/Scripts/python -m pip install -r requirements.txt   # Linux/macOS: .venv/bin/python
 .venv/Scripts/python -m pip install -e .
-.venv/Scripts/python -m pytest                            # expect 1108 passed, 0 failed
+.venv/Scripts/python -m pytest                            # expect 1193 passed, 0 failed
 ```
 
 Every figure quoted in this README is reproducible from that environment; `docs/verification_commands.md`
