@@ -29,6 +29,7 @@ survives is word order, which is what a fabricated quote gets wrong.
 from __future__ import annotations
 
 import argparse
+import html as html_lib
 import json
 import re
 import sys
@@ -52,6 +53,18 @@ HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/pdf;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-GB,en;q=0.9",
 }
+
+
+def squash(text: str) -> str:
+    """`normalise` with the spaces taken out too.
+
+    Stripping tags turns every one into a space, so a page serving `25<span>%</span>` or
+    `<b>10</b>nt` yields "25 %" and "10 nt" and a correct anchor misses. This gate's whole
+    purpose is catching a fabricated quote, and a false UNSUPPORTED accuses a truthful
+    source of inventing one -- the exact inversion. Anchors are six words minimum, so a
+    space-insensitive match is still far too specific to hit by accident.
+    """
+    return re.sub(r"\s+", "", normalise(text))
 
 
 def normalise(text: str) -> str:
@@ -96,9 +109,15 @@ def page_text(url: str, timeout: int = 30) -> tuple[str | None, str]:
         except Exception as exc:                    # noqa: BLE001
             return None, f"pdf unreadable: {type(exc).__name__}"
 
-    html = r.text
-    html = re.sub(r"(?is)<(script|style|noscript)[^>]*>.*?</\1>", " ", html)
-    return re.sub(r"(?s)<[^>]+>", " ", html), "html"
+    # `requests` falls back to ISO-8859-1 for text/html with no charset, which turns a
+    # UTF-8 right single quote into "â\x80\x99" and loses the anchor.
+    if (r.encoding or "").lower() in ("iso-8859-1", "latin-1", "latin1"):
+        r.encoding = r.apparent_encoding or "utf-8"
+    raw = r.text
+    raw = re.sub(r"(?is)<(script|style|noscript)[^>]*>.*?</\1>", " ", raw)
+    # Entities before tags: an un-decoded `&nbsp;` or `&rsquo;` survives normalise() as the
+    # literal text "nbsp;", so "5 bp" and "Twist's" fail against pages that are quoting them.
+    return html_lib.unescape(re.sub(r"(?s)<[^>]+>", " ", raw)), "html"
 
 
 def check(claims: list[dict], pause: float = 1.0) -> dict:
@@ -106,21 +125,26 @@ def check(claims: list[dict], pause: float = 1.0) -> dict:
     results, malformed = [], []
 
     for i, claim in enumerate(claims, 1):
-        missing = [f for f in REQUIRED_FIELDS if not str(claim.get(f, "")).strip()]
+        line_no = claim.get("__line__", i)
+        # `str(claim.get(f, ""))` turned a null into the non-empty "None", so a claim with
+        # "verbatim_anchor": null passed this test and then raised AttributeError mid-run,
+        # after the fetches, with no report written at all.
+        missing = [f for f in REQUIRED_FIELDS
+                   if claim.get(f) is None or not str(claim[f]).strip()]
         if missing:
-            malformed.append({"line": i, "problem": f"missing {', '.join(missing)}",
+            malformed.append({"line": line_no, "problem": f"missing {', '.join(missing)}",
                               "claim": claim})
             continue
         level = claim["enforcement"]
         if level not in ENFORCEMENT_LEVELS:
-            malformed.append({"line": i,
+            malformed.append({"line": line_no,
                               "problem": f"enforcement {level!r} is not one of "
                                          f"{', '.join(ENFORCEMENT_LEVELS)}",
                               "claim": claim})
             continue
-        anchor = claim["verbatim_anchor"]
+        anchor = str(claim["verbatim_anchor"])
         if len(anchor.split()) < MIN_ANCHOR_WORDS:
-            malformed.append({"line": i,
+            malformed.append({"line": line_no,
                               "problem": f"anchor is {len(anchor.split())} words; "
                                          f"{MIN_ANCHOR_WORDS} minimum, or it matches by "
                                          f"accident",
@@ -143,6 +167,9 @@ def check(claims: list[dict], pause: float = 1.0) -> dict:
         elif normalise(anchor) in normalise(text):
             row["result"] = "verified"
             row["detail"] = f"anchor found in {how}"
+        elif squash(anchor) in squash(text):
+            row["result"] = "verified"
+            row["detail"] = f"anchor found in {how}, ignoring markup spacing"
         else:
             row["result"] = "UNSUPPORTED"
             row["detail"] = (f"page fetched ({how}, {len(text)} chars) and the anchor is "
@@ -192,6 +219,9 @@ def main() -> int:
     print(f"checking {len(claims)} claim(s)\n")
 
     report = check(claims, pause=args.pause)
+    # Lines that never parsed are malformed claims too; they must reach the report and the
+    # exit code rather than being dropped on the floor by a run that otherwise succeeded.
+    report["malformed"] = unreadable + report["malformed"]
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

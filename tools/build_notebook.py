@@ -17,7 +17,7 @@ DIAGRAM = Path("notebooks/pipeline.svg")
 #: `release_check.py` check 12 fails when this does not equal what the suite reports, so it
 #: cannot drift unnoticed -- reading it from `work/` instead made a fresh clone fail
 #: `tests/test_notebook.py`, because that directory is gitignored.
-TESTS = 1193
+TESTS = 1225
 #: Served from the repository rather than inlined -- see pipeline_svg().
 DIAGRAM_URL = f"https://raw.githubusercontent.com/{REPO}/main/{DIAGRAM.as_posix()}"
 
@@ -180,6 +180,38 @@ Run once — installs CLIPPR from GitHub, about a minute.
 """))
 
 cells.append(setup_cell())
+
+# Imports the symbol rather than probing for the module: `find_spec` reads the disk, and
+# the failure this catches is a *loaded* build that predates the readiness verdict. That one
+# imports cleanly and then raises KeyError('synthesis_ready') nine cells down, which reads
+# as a broken notebook rather than a stale kernel.
+cells.append(code('''
+#@markdown Checks the build this kernel has actually loaded, not the one on disk. A copy
+#@markdown installed before the synthesis-readiness verdict imports fine and then fails deep
+#@markdown in step 2 on a key it never returned, which is a bad way to learn it is stale.
+from IPython.display import HTML, display
+
+# synthesis_readiness arrived with the readiness verdict, in the same change as the
+# synthesis_ready key step 2 reads, so its absence is exactly the staleness that matters.
+try:
+    from clippr.design import synthesis_readiness
+    _stale = None
+except ImportError as exc:
+    _stale = str(exc)
+
+if _stale:
+    display(HTML(
+        '<div style="border-left:3px solid #a8402c;padding:.6em 1em;font-size:13px;'
+        'line-height:1.55">This kernel has an older CLIPPR loaded.<br><code>'
+        + _stale + '</code><br><br>Run <b>Runtime &gt; Restart session</b>, then run the '
+        'setup cell again. Reinstalling alone will not help: the old copy stays in memory '
+        'until the kernel restarts.</div>'))
+else:
+    display(HTML(
+        '<div style="border-left:3px solid #1a7f5a;padding:.6em 1em;'
+        'font-family:ui-monospace,monospace;font-size:13px;opacity:.85">'
+        'loaded build carries the synthesis-readiness verdict</div>'))
+''', title="Setup check — is the loaded build current?"))
 
 # ---------------------------------------------------------------- parameters
 cells.append(md("""

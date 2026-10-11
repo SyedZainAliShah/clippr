@@ -272,8 +272,16 @@ def write_library(lib: LibraryResult, outdir: str | Path) -> dict[str, str]:
 
     gb = out / "genbank"
     gb.mkdir(exist_ok=True)
+    # A refused design must not be written under the name an orderable one gets.
+    # `design_oneshot` marks its diagnostic files REJECTED precisely so a downstream step
+    # cannot pick them up; writing the same record here as clippr_<target>.gb made a
+    # sequence that must not be ordered indistinguishable from one that may be, on disk,
+    # which is the one place the distinction has to survive.
+    refused = set(lib.rejected)
     for target, r in lib.designs.items():
-        write_genbank(r["cds"], r["fragments"], target, gb / f"clippr_{target}.gb")
+        stem = f"clippr_{target}_REJECTED" if target in refused else f"clippr_{target}"
+        write_genbank(r["cds"], r["fragments"], target, gb / f"{stem}.gb",
+                      genetic_code=r.get("genetic_code", 1))
     paths["genbank_dir"] = str(gb)
 
     p = out / "library_summary.txt"

@@ -71,6 +71,10 @@ def _latest():
 # them. A local checkout is left alone: it is someone working on the package.
 _kind, _have = _installed()
 _want = _latest()
+#: Whether a previous cell already imported it. Reinstalling cannot replace a module object
+#: that is already in memory, and the commit check above reads the disk, so "current" says
+#: nothing about what this kernel is actually running.
+_already = "clippr" in sys.modules
 
 if _kind == "local":
     _msg = "local checkout in use, left alone"
@@ -104,6 +108,9 @@ elif _want is None:
     _msg = f"clippr @ {_have[:7]}, could not reach GitHub to check it is current"
 else:
     _msg = f"clippr @ {_have[:7]}, current with {REPO}@main"
+    if _already:
+        _msg += ("  —  already imported in this session; if it was updated since, "
+                 "Runtime > Restart session")
 
 from IPython.display import HTML, display
 display(HTML(

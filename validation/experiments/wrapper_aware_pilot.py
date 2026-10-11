@@ -119,7 +119,10 @@ def make_constraint(fragments, policy):
             return dc.SpecEvaluation(
                 self, problem, score=-len(locations), locations=locations,
                 message=(f"{len(locations)} ordered-fragment window(s) outside "
-                         f"({lo}, {hi})" + (f", worst {worst:.3f}" if worst else "")))
+                         # `if worst` dropped the figure at gc == 0.0, which is the most
+                         # severe breach there is. The sibling fold constraint got this right.
+                         f"({lo}, {hi})" + (f", worst {worst:.3f}"
+                                            if worst is not None else "")))
 
         def localized(self, location, problem=None, with_righthand=True):
             # Evaluated globally: one codon change moves a window in a fragment whose

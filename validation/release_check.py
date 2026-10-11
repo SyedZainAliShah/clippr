@@ -517,13 +517,33 @@ NOTEBOOK_CONTRACT = {
     "notebook_inventory": ("deposited", "order_items", "order.ok", "summary["),
 }
 
+#: The inputs each notebook must have been given, staged and hashed. The staged-input loop
+#: can only re-hash what a record declares, so a record declaring none passed every check
+#: while the run had in fact read its codon table and genome from wherever the machine
+#: happened to keep them. Naming them here makes "declared nothing" a failure.
+NOTEBOOK_REQUIRED_INPUTS = {
+    "notebook_designer": ("codon_tables/kazusa_3055.json", "genomes/NC_005353.1.gb"),
+    "notebook_inventory": ("Table S1.xlsx", "codon_tables/kazusa_3055.json"),
+}
+
 #: The panel the corpus contract must cover.
 EXPECTED_DESIGNS = 200
 
 
+def _under_root(path) -> Path:
+    """Anchor a recorded path to the repository, not to whatever directory we ran from.
+
+    Records store paths as they were typed, which is usually repo-relative. Resolving
+    those against the process CWD made the verdict depend on where the check was invoked:
+    the same bundle verified from the repo root and failed from anywhere else.
+    """
+    p = Path(path)
+    return p if p.is_absolute() else ROOT / p
+
+
 def _file_sha256(path) -> str | None:
     try:
-        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        return hashlib.sha256(_under_root(path).read_bytes()).hexdigest()
     except OSError:
         return None
 
@@ -538,7 +558,7 @@ def _check_notebook_record(name, record, current, problems):
     notebook = record.get("notebook")
     if not stated:
         problems.append(f"{name} carries no notebook_sha256")
-    elif not notebook or not Path(notebook).is_file():
+    elif not notebook or not _under_root(notebook).is_file():
         problems.append(f"{name} names no readable notebook to verify its hash against")
     else:
         actual = _file_sha256(notebook)
@@ -558,13 +578,21 @@ def _check_notebook_record(name, record, current, problems):
         problems.append(f"{name} ran against {str(installed)[:12]}, but this checkout "
                         f"is {current[:12]}")
 
+    # The loop below re-hashes what the record declares, so it can only ever be as strong
+    # as the declaration. Require the inputs first; otherwise declaring none passes.
+    staged_inputs = record.get("staged_inputs") or {}
+    for required in NOTEBOOK_REQUIRED_INPUTS.get(name, ()):
+        if not any(required in str(dest) for dest in staged_inputs):
+            problems.append(f"{name} staged no {required}, so the run cannot be shown "
+                            f"to have used the inputs this release names")
+
     # Every staged input, re-hashed from the file it came from.
-    for dest, staged in (record.get("staged_inputs") or {}).items():
+    for dest, staged in staged_inputs.items():
         source = staged.get("from")
         stated = staged.get("sha256")
         if not stated:
             problems.append(f"{name} staged {dest} with no hash")
-        elif not source or not Path(source).is_file():
+        elif not source or not _under_root(source).is_file():
             problems.append(f"{name} staged {dest} from a source that is not readable")
         elif _file_sha256(source) != stated:
             problems.append(f"{name} staged {dest} as {str(stated)[:12]}, but its "
@@ -641,8 +669,12 @@ def _check_corpus_record(record, current, problems):
     elif _file_sha256(validator) != stated:
         problems.append("the corpus report was produced by a different version of "
                         "final_artifact_contract.py than the one on disk")
-    if prov.get("package_source_sha256") and current and \
-            prov["package_source_sha256"] != current:
+    # "Compare only if both exist" lets a record with no stated package pass while being
+    # bound to no source at all. A missing identity is a failure, not a skip.
+    if not prov.get("package_source_sha256"):
+        problems.append("the corpus report carries no package_source_sha256, so it is "
+                        "not bound to any source tree")
+    elif current and prov["package_source_sha256"] != current:
         problems.append(f"the corpus report ran against "
                         f"{prov['package_source_sha256'][:12]}, not {current[:12]}")
 
@@ -652,7 +684,7 @@ def _check_corpus_record(record, current, problems):
     stated_corpus = prov.get("corpus_sha256")
     if not stated_corpus:
         problems.append("the corpus report carries no corpus_sha256")
-    elif not corpus or not Path(corpus).is_file():
+    elif not corpus or not _under_root(corpus).is_file():
         problems.append("the corpus report names no readable corpus to verify")
     elif _file_sha256(corpus) != stated_corpus:
         problems.append(f"the corpus report records {str(stated_corpus)[:12]} but "
@@ -660,7 +692,7 @@ def _check_corpus_record(record, current, problems):
                         f"{str(_file_sha256(corpus))[:12]}")
     else:
         declared = []
-        for line in Path(corpus).read_text(encoding="utf-8").splitlines():
+        for line in _under_root(corpus).read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
             try:
@@ -687,8 +719,10 @@ def _check_validator_record(name, record, current, problems):
     elif _file_sha256(script) != stated:
         problems.append(f"{name} was produced by a different version of {name}.py than "
                         f"the one on disk")
-    if prov.get("package_source_sha256") and current and \
-            prov["package_source_sha256"] != current:
+    if not prov.get("package_source_sha256"):
+        problems.append(f"{name} carries no package_source_sha256, so it is not bound "
+                        f"to any source tree")
+    elif current and prov["package_source_sha256"] != current:
         problems.append(f"{name} ran against {prov['package_source_sha256'][:12]}, not "
                         f"{current[:12]}")
 
@@ -724,8 +758,14 @@ def check_evidence_dir(path: str | None) -> dict | None:
             continue
         if name == "gate_f":
             _check_gate_f_record(record, current, problems)
-        elif name.startswith("gate_") and record.get("gate") not in ("PASS", None):
-            problems.append(f"{name} records {record.get('gate')!r}")
+        elif name.startswith("gate_"):
+            # `not in ("PASS", None)` admitted a record with no verdict at all: a gate file
+            # truncated to {} read as a pass. Every writer emits PASS or FAIL, so a missing
+            # or null verdict has no legitimate source.
+            if record.get("gate") is None:
+                problems.append(f"{name} records no gate verdict")
+            elif record["gate"] != "PASS":
+                problems.append(f"{name} records {record['gate']!r}")
         elif name.startswith("notebook"):
             _check_notebook_record(name, record, current, problems)
         elif name == "final_artifact_contract":

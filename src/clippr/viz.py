@@ -11,8 +11,9 @@ Two rules this module keeps, both learned the hard way elsewhere in this package
 every fact a reader needs is drawn.
 
 **Colours inherit.** Notebooks run on light and dark backgrounds. Text uses `currentColor` and
-fills are translucent greys, so nothing renders as a white box on a dark page. The accent
-colours are mid-tone on purpose: they read against either.
+the greys follow the page, so nothing renders as a white box on a dark one. The accent colours
+are fully saturated and were solved for contrast against both rather than chosen by eye; the
+palette below carries the derivation, and is the only place to change them.
 """
 from __future__ import annotations
 
@@ -37,10 +38,17 @@ MUTED = "currentColor"
 MUTED_OPACITY = ".32"
 FILL_OPACITY = ".14"
 
-#: Fragment hues, cycled. Distinct at a glance without being a traffic light -- these say
-#: "different piece", not "good" or "bad", and must not be read as a verdict. Deliberately
-#: no green or red among the first few, so a fragment is never mistaken for a verdict.
-FRAGMENT_HUES = ("#056dff", "#9233ff", "#007e9e", "#ad6500", "#558000", "#eb0046", "#008554")
+#: Fragment hues, cycled. These say "different piece", not "good" or "bad".
+#:
+#: None of them is a verdict colour. "No green or red among the first few" was not enough:
+#: the list ran seven long and ended in FAIL red and PASS green, so a 19S design drew F6 in
+#: the same red its own verdict band uses, and every architecture drew F4 in WARN amber. The
+#: list is now exactly the non-verdict hues, cycled, so the collision cannot come back by
+#: someone appending one more colour. Four is enough that neighbours never share a hue, and
+#: a repeat (F5 after F1) is separated by three fragments and two junction labels.
+#:
+#: Membership is enforced by `tests/test_viz.py`, not by this comment.
+FRAGMENT_HUES = ("#056dff", "#9233ff", "#007e9e", "#558000")
 
 ROWS = "ABCDEFGH"
 COLUMNS = range(1, 13)
@@ -163,8 +171,10 @@ def plate_svg(selected: Iterable[str], *, present: Iterable[str] | None = None,
                        f'opacity=".7">{_esc(label)}</text>')
             x += 20 + 7 * len(label)
     if bad:
+        # Truncating silently told the reader six wells were skipped when more were. Say so.
+        shown = ", ".join(bad[:6]) + (f" and {len(bad) - 6} more" if len(bad) > 6 else "")
         out.append(f'<text x="{PAD}" y="{height - 6}" font-size="11" fill="{FAIL}">'
-                   f'not a 96-well address, not drawn: {_esc(", ".join(bad[:6]))}</text>')
+                   f'not a 96-well address, not drawn ({len(bad)}): {_esc(shown)}</text>')
     out.append("</svg>")
     return "".join(out)
 
@@ -172,9 +182,12 @@ def plate_svg(selected: Iterable[str], *, present: Iterable[str] | None = None,
 def kit_plate_svg(selected_plasmids: Iterable[str], modules: Sequence[Mapping],
                   **kwargs) -> str:
     """`plate_svg` driven by the GRASP module records, which carry `plasmid_id` and `plate`."""
+    # Materialised once: the signature invites an Iterable, and walking a generator twice
+    # left `missing` empty, silently dropping the note about modules with no plate address.
+    selected = list(selected_plasmids)
     where = {m["plasmid_id"]: m["plate"] for m in modules if m.get("plate")}
-    wanted = [where[p] for p in selected_plasmids if p in where]
-    missing = [p for p in selected_plasmids if p not in where]
+    wanted = [where[p] for p in selected if p in where]
+    missing = [p for p in selected if p not in where]
     note = kwargs.pop("note", None)
     if missing:
         note = (note or f"{len(wanted)} well(s) to pick") + \

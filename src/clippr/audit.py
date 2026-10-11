@@ -133,7 +133,10 @@ class DesignAudit:
             for why in self.not_ready_because:
                 lines.append(f"                 - {why}")
         if self.final_status:
-            lines.append(f"  final artifacts{self.final_status:>8} "
+            # The separator is a literal space, not padding: `:>8` pads but never truncates,
+            # so "not_assessed" ran straight into the label -- and that is the status a
+            # reader most needs to parse, being the one that used to mis-route.
+            lines.append(f"  final artifacts {self.final_status:>7} "
                          f" (the sequences that would be ordered)")
         lines.append(f"  optimiser      "
                      f"{'constraints satisfied' if self.constraints_satisfied else 'constraints NOT satisfied'}"

@@ -23,6 +23,7 @@ skipped and named. Any other cell that cannot run is an error, not a skip.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -62,6 +63,18 @@ def classify_cell(src: str) -> tuple[list[str], list[str], list[str]]:
     magic is what let required work disappear: naming `%time` unsupported left the
     mechanism in place, so `%%capture` followed by a raise still reported PASS.
     """
+    # Ask the parser before guessing. A cell that is already valid Python contains no
+    # magics at all, so a line starting with % or ! is a continuation (`... % n)`, `!= b)`)
+    # or text inside a string. Scanning lexically failed both ways: it rejected correct code
+    # as "unsupported magic", and it silently deleted a `%pip` line shown as help text
+    # inside a docstring while still reporting the cell ok.
+    try:
+        ast.parse(src)
+    except SyntaxError:
+        pass
+    else:
+        return src.splitlines(), [], []
+
     keep, dropped, unsupported = [], [], []
     for ln in src.splitlines():
         bare = ln.strip()
@@ -78,8 +91,6 @@ def classify_cell(src: str) -> tuple[list[str], list[str], list[str]]:
 
 def _has_statement(source: str) -> bool:
     """Whether source holds work, as opposed to blank lines and comments."""
-    import ast
-
     try:
         return bool(ast.parse(source).body)
     except SyntaxError:
@@ -155,8 +166,9 @@ def main() -> int:
     # %LOCALAPPDATA%\clippr and declared no inputs at all.
     environment = {}
     for pair in args.env:
-        name, _, value = pair.partition("=")
-        if not name:
+        name, sep, value = pair.partition("=")
+        if not name or not sep or not value:
+            # `NAME` and `NAME=` both used to resolve to the working directory itself.
             print(f"--env needs NAME=VALUE, got {pair!r}")
             return 2
         resolved = Path(value)
@@ -165,6 +177,10 @@ def main() -> int:
             if workdir not in resolved.parents and resolved != workdir:
                 print(f"--env {name} resolves outside the working directory: {value}")
                 return 2
+            # Any relative value is rewritten to a path under the working directory --
+            # that is what this flag is for, but it is not what a caller passing a flag or
+            # a count expects, so say so rather than silently handing over a path.
+            print(f"--env {name}={pair.partition('=')[2]!r} -> {resolved}")
             value = str(resolved)
         os.environ[name] = value
         environment[name] = value
