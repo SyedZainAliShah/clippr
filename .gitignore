@@ -30,6 +30,11 @@ results/
 notebooks/ppropt_output/
 ppropt_output/
 ppropt_library/
+# Left over from before the rename to ppropt. Renaming the patterns above stopped
+# ignoring these, and a sweeping `git add` committed them once; keep them out.
+notebooks/clippr_output/
+clippr_output/
+clippr_library/
 out/
 our_cds.json
 *.ipynb_checkpoints/

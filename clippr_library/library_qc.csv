@@ -1,4 +1,0 @@
-target_rna,architecture,protein_aa,cds_nt,fragments,cds_qc,final_artifacts,synthesis_ready,gc_pct,repeated_kmer_fraction,longest_repeat,fidelity,constraints_ok,warnings
-AAAAUGUGG,9S,302,906,4,PASS,fail,False,60.6,0.0,19,0.8281537142212708,True,2
-GCUAAAGAC,9S,302,906,4,PASS,fail,False,60.15,0.0,19,0.8281537142212708,True,2
-UUACACGUG,9S,302,906,4,PASS,fail,False,60.26,0.0,19,0.8281537142212708,True,2
