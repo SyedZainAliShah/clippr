@@ -18,6 +18,11 @@ INVENTORY = str(Path(__file__).resolve().parents[1]
 
 @pytest.fixture(scope="module")
 def table():
+    # Skip rather than raise, the way `deposited_path` already does. The codon table lives
+    # under data/codon_tables/, which is gitignored, so it is simply absent from a fresh
+    # clone -- and a missing optional input is a reason to skip, not a failing suite.
+    if not CODON_TABLE.is_file():
+        pytest.skip(f"supply {CODON_TABLE.name} to run workflow tests on the real table")
     return json.loads(CODON_TABLE.read_text(encoding="utf-8"))
 
 
@@ -26,6 +31,15 @@ def deposited_path():
     if not TABLE_S1.is_file():
         pytest.skip(f"supply {TABLE_S1.name} to run workflow tests on the real kit")
     return TABLE_S1
+
+
+@pytest.fixture(scope="module")
+def inventory():
+    # `work/` is gitignored, so this recoded inventory is a local build artefact rather than
+    # something a checkout carries. Tests that need it skip without it.
+    if not Path(INVENTORY).is_file():
+        pytest.skip("run the phase B gate to build work/phaseb/inventory_recoded.json")
+    return INVENTORY
 
 
 class TestPackage:
@@ -398,19 +412,19 @@ class TestJointRouteGeneticCode:
         assert "code 1 only" in result.summary
         assert not list(tmp_path.glob("*.json")), "nothing may be written on refusal"
 
-    def test_selection_refuses_a_front_that_declares_one(self, tmp_path):
+    def test_selection_refuses_a_front_that_declares_one(self, tmp_path, inventory):
         front = tmp_path / "front.json"
         front.write_text(json.dumps({
             "binding": {"genetic_code": 11, "k": 20}, "observed_front": [],
             "incumbent": None, "recommended": None, "targets": ["AAAAUGUGG"]}),
             encoding="utf-8")
         out = tmp_path / "selected"
-        result = w.select_interface(INVENTORY, str(front), str(out))
+        result = w.select_interface(inventory, str(front), str(out))
         assert result.ok is False
         assert "genetic code 11" in result.summary
         assert not (out / "inventory.json").exists(), "no inventory may be published"
 
-    def test_code_one_is_still_accepted(self, tmp_path, table):
-        result = w.explore_interfaces(INVENTORY, ["AAAAUGUGG"], table, tmp_path,
+    def test_code_one_is_still_accepted(self, tmp_path, table, inventory):
+        result = w.explore_interfaces(inventory, ["AAAAUGUGG"], table, tmp_path,
                                       max_evaluations=2, genetic_code=1)
         assert result.ok is True
