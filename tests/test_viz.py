@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from clippr.viz import assembly_svg, kit_plate_svg, plate_svg
+from clippr.viz import (FAIL, FILL_OPACITY, MUTED, PASS, WELL_R,
+                        assembly_svg, kit_plate_svg, plate_svg)
 
 PARTS = Path(__file__).resolve().parents[1] / "src" / "clippr" / "parts.json"
 
@@ -22,6 +23,11 @@ def modules():
     return json.loads(PARTS.read_text(encoding="utf-8"))["modules"]
 
 
+def well_circles(svg: str) -> list[str]:
+    """Only the wells. The legend draws swatches too, at a different radius."""
+    return re.findall(rf'<circle cx="[\d.]+" cy="[\d.]+" r="{WELL_R}"', svg)
+
+
 def wells_drawn_filled(svg: str) -> set[str]:
     """The wells whose label is drawn inside a filled circle."""
     return set(re.findall(r">([A-H]\d{1,2})</text>", svg))
@@ -29,8 +35,7 @@ def wells_drawn_filled(svg: str) -> set[str]:
 
 class TestPlateMap:
     def test_every_well_of_a_96_plate_is_drawn(self):
-        svg = plate_svg(["A1"])
-        assert svg.count("<circle") == 96
+        assert len(well_circles(plate_svg(["A1"]))) == 96
 
     def test_selected_wells_are_labelled_in_place(self):
         svg = plate_svg(["C1", "B5", "F12"])
@@ -59,16 +64,30 @@ class TestPlateMap:
     def test_the_rest_of_the_kit_is_drawn_faintly(self, modules):
         """The reader is holding a populated plate, not a sparse scatter of dots."""
         svg = kit_plate_svg([m["plasmid_id"] for m in modules[:5]], modules)
-        assert "other kit modules shown faintly" in svg
         assert wells_drawn_filled(svg) == {m["plate"] for m in modules[:5]}
+        faint = svg.count(f'r="{WELL_R}" fill="{MUTED}" fill-opacity="{FILL_OPACITY}"')
+        assert faint == len({m["plate"] for m in modules}) - 5
+
+    def test_the_legend_names_each_kind_of_well(self):
+        """Three fills mean three things; prose in a caption is easy to skip."""
+        svg = plate_svg(["C1"], present=["B5"])
+        for label in ("to pick", "other kit module", "empty"):
+            assert f">{label}</text>" in svg
+
+    def test_the_legend_can_be_turned_off(self):
+        """The swatches go; the caption, which also says "to pick", stays."""
+        assert 'r="6"' not in plate_svg(["C1"], legend=False)
+        assert 'r="6"' in plate_svg(["C1"], legend=True)
 
     def test_a_module_with_no_plate_position_is_named(self, modules):
         svg = kit_plate_svg(["pPR-NOT-IN-THE-KIT"], modules)
         assert "no recorded plate position" in svg
 
-    def test_colours_inherit_so_dark_mode_is_not_a_white_box(self):
-        svg = plate_svg(["C1"], title="t")
+    def test_greys_follow_the_page_rather_than_being_fixed(self):
+        """A fixed grey cannot be dark on white and light on black. currentColor can."""
+        svg = plate_svg(["C1"], present=["B5"], title="t")
         assert "currentColor" in svg
+        assert "rgba(" not in svg, "no baked-in grey should survive"
         assert "#ffffff" not in svg.lower().replace('fill="#fff"', "")
 
 
@@ -109,11 +128,12 @@ class TestAssemblyDiagram:
     def test_the_final_verdict_is_shown_when_given(self, design):
         svg = assembly_svg(design["oligos"], orderable=False, verdict="NOT ORDERABLE")
         assert "NOT ORDERABLE" in svg
-        assert "#a8402c" in svg, "a refusal must not be drawn in the pass colour"
+        assert FAIL in svg, "a refusal must not be drawn in the pass colour"
+        assert PASS not in svg
 
     def test_an_orderable_design_is_not_drawn_as_a_refusal(self, design):
         svg = assembly_svg(design["oligos"], orderable=True, verdict="Orderable")
-        assert "#a8402c" not in svg
+        assert FAIL not in svg
 
     def test_lengths_are_the_ordered_oligo_not_the_coding_slice(self, design):
         """The wrapper is part of what gets synthesised and paid for."""
