@@ -230,7 +230,7 @@ reverted the following day. The notebook figures below are re-measured, not reca
 | tests | **1225 passed of 1225 collected, 0 failed** — `pytest tests/ -q` |
 | release check | **12 of 12 passed**, 0 failed, **0 needing a human**. Check 11 gates this table itself and is excluded here to keep the two from being circular — the record holds it |
 | independent evidence | V5 digest/ligate: 200/200 reconstructed, 7/7 corrupt controls caught \| V6 constraints: 200/200 satisfy the V6 coding-sequence constraints, 0 disagreements with claimed status \| V7 export semantics: 3 designs, 0 semantic problems, 5/5 controls caught |
-| notebooks | Designer: **32 cells (16 code)**. Inventory: **21 cells (12 code)**. Execution: no deferred experiment advertised; every cell executed (14 cells executed, 0 failed) |
+| notebooks | Designer: **32 cells (16 code)**. Inventory: **21 cells (12 code)**. Execution: no deferred experiment advertised; every cell executed (15 cells executed, 0 failed) |
 | architecture coverage | 200 designs {'9S': 100, '14S': 50, '19S': 50}, registered 200 {'9S': 100, '14S': 50, '19S': 50}, status complete, 0 failures |
 | runtime | 19.6 min for 200 designs, configuration retained: ['seed', 'matrix', 'enzyme_profile', 'destination', 'genetic_code', 'dependencies', 'codon_table_effective_sha256'] |
 
