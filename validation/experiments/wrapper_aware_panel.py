@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import statistics
 import subprocess
 import sys
 import time
@@ -72,6 +73,40 @@ def _rows(path: Path) -> list[dict]:
     return out
 
 
+def repeat_metrics(seq: str, min_k: int = 8) -> dict:
+    """The two repeat figures IDT's complexity report names.
+
+    IDT flags exact repeats at **13 nt** and a repeat burden above **40%** of the sequence.
+    Our uniquifier works at k=20, so repeats of 13-19 nt pass us and concern them. These
+    measure that gap rather than arguing about it.
+    """
+    n = len(seq)
+    index: dict[str, list[int]] = {}
+    for i in range(n - min_k + 1):
+        index.setdefault(seq[i:i + min_k], []).append(i)
+    covered = bytearray(n)
+    for positions in index.values():
+        if len(positions) > 1:
+            for p in positions:
+                covered[p:p + min_k] = b"" * min_k
+
+    longest = 0
+    for length in range(min(120, n), min_k - 1, -1):
+        seen = set()
+        for i in range(n - length + 1):
+            chunk = seq[i:i + length]
+            if chunk in seen:
+                longest = length
+                break
+            seen.add(chunk)
+        if longest:
+            break
+
+    return {"longest_exact_repeat_nt": longest,
+            "bases_in_repeats_pct": round(100.0 * sum(covered) / max(1, n), 1),
+            "min_k": min_k}
+
+
 def _baseline_frame(row: dict):
     """The corpus row's stored oligo table, as a frame, so geometry comes from the record."""
     import pandas as pd
@@ -80,7 +115,7 @@ def _baseline_frame(row: dict):
 
 
 def one(row: dict, table, policy, with_constraint: bool,
-        with_structure: bool = False) -> dict:
+        with_structure: bool = False, kmer: int | None = None) -> dict:
     """One corpus design: re-optimise on its frozen geometry and re-judge."""
     target = row.get("target") or row.get("target_rna")
     rec: dict = {"target": target, "architecture": row.get("architecture")}
@@ -117,6 +152,7 @@ def one(row: dict, table, policy, with_constraint: bool,
             baseline["protein"], locked_sites=locked, codon_table=table,
             genetic_code=1, seed=BUDGET["seed"],
             enzymes=C.enzymes_for(ENZYME_PROFILE),
+            **({"unique_kmer_size": kmer} if kmer else {}),
             extra_constraints=(
                 ([make_constraint(geometry, policy)] if with_constraint else [])
                 + ([make_structure_constraint(geometry)] if with_structure else [])))
@@ -164,9 +200,11 @@ def one(row: dict, table, policy, with_constraint: bool,
         "reproduces_corpus_cds": cds == row["cds"],
         "solve_seconds": round(solve, 2),
         "optimiser_summary": (opt["summary"] or "")[-300:],
+        "repeats": repeat_metrics(cds),
         "leading_window_dg": [round(x, 2) for x in leading],
         "leading_window_breaches": sum(1 for x in leading if x < STRUCTURE_DG_LIMIT),
     }
+    rec["baseline"]["repeats"] = repeat_metrics(row["cds"])
     rec["baseline"]["leading_window_dg"] = [round(x, 2) for x in base_leading]
     rec["baseline"]["leading_window_breaches"] = sum(
         1 for x in base_leading if x < STRUCTURE_DG_LIMIT)
@@ -178,6 +216,10 @@ def one(row: dict, table, policy, with_constraint: bool,
                          "oligos": json.loads(oligos.to_json(orient="records"))}
     rec["wall_seconds"] = round(time.perf_counter() - t0, 2)
     return rec
+
+
+def _median(xs):
+    return round(statistics.median(xs), 1) if xs else None
 
 
 def summarise(attempts: list[dict]) -> dict:
@@ -255,6 +297,20 @@ def summarise(attempts: list[dict]) -> dict:
                           "unchanged by construction; it is not re-reported as a gain"),
         "reproduces_corpus_cds": sum(1 for a in judged
                                      if a["candidate"]["reproduces_corpus_cds"]),
+        "repeats": {
+            "baseline_longest_nt": max((a["baseline"]["repeats"]["longest_exact_repeat_nt"]
+                                        for a in judged), default=None),
+            "candidate_longest_nt": max((a["candidate"]["repeats"]["longest_exact_repeat_nt"]
+                                         for a in judged), default=None),
+            "baseline_burden_pct_median": _median(
+                [a["baseline"]["repeats"]["bases_in_repeats_pct"] for a in judged]),
+            "candidate_burden_pct_median": _median(
+                [a["candidate"]["repeats"]["bases_in_repeats_pct"] for a in judged]),
+            "candidates_over_idt_13nt": sum(
+                1 for a in judged
+                if a["candidate"]["repeats"]["longest_exact_repeat_nt"] >= 13),
+            "idt_limits": "exact repeats < 13 nt; bases in repeats < 40%",
+        },
         "leading_window_breaches": {
             "baseline": sum(a["baseline"].get("leading_window_breaches", 0)
                             for a in judged),
@@ -273,6 +329,10 @@ def main() -> int:
     ap.add_argument("--with-structure", action="store_true",
                     help=("also constrain the leading-window fold, the quantity GC is a "
                           "proxy for"))
+    ap.add_argument("--kmer", type=int, default=None, metavar="K",
+                    help=("uniquify all K-mers instead of the shipped default of 20. "
+                          "IDT flags exact repeats from 13 nt, so repeats of 13-19 nt "
+                          "currently pass us and concern them."))
     ap.add_argument("--limit", type=int, default=None, help="first N designs only")
     args = ap.parse_args()
 
@@ -290,6 +350,7 @@ def main() -> int:
         "arm": "treatment" if with_constraint else "control (constraint omitted)",
         "wrapper_aware_constraint_applied": with_constraint,
         "structure_constraint_applied": args.with_structure,
+        "unique_kmer_size": args.kmer or "shipped default (20)",
         "structure_rule": {"window_nt": STRUCTURE_WINDOW_NT,
                            "dg_limit": STRUCTURE_DG_LIMIT,
                            "source": "Twist codon-optimisation FAQ, gene-synthesis guidance; "
@@ -317,7 +378,7 @@ def main() -> int:
                 f"{n - 1} designs")
             break
         rec = one(row, table, policy, with_constraint,
-                  with_structure=args.with_structure)
+                  with_structure=args.with_structure, kmer=args.kmer)
         result["attempts"].append(rec)
         cand = rec.get("candidate", {})
         mark = ("ok " if cand.get("accepted") else
@@ -382,6 +443,12 @@ def main() -> int:
           f"p95 {s['solve_seconds']['p95']}  max {s['solve_seconds']['max']}")
     print(f"  invariant breaches {s['invariant_violations']}")
     print(f"  reproduced corpus  {s['reproduces_corpus_cds']} of {s['designs']}")
+    rp = s["repeats"]
+    print(f"  longest repeat     {rp['baseline_longest_nt']} nt -> "
+          f"{rp['candidate_longest_nt']} nt   (IDT flags >= 13)")
+    print(f"  repeat burden      {rp['baseline_burden_pct_median']}% -> "
+          f"{rp['candidate_burden_pct_median']}%   (IDT limit < 40%)")
+    print(f"  designs >= 13 nt   {rp['candidates_over_idt_13nt']} of {s['designs']}")
     lw = s["leading_window_breaches"]
     print(f"  leading-window dG  {lw['baseline']} breaching -> {lw['candidate']}")
     for arch, v in sorted(s["by_architecture"].items()):

@@ -147,10 +147,28 @@ STRUCTURE_DG_LIMIT = -8.0
 _FOLD_CACHE: dict[str, float] = {}
 
 
+#: ViennaRNA's energy model is global process state and defaults to RNA. Loading the DNA
+#: parameters inside the constraint meant an arm that never built the constraint folded under
+#: RNA rules: the same 48-mer scored -18.3 instead of -10.7, and a control arm reported 868
+#: breaching windows against the treatment arm's 14. Loaded here instead, so every fold in the
+#: process uses the same model whether or not the constraint is in play.
+_DNA_PARAMS_LOADED = False
+
+
+def _ensure_dna_params() -> None:
+    global _DNA_PARAMS_LOADED
+    if not _DNA_PARAMS_LOADED:
+        import RNA
+
+        RNA.params_load_DNA_Mathews2004()
+        _DNA_PARAMS_LOADED = True
+
+
 def fold_dg(seq: str) -> float:
     """Minimum free energy of `seq` under DNA parameters, memoised."""
     import RNA
 
+    _ensure_dna_params()
     hit = _FOLD_CACHE.get(seq)
     if hit is None:
         hit = float(RNA.fold_compound(seq).mfe()[1])
@@ -172,9 +190,8 @@ def make_structure_constraint(fragments, window_nt=STRUCTURE_WINDOW_NT,
     it against.
     """
     import dnachisel as dc
-    import RNA
 
-    RNA.params_load_DNA_Mathews2004()
+    _ensure_dna_params()
 
     class EnforceLeadingWindowFold(dc.Specification):
         """The first `window_nt` bases of every ordered fragment must fold no tighter
