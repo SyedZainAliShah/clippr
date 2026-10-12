@@ -52,18 +52,9 @@ jobs:
           PYTHONUTF8: "1"
         run: python -m pytest -q
 
-      - name: Check the notebook badge matches the suite
-        # Cheap, and it catches the specific drift that release check 12 exists to catch:
-        # a test count quoted in the README and the notebook that no longer matches reality.
-        run: |
-          python - <<'PY'
-          import re, subprocess, sys
-          from pathlib import Path
-          stated = int(re.search(r"TESTS = (\d+)",
-                                 Path("tools/build_notebook.py").read_text()).group(1))
-          out = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q"],
-                               capture_output=True, text=True).stdout
-          actual = sum(int(n) for n in re.findall(r"^tests/.*: (\d+)$", out, re.M))
-          print(f"badge says {stated}, suite collects {actual}")
-          sys.exit(0 if stated == actual else 1)
-          PY
+# The badge count is deliberately NOT checked here. `TESTS` in tools/build_notebook.py is the
+# count with this project's gitignored inputs present -- the codon table, the GRASP
+# supplementary, the phase B artefacts -- and several tests are parameterised over them. A
+# clean checkout legitimately collects fewer (1225 against 1183 on the run that taught me
+# this), so comparing the two here fails on a correct tree. Release check 12 already gates
+# the badge in the environment where the number means something.
