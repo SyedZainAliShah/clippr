@@ -16,6 +16,21 @@ def lib():
     return design_library(TARGETS, codon_table=TOY_TABLE, check_offtarget=False)
 
 
+@pytest.fixture(scope="module")
+def rejected_lib():
+    """A library in which every design is genuinely refused.
+
+    `wrapper_aware=False` is deliberate. Two tests below are about what `write_library` does
+    with a refused library -- no order sheet, a manifest that says `partial` -- and they need
+    a real one. The shipped default produced that by itself until 2026-10-12; constraining
+    the ordered fragment made these same targets pass, which is the point of that change.
+    Asking for the earlier behaviour keeps the refusal a real design refused for a real
+    reason, rather than a hand-built artefact nothing would ever emit.
+    """
+    return design_library(TARGETS, codon_table=TOY_TABLE, check_offtarget=False,
+                          wrapper_aware=False)
+
+
 class TestLibrary:
     def test_designs_every_target(self, lib):
         assert set(lib.targets) == set(TARGETS)
@@ -130,15 +145,15 @@ def _accepted_library(lib):
 
 
 class TestWrite:
-    def test_a_rejected_library_writes_no_order_sheet(self, lib, tmp_path):
+    def test_a_rejected_library_writes_no_order_sheet(self, rejected_lib, tmp_path):
         """Was `test_writes_the_order_sheet_and_qc`.
 
         Every design in `lib` is rejected by the final-artifact contract, so the normal
         order files must be absent and the rejected ones present. The analysis artefacts
         are still written, because a rejection is worth inspecting.
         """
-        assert lib.accepted == {}, "if these start passing, this test has to change again"
-        paths = write_library(lib, tmp_path)
+        assert rejected_lib.accepted == {}, "the fixture must be a refused library"
+        paths = write_library(rejected_lib, tmp_path)
         for key in ("qc_table", "summary", "genbank_dir",
                     "rejected_oligos", "rejected_reasons"):
             assert key in paths
@@ -163,12 +178,12 @@ class TestWrite:
         paths = write_library(lib, tmp_path)
         assert len(list(Path(paths["genbank_dir"]).glob("*.gb"))) == len(TARGETS)
 
-    def test_the_package_carries_its_own_manifest(self, lib, tmp_path):
+    def test_the_package_carries_its_own_manifest(self, rejected_lib, tmp_path):
         """A directory of CSVs with no record of what produced them is not reproducible."""
         import json
         from pathlib import Path
 
-        paths = write_library(lib, tmp_path)
+        paths = write_library(rejected_lib, tmp_path)
         record = json.loads(Path(paths["manifest"]).read_text(encoding="utf-8"))
         # These targets are rejected by the final-artifact contract under the strict
         # policy, so "complete" would be false. `completion` used to count crashes only

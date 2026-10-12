@@ -58,7 +58,7 @@ codon_table = json.load(open("kazusa_3055.json", encoding="utf-8"))   # see "Inp
 r = design_oneshot("AAAAUGUGG", codon_table=codon_table, genetic_code=1,
                    check_offtarget=False, outdir="out")
 print(r["summary"])
-# AAAAUGUGG (9S) -> 302 aa, 906 nt, 4 fragments. Fidelity 0.828. Coding-span QC PASS. NOT ORDERABLE (final artifacts: fail).
+# AAAAUGUGG (9S) -> 302 aa, 906 nt, 4 fragments. Fidelity 0.828. Coding-span QC PASS. Orderable under the declared software checks.
 ```
 
 This example passes its codon table explicitly and turns host screening off, so it needs no
@@ -67,13 +67,18 @@ design above simply reports `off-target  not assessed — screening disabled` ra
 implying a clean screen.
 
 **Read the two verdicts separately.** `Coding-span QC PASS` is the coding sequence's own
-complexity check. `NOT ORDERABLE` is the verdict on the sequences that would actually be
-ordered — the entry overhang plus the coding slice plus the enzyme wrapper — and this design
-fails it, with a local GC window at 0.660 against a 0.65 ceiling. That is the current honest
-outcome of the de novo route: all 200 saved corpus designs are rejected the same way under
-this policy. The files are still written, under `diagnostic_` keys with `REJECTED` in every
-filename, so the sequences can be inspected. They are not an order. The reusable-inventory
-route does produce an order plan today — see `RELEASE_STATUS_2026-10-10.md`.
+complexity check. The synthesis verdict is a different scope: the sequences that would
+actually be ordered — the entry overhang plus the coding slice plus the enzyme wrapper.
+Both are always reported, because one passing says nothing about the other.
+
+Until 2026-10-12 this example failed the second verdict, on a local GC window at 0.660
+against a 0.65 ceiling, and so did all 200 corpus designs. The window that broke the rule
+straddled the boundary between the wrapper and the payload, so it existed only on the
+ordered fragment and was never shown to the optimiser. It is now, and this design passes.
+
+A design that still fails is not written as an order: its files go out under `diagnostic_`
+keys with `REJECTED` in every filename, so the sequences can be inspected but no downstream
+step can mistake them for an order.
 
 ### Inputs, and what the first run needs
 
@@ -184,19 +189,22 @@ print(lib.summary())
 ```
 library of 3 designs
   fragments      12 across all designs, 3,114 bases
-  synthesis      0 of 3 designs are orderable, 3 not orderable
+  synthesis      3 of 3 designs are orderable
   coding-span QC 3 PASS  (the CDS only, not the ordered sequences)
-  closest targets AAAAUGUGG/UUACACGUG differ at 7, GCUAAAGAC/UUACACGUG differ at 7
-  NOT ORDERABLE AAAAUGUGG: the final-artifact status is 'fail', not one of pass, warning
-  NOT ORDERABLE GCUAAAGAC: the final-artifact status is 'fail', not one of pass, warning
-  NOT ORDERABLE UUACACGUG: the final-artifact status is 'fail', not one of pass, warning
+  closest targets AAAAUGUGG/UUACACGUG differ at 7, GCUAAAGAC/UUACACGUG differ at 7, AAAAUGUGG/GCUAAAGAC differ at 8
 ```
 
-That is the real current output, not an illustration. **Under the strict policy the de novo
-route produces nothing orderable**, because the GC band is enforced on the coding span while
-the ordered fragment also carries the entry overhang and the enzyme wrapper — see the
-quickstart note above and `RELEASE_STATUS_2026-10-10.md`. The coding-span QC genuinely
-passes; the two verdicts have different scopes and both are reported.
+That is the real current output, not an illustration. The two verdicts have different
+scopes and both are reported: `coding-span QC` is the coding sequence's own complexity
+check, and `synthesis` is the verdict on the sequences that would actually be ordered.
+
+**This changed on 2026-10-12.** Until then the de novo route produced nothing orderable:
+the GC band was enforced on the coding span while the ordered fragment also carries the
+entry overhang and the enzyme wrapper, so a window straddling that boundary was never
+measured, and all 200 corpus designs broke it. The optimiser is now shown the whole ordered
+fragment and re-spells codons against it. Pass `wrapper_aware=False` to reproduce the
+earlier behaviour — that is the negative control, and it returns the previous sequences
+exactly.
 
 Ordering a library as one pool rather than fifty is a single order rather than fifty, and the
 pool plan is built for that. `write_library` emits a combined order sheet, a vendor-ready

@@ -365,6 +365,11 @@ def design_oneshot(
     check_offtarget: bool = True,
     avoid_sequences: tuple[str, ...] = (),
     lock_prefix: str = "",
+    #: Constrain GC on the fragments as they would be ordered, wrapper included, rather than
+    #: on the coding span alone. On by default since 2026-10-12. Set False to reproduce the
+    #: numbers published before that date, and for the negative control that shows this
+    #: switch is what changed them.
+    wrapper_aware: bool = True,
     outdir: str | Path | None = None,
 ) -> dict:
     """Design a complete PPR binder for `target_rna`, ready to order.
@@ -447,6 +452,49 @@ def design_oneshot(
     with _stage(timings, "assembly"):
         fragments = split_cds(cds, cuts, overhangs, destination, enzyme)
         oligos = build_oligos(cds, cuts, overhangs, destination, enzyme, prefix=target_rna)
+
+    # Second pass, against the fragments as they would actually be ordered.
+    #
+    # The first pass constrains the coding span, which is the only thing that exists before
+    # the fragments are built. But a GC window that straddles the boundary between the fixed
+    # wrapper and the payload exists only once the wrapper is attached, and no such window is
+    # ever shown to the optimiser. On the pinned corpus that gap refused every design: each
+    # one satisfied the coding constraint and each one broke the same rule on the sequence
+    # that would have been sent.
+    #
+    # The geometry is frozen from the first pass rather than rebuilt, so this cannot disagree
+    # with production about where the payload sits, and the cuts and overhangs are unchanged
+    # between the passes -- only the codons move.
+    wrapper_aware_result = {"requested": bool(wrapper_aware), "applied": False}
+    if wrapper_aware:
+        from .synthesis_profile import resolve
+        from .wrapper_gc import frozen_geometry, make_constraint
+
+        with _stage(timings, "wrapper_aware"):
+            # Recomputed from the chosen plan: `locked` above is whatever the last loop
+            # iteration left behind, which is not necessarily the attempt that won.
+            relocked = {3 * c - 4: o for c, o in zip(cuts, overhangs)}
+            if lock_prefix:
+                relocked[0] = str(lock_prefix).upper().replace("U", "T")
+            second = optimize_cds(
+                protein, locked_sites=relocked, codon_table=table,
+                genetic_code=genetic_code, seed=seed, enzymes=enzyme_profile,
+                avoid_sequences=avoid_sequences,
+                extra_constraints=[make_constraint(
+                    frozen_geometry({"cds": cds, "oligos": oligos}), resolve(None))])
+            # A pass that cannot satisfy the constraint leaves the first-pass design alone
+            # and says so, rather than handing back a sequence that satisfied nothing.
+            if second["constraints_ok"]:
+                opt, cds = second, second["cds"]
+                fragments = split_cds(cds, cuts, overhangs, destination, enzyme)
+                oligos = build_oligos(cds, cuts, overhangs, destination, enzyme,
+                                      prefix=target_rna)
+                wrapper_aware_result["applied"] = True
+            else:
+                wrapper_aware_result["why_not"] = (
+                    "no codon assignment satisfied the ordered-fragment GC band within the "
+                    "optimiser's budget; the coding-span design is reported unchanged")
+
     with _stage(timings, "qc"):
         qc = synthesis_qc(cds)
 
@@ -609,6 +657,10 @@ def design_oneshot(
         # cannot disagree. Named so it cannot be read as more than it is.
         "synthesis_ready": ready,
         "not_ready_because": not_ready_because,
+        # Whether the ordered-fragment GC constraint was asked for and whether it took. A
+        # design optimised against the coding span alone and one optimised against the
+        # ordered fragment are different artefacts, and the record has to say which this is.
+        "wrapper_aware": wrapper_aware_result,
         "synthesis_ready_means": ("the declared software checks passed on the ordered "
                                   "sequences; not vendor acceptance, not biological safety"),
         "offtarget": offtarget,

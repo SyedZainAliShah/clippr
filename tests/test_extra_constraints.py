@@ -23,16 +23,24 @@ class TestTheHookIsOptional:
         assert inspect.signature(optimize_cds).parameters[
             "extra_constraints"].default == ()
 
-    def test_no_shipped_route_passes_it(self):
-        """If a shipped route starts using it, that is a default change, not an experiment."""
+    def test_only_the_decided_route_passes_it(self):
+        """A new caller is a default change, and has to be decided like one.
+
+        This test used to require that *no* shipped route passed `extra_constraints`, because
+        the ordered-fragment constraint was an experiment. It is a default as of 2026-10-12:
+        `design_oneshot` passes it on its second pass, on the evidence of the 200-design panel
+        and its negative control. The guard is kept, narrowed to the callers that were decided
+        on, so the next route to reach for it still has to argue for itself.
+        """
         from pathlib import Path
 
         src = Path(__file__).resolve().parents[1] / "src" / "ppropt"
-        callers = [f.name for f in src.rglob("*.py")
-                   if "extra_constraints" in f.read_text(encoding="utf-8")]
-        assert callers == ["codons.py"], (
-            f"extra_constraints is referenced in {callers}; only the definition should "
-            f"use it until a default change is decided on its own evidence")
+        callers = sorted(f.name for f in src.rglob("*.py")
+                         if "extra_constraints" in f.read_text(encoding="utf-8"))
+        assert callers == ["codons.py", "design.py"], (
+            f"extra_constraints is referenced in {callers}; only the definition and the "
+            f"one decided caller should use it until another change is argued on its "
+            f"own evidence")
 
     def test_omitting_it_is_unchanged(self):
         """The baseline must be bit-identical with and without an empty list."""

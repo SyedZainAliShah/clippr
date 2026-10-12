@@ -418,8 +418,7 @@ cells.append(md("""
 ## 3 · The fragments
 
 One row per fragment. **A row here is not an order:** whether these may be ordered is the
-SYNTHESIS verdict on the result card above, and under the strict policy the current de novo
-designs are refused. `oh5` and `oh3` are the four-base Golden Gate overhangs that
+SYNTHESIS verdict on the result card above. `oh5` and `oh3` are the four-base Golden Gate overhangs that
 join each fragment to its neighbours.
 """))
 

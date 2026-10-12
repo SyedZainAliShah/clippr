@@ -25,8 +25,18 @@ NOTEBOOK = ROOT / "notebooks" / "PPROPT_designer.ipynb"
 
 @pytest.fixture(scope="module")
 def rejected():
-    """The shipped example, which the final-artifact check genuinely refuses."""
-    out = design_oneshot("AAAAUGUGG", codon_table=TOY_TABLE, check_offtarget=False)
+    """A design the final-artifact check genuinely refuses.
+
+    `wrapper_aware=False` is the point of this fixture, not an oversight. These tests are
+    about how a refusal is *displayed*, and they need a real refusal to display. Until
+    2026-10-12 the shipped default produced one for this target by itself; constraining the
+    ordered fragment made the same target pass, which is the whole purpose of that change.
+    Asking for the pre-change behaviour keeps the refusal real -- it is the design this
+    software would have shipped, refused for the reason it was really refused -- rather than
+    hand-building a fake failing artefact that nothing would ever produce.
+    """
+    out = design_oneshot("AAAAUGUGG", codon_table=TOY_TABLE, check_offtarget=False,
+                         wrapper_aware=False)
     assert out["synthesis_ready"] is False, "fixture assumes this example is refused"
     assert out["final_artifacts"]["status"] == "fail"
     return out
@@ -41,6 +51,14 @@ def _card_source():
             body = src[src.index('qc = result["qc"]'):]
             return body.replace("display(HTML(card))", "")
     raise AssertionError("the result card cell is not in the generated notebook")
+
+
+@pytest.fixture(scope="module")
+def shipped():
+    """The same example through the default route, which accepts it since 2026-10-12."""
+    out = design_oneshot("AAAAUGUGG", codon_table=TOY_TABLE, check_offtarget=False)
+    assert out["synthesis_ready"] is True, "the default route is expected to accept this"
+    return out
 
 
 @pytest.fixture(scope="module")
@@ -120,10 +138,15 @@ class TestSummaryLine:
         assert "NOT ORDERABLE" in rejected["summary"]
         assert "Coding-span QC PASS" in rejected["summary"]
 
-    def test_the_readme_quickstart_matches_production(self, rejected):
-        """Check 3 parses this comment as the expected clean-install output."""
+    def test_the_readme_quickstart_matches_production(self, shipped):
+        """Check 3 parses this comment as the expected clean-install output.
+
+        `shipped`, not `rejected`: the quickstart shows what the README's own command prints,
+        which is the default route. Pointing this at the refused fixture would let the README
+        claim one thing while the default did another, and the test would still pass.
+        """
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert f"# {rejected['summary']}" in readme, (
+        assert f"# {shipped['summary']}" in readme, (
             "the README quickstart output no longer matches what design_oneshot prints")
 
 
