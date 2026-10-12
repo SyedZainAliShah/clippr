@@ -6,7 +6,7 @@ instead of patched.
 """
 from pathlib import Path
 
-from notebook_kit import REPO, code, colab_url, md, setup_cell, write_notebook
+from notebook_kit import glossary, REPO, code, colab_url, md, setup_cell, write_notebook
 
 OUT = Path("notebooks/PPROPT_designer.ipynb")
 NAME = "PPROPT_designer.ipynb"
@@ -17,7 +17,7 @@ DIAGRAM = Path("notebooks/pipeline.svg")
 #: `release_check.py` check 12 fails when this does not equal what the suite reports, so it
 #: cannot drift unnoticed -- reading it from `work/` instead made a fresh clone fail
 #: `tests/test_notebook.py`, because that directory is gitignored.
-TESTS = 1225
+TESTS = 1226
 #: Served from the repository rather than inlined -- see pipeline_svg().
 DIAGRAM_URL = f"https://raw.githubusercontent.com/{REPO}/main/{DIAGRAM.as_posix()}"
 
@@ -186,9 +186,11 @@ cells.append(setup_cell())
 # imports cleanly and then raises KeyError('synthesis_ready') nine cells down, which reads
 # as a broken notebook rather than a stale kernel.
 cells.append(code('''
-#@markdown Checks the build this kernel has actually loaded, not the one on disk. A copy
-#@markdown installed before the synthesis-readiness verdict imports fine and then fails deep
-#@markdown in step 2 on a key it never returned, which is a bad way to learn it is stale.
+#@markdown Checks this notebook can run on the copy of PPROPT this session has loaded.
+#@markdown
+#@markdown **Green?** Carry on to step 1. **Red?** **Runtime → Restart session**, then run
+#@markdown Setup again — reinstalling alone will not help, because the old copy stays in
+#@markdown memory until the session restarts.
 from IPython.display import HTML, display
 
 # synthesis_readiness arrived with the readiness verdict, in the same change as the
@@ -311,10 +313,16 @@ cells.append(md("""
 Run it. Nothing to edit here.
 """))
 
+# The ordering note that used to be in the form text is a design decision, not an
+# instruction: cut positions and overhangs are chosen before codon optimisation, because
+# optimising first would let the optimiser rewrite the very bases the junctions depend on.
+# Kept here for whoever maintains this; the reader below just needs to know what to expect.
 cells.append(code('''
-#@markdown Picks cut positions and Golden Gate overhangs **first**, then codon-optimises with
-#@markdown those positions locked — optimising first would let the optimiser rewrite the very
-#@markdown bases the junctions depend on.
+#@markdown Builds the protein, decides where to cut it into fragments, and chooses DNA
+#@markdown spellings that avoid awkward sequence. Nothing to edit.
+#@markdown
+#@markdown ⏱️ This is the slow step. A 9-base target takes about a second; a 19-base one can
+#@markdown take several minutes. It has not hung.
 from ppropt import DESTINATION_OVERHANGS, design_oneshot, table_from_kazusa
 from IPython.display import HTML, display
 
@@ -926,4 +934,14 @@ Building from the deposited 42-module kit instead? [PPROPT_inventory.ipynb]({INV
 # the platform that generated it.
 DIAGRAM.write_text(pipeline_svg(), encoding="utf-8", newline="\n")
 print(f"wrote {DIAGRAM} ({DIAGRAM.stat().st_size} B)")
+cells.append(glossary(md, [
+    ("off-target", "Whether your target sequence also turns up in the host's own genome. An "
+                   "exact match is a reason to look closer, not a prediction that anything "
+                   "binds there."),
+    ("cross-talk", "In a library, whether one PPR might also bind another member's target. "
+                   "It is what stops several regulators being controlled independently."),
+    ("library", "Several PPRs designed together, so they can be checked against each other "
+                "rather than one at a time."),
+]))
+
 write_notebook(cells, OUT, NAME)

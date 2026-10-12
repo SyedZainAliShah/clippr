@@ -19,6 +19,44 @@ def cells(md, code):
 ## Step 1 — load the deposited kit
 """))
 
+    # Step 1 used to say "or use the upload cell near the top of this notebook" when the
+    # file was missing. There was no such cell, so the error named a remedy that did not
+    # exist -- worse than naming none. This is that cell.
+    #
+    # It prompts only when the file is absent. `files.upload()` blocks on a browser file
+    # picker, which would hang the notebook gate in `notebook_on_published_build.py`; that
+    # harness stages Table S1 itself, so the file is already there and this cell says so and
+    # moves on.
+    out.append(code('''
+#@markdown Run this and choose **Supplementary Table S1** (`.xlsx`) from your computer. It
+#@markdown holds the module insert sequences and is not distributed with this package --
+#@markdown see `NOTICE.md`.
+#@markdown
+#@markdown The folder icon in the sidebar does the same job. Either way the file lives on
+#@markdown this runtime only: Colab deletes it when the runtime recycles, so it is needed
+#@markdown once per session, not once ever.
+#@markdown
+#@markdown Already have it here? This cell says so and does nothing.
+from pathlib import Path as _Path
+
+_WANTED = "Table S1.xlsx"
+
+if _Path(_WANTED).is_file():
+    print(f"{_WANTED} is already here -- nothing to upload")
+else:
+    try:
+        from google.colab import files as _files
+    except ImportError:
+        print(f"not running in Colab. Put {_WANTED} next to this notebook, or set the")
+        print("table_s1 field in Step 1 to wherever it already is.")
+    else:
+        for _name, _data in _files.upload().items():
+            print(f"uploaded {_name}  ({len(_data):,} bytes)")
+            if _name != _WANTED:
+                print(f"   note: Step 1 looks for {_WANTED!r}. Either rename this file or")
+                print(f"   set Step 1's table_s1 field to {_name!r}.")
+''', title="Upload Supplementary Table S1"))
+
     out.append(code('''
 #@markdown Upload **Supplementary Table S1** (`.xlsx`), then put its filename here.
 table_s1 = "Table S1.xlsx"  #@param {type:"string"}
@@ -43,8 +81,8 @@ print(f"codon table for {organism}, genetic code {_host_code}: "
 
 deposited = None
 if not Path(table_s1).is_file():
-    print(f"{table_s1} not found. Upload it with the folder icon in the sidebar,")
-    print("or use the upload cell near the top of this notebook.")
+    print(f"{table_s1} not found. Run the upload cell just above this one, or use the")
+    print("folder icon in the sidebar. Nothing below this step will run without it.")
 else:
     deposited = inv.load_deposited(table_s1)
     print(f"loaded {len(deposited)} modules  |  version {deposited.version}")
@@ -100,7 +138,7 @@ if deposited is not None:
 ## Compile targets from the inventory
 
 Give it targets; it returns the module list, the assembled product and every junction. A
-target the kit cannot spell is reported with its reason rather than raising.
+target the kit cannot spell is listed with the reason why, and the others still run.
 
 The product is **joined module inserts only** — no acceptor backbone, so it is not an
 expression construct.

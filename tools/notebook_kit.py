@@ -123,6 +123,75 @@ def setup_cell():
     return code(_SETUP.replace("__REPO__", REPO), title="Setup — install PPROPT")
 
 
+#: Terms both notebooks use. Written for someone who wants a PPR and has not met Golden Gate
+#: assembly: no term is explained using another term from further down the table, and nothing
+#: here is a claim about the design -- only about what the word means.
+_SHARED_TERMS = [
+    ("PPR protein", "What this tool designs. A chain of near-identical **repeats**, each one "
+                    "gripping a single RNA base."),
+    ("target", "The RNA sequence you want the protein to bind. You choose it."),
+    ("repeat", "One unit of the protein. Two amino acids inside it decide which RNA base it "
+               "grips, and that mapping is published, so the design is a lookup rather than "
+               "a search."),
+    ("architecture (9S / 14S / 19S)", "How many repeats the protein has. It follows from "
+                                      "your target's length: 9 bases gives 9S, 14 gives 14S, "
+                                      "19 gives 19S."),
+    ("codon", "Three DNA letters spelling one amino acid. Most amino acids have several "
+              "possible codons, so the same protein can be written many different ways."),
+    ("codon optimisation", "Choosing among those spellings so the DNA is easier to "
+                           "manufacture and easier for your host to read. The protein does "
+                           "not change."),
+    ("coding sequence (CDS)", "The DNA that spells the protein, start to finish."),
+    # Not "an orderable piece": whether a fragment may be ordered is a verdict reached later,
+    # and `tests/test_display_verdict.py` bans the phrase for exactly that reason.
+    ("fragment", "One of the pieces a gene is split into. Long stretches of DNA are "
+                 "unreliable to synthesise, so the gene is made in a few parts and joined."),
+    ("overhang", "Four unpaired bases at the end of a fragment. Only its intended partner "
+                 "matches it, so the pieces can join in one order and no other."),
+    ("`oh5` / `oh3`", "The overhang at a fragment's start and at its end."),
+    ("junction", "The point where two fragments meet, held together by their matching "
+                 "overhangs."),
+    ("Golden Gate assembly", "The method used to join the fragments: one enzyme cuts and the "
+                             "pieces are stitched together in a single reaction."),
+    ("BsaI", "That enzyme. It cuts *outside* the sequence it recognises, which is what lets "
+             "the overhangs be any four bases you like."),
+    ("wrapper", "Fixed DNA added to each end of a fragment so the enzyme has something to "
+                "cut. It is not part of your gene, but it **is** part of what you order."),
+    ("GC content", "The share of bases that are G or C. Very high or very low makes DNA hard "
+                   "to synthesise."),
+    ("oligo", "A piece of synthesised DNA. Here, one fragment."),
+    ("fidelity", "The predicted chance the pieces assemble in the intended order. It comes "
+                 "from published measurements of this enzyme, not from your bench."),
+    ("coding-span QC", "Checks run on the gene itself."),
+    ("final artifacts", "Checks run on the exact sequences you would send to a vendor, "
+                        "wrapper included. This is the one that decides orderable."),
+    ("orderable", "Passed every check this software declares. It is **not** vendor "
+                  "acceptance, and **not** a claim that the protein works."),
+]
+
+
+def glossary(md, extra: list[tuple[str, str]] = ()):
+    """A plain-language table of every term the notebook uses.
+
+    Placed last on purpose. A reader meets these words while running the steps, and a
+    glossary they have to scroll past to reach step 1 is one they will not read.
+    """
+    rows = "\n".join(f"| **{term}** | {meaning} |" for term, meaning in
+                     [*_SHARED_TERMS, *extra])
+    return md(f"""
+---
+
+## Words used here
+
+Every term this notebook uses, in plain language. Nothing here is a claim about your
+design — only what the word means.
+
+| term | what it means |
+|---|---|
+{rows}
+""")
+
+
 def write_notebook(cells, out: Path, name: str) -> None:
     nb = {
         "cells": cells,
