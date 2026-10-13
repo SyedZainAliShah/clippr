@@ -242,3 +242,54 @@ class TestColabLinks:
                       readme)
         assert m, "no Colab notebook path found in the README"
         assert (ROOT / m.group(1)).exists(), f"badge points at missing {m.group(1)}"
+
+
+class TestTheHostOverrideReachesEveryDesignCall:
+    """`kazusa_taxid` and `codon_table_file` override the organism dropdown.
+
+    The override is resolved inline in the design cell, so a second cell calling a design
+    entry point has to be given the same table. The library cell passed `codon_table=None`
+    and fell back to the dropdown, which meant a user who typed 3562 for spinach got a
+    spinach design in Step 2 and a Chlamydomonas library two cells later, with nothing in
+    either output saying so.
+    """
+
+    #: Entry points that resolve a codon table from `organism` when given None.
+    DESIGN_CALLS = ("design_oneshot", "design_library")
+
+    def test_no_design_call_hardcodes_a_null_codon_table(self, nb):
+        offenders = []
+        for cell in nb["cells"]:
+            if cell["cell_type"] != "code":
+                continue
+            try:
+                tree = ast.parse("".join(cell["source"]))
+            except SyntaxError:
+                continue
+            for node in ast.walk(tree):
+                if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                        and node.func.id in self.DESIGN_CALLS):
+                    continue
+                for kw in node.keywords:
+                    if (kw.arg == "codon_table"
+                            and isinstance(kw.value, ast.Constant)
+                            and kw.value.value is None):
+                        offenders.append(node.func.id)
+        assert not offenders, (
+            f"these calls hardcode codon_table=None and so ignore kazusa_taxid and "
+            f"codon_table_file: {offenders}. Pass the resolved table instead.")
+
+    def test_the_result_panel_names_the_table_actually_used(self, nb):
+        """The dropdown keeps showing its own value, so the output has to say what won.
+
+        Colab cannot update a form widget from code. With `kazusa_taxid` set, the organism
+        dropdown still reads `c_reinhardtii_nuclear` while the design uses the fetched
+        table, and nothing contradicted it.
+        """
+        source = "".join("".join(c["source"]) for c in nb["cells"]
+                         if c["cell_type"] == "code")
+        assert "codon table" in source.lower() and "_stat(" in source, (
+            "the result panel has no row naming the codon table that was used")
+        assert '_stat("codon table"' in source, (
+            "add a _stat row naming the codon table source, so a user who set "
+            "kazusa_taxid can see which table the design actually used")

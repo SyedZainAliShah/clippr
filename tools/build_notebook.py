@@ -326,11 +326,19 @@ cells.append(code('''
 from ppropt import DESTINATION_OVERHANGS, design_oneshot, table_from_kazusa
 from IPython.display import HTML, display
 
+# Resolved once and reused, so every design cell below uses the same table. The library
+# cell passed codon_table=None and fell back to the dropdown, which meant typing a taxid
+# here gave that host's design and a Chlamydomonas library two cells later.
+chosen_codon_table = (codon_table_file or
+                      (table_from_kazusa(kazusa_taxid) if kazusa_taxid else None))
+chosen_table_source = (f"file {codon_table_file}" if codon_table_file
+                       else f"Kazusa taxid {kazusa_taxid}" if kazusa_taxid
+                       else organism)
+
 result = design_oneshot(
     target_rna,
     organism=organism,
-    codon_table=(codon_table_file or
-                 (table_from_kazusa(kazusa_taxid) if kazusa_taxid else None)),
+    codon_table=chosen_codon_table,
     genetic_code=genetic_code_override or None,
     enzyme_profile=enzyme_profile,
     extra_blacklist=extra_blacklist,
@@ -373,6 +381,8 @@ if len(ppr_code) > 22:
 ppr_code = f"PPR code {ppr_code}"
 
 cards = "".join([
+    _stat("codon table", chosen_table_source,
+          "the dropdown is ignored when a file or taxid is set"),
     _stat("architecture", result["architecture"], f'{len(result["protein"])} aa protein'),
     _stat("coding sequence", f'{len(result["cds"])} nt', ppr_code),
     _stat("fragments", len(result["oligos"]),
@@ -802,7 +812,7 @@ targets = "AAAAUGUGG, GCUAAAGAC, UUACACGUG"  #@param {type:"string"}
 from ppropt import design_library
 
 target_list = [t.strip().upper() for t in targets.split(",") if t.strip()]
-lib = design_library(target_list, codon_table=None, organism=organism,
+lib = design_library(target_list, codon_table=chosen_codon_table, organism=organism,
                      enzyme_profile=enzyme_profile, seed=seed,
                      check_offtarget=check_offtarget,
                      outdir="ppropt_library" if write_files else None,
