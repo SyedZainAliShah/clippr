@@ -9,6 +9,15 @@ and the ones that do not.*
 What the implementation settles is that the policy is one object reaching both the solver and
 the validator; what it deliberately does **not** settle is which profile should be the default.
 
+**Settled 2026-10-13, and the band did not move.** The question this document left open was
+answered the other way round from what §0 anticipates: rather than loosen the band, the
+optimiser was changed to evaluate it on the ordered fragment instead of the coding span
+(`wrapper_aware=True`, default since 2026-10-12). With that on, all 200 corpus designs satisfy
+0.35–0.65, so the band costs nothing to keep hard and stays hard. What changed is its label,
+not its value: `STRICT_LEGACY.source` now records it as this project's own engineering choice,
+dated to that decision. The archaeology below stands — nobody recorded an origin at the time,
+and Twist is still not retro-fitted as one. Current state: `docs/vendor_rule_comparison.md` §4.
+
 ---
 
 ## 0. The short version

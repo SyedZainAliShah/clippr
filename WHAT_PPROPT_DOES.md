@@ -52,24 +52,26 @@ writes the files, labelled `REJECTED`, so you can inspect them.
 | Route | What it is | Status |
 |---|---|---|
 | **Kit route** | You already own the 42-part GRASP kit. We pick the parts and plan the pooling. Nothing new is made. | **Works today** — 42 items, one pool |
-| **From-scratch route** | We design a brand-new gene for any target. | **Currently refused** — see below |
+| **From-scratch route** | We design a brand-new gene for any target. | **Works today** — 200 of 200 saved designs orderable |
 
 ## Where we are now
 
-The from-scratch route produces nothing orderable. This is the honest state, not a bug.
+Both routes produce an order sheet. The from-scratch route only started doing so on
+2026-10-12, and the reason it used to refuse is worth keeping, because it is the most
+instructive thing in the project.
 
-Our rule says GC must stay between 0.35 and 0.65. The gene obeys it. But what you order is the
-gene fragment *plus* the GC-rich joining letters bolted on each end. On our example the gene
-sits at 0.640 and the ordered piece reaches **0.660** — over by 0.010. All 200 saved designs
-fail this way. The software catches its own rule breaking and refuses; we publish the number
-rather than raising the limit to make it pass.
+Our rule says GC must stay between 0.35 and 0.65. The gene obeyed it. But what you order is
+the gene fragment *plus* the GC-rich joining letters bolted on each end, and nothing was
+checking that combined string while the codons were being chosen. On our example the gene sat
+at 0.640 and the ordered piece reached **0.660** — over by 0.010. All 200 saved designs failed
+that way, so the software refused all 200. We published the number rather than raising the
+limit to make it pass.
 
-## The fix, tested
+## The fix, and what it cost
 
-We tried one thing: show the optimiser the **whole ordered piece** instead of just the gene,
-then let it pick different codon spellings for the same protein.
-
-It worked. We then ran it on **all 200 designs**:
+We changed one thing: show the optimiser the **whole ordered piece** instead of just the gene,
+then let it pick different codon spellings for the same protein. The GC limit itself did not
+move.
 
 | | with the fix | without it |
 |---|---:|---:|
@@ -86,8 +88,10 @@ An earlier version of this run reported 8 failures and a reason for them. That w
 our own test code, not a property of those targets. Once fixed, all 200 passed. The write-up
 keeps the wrong claim on the record.
 
-**It is not switched on.** 200 of 200 is a strong result, not a decision. Turning it on moves
-every number we have published and still leaves eight targets refused.
+**It is switched on by default as of 2026-10-12.** Pass `wrapper_aware=False` to get the old
+behaviour back, which is how the control above is run. Every number this document reports
+comes from the version with it on; the earlier corpus is kept as
+`work/independent/corpus200_prewrapper.jsonl` so the two can be compared directly.
 
 ## What we do not claim
 
@@ -95,9 +99,11 @@ every number we have published and still leaves eight targets refused.
   sequences may well be makeable.
 - **Nothing biological is measured.** We have not tested whether any protein grips its RNA or
   whether a cell makes it. Every number is a prediction or a software check.
-- **The GC limit has no recorded source.** It matches a published vendor guideline exactly,
-  but nobody wrote down choosing it, and we enforce it more strictly than that vendor states
-  it. Worth knowing before defending the number.
+- **The GC limit is our own choice, not a vendor rule.** Nobody recorded where the number
+  first came from; on 2026-10-13 we settled it as this project's own engineering decision. It
+  happens to equal Twist's published codon-optimisation guidance, we enforce it harder than
+  that document frames it, and no IDT document contains it at all — and IDT is who we order
+  from. Defend it as conservatism, never as vendor acceptance.
 - **The 200 designs are our own**, generated from random sequences by this software, frozen so
   every check measures the same set. They are not real biological targets.
 - **The kit route's pooling plan** is checked against vendor rules we copied by hand. That is

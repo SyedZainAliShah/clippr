@@ -80,19 +80,23 @@ different notebooks.
 
 ## What it refuses, and why that is the point
 
-**The de novo route currently produces nothing orderable.** That is the honest state of the
-software, not an outstanding bug.
+Both routes produce an order sheet today. The de novo route refused every design until
+2026-10-12, and the reason is the clearest illustration of what this software is for.
 
 Our synthesis policy requires local GC content to stay inside a fixed band. The coding
-sequence obeys it. What you *order* is that coding sequence plus the GC-rich joining bases
-added at each end — and on our panel the ordered fragment crosses the limit while the gene
-inside it does not. [[FIG: how many of the 200 panel designs are refused, and the margin by
-which the worst one fails | PANEL_WRAPPER_AWARE_2026-10-11.md]]
+sequence obeyed it. What you *order* is that coding sequence plus the GC-rich joining bases
+added at each end — and on the panel the ordered fragment crossed the limit while the gene
+inside it did not, because nothing was showing the optimiser the combined string.
+[[FIG: panel designs refused before the ordered-fragment constraint, and the margin by which
+the worst one failed | PANEL_WRAPPER_AWARE_2026-10-11.md]]
 
-The software catches its own rule breaking and refuses. We publish the number rather than
-widening the limit until it passes.
+The software caught its own rule breaking and refused. We published the number rather than
+widening the limit until it passed, then fixed the optimiser instead — see
+*The wrapper-aware constraint* in [[model]]. The band is unchanged; what changed is the
+sequence the constraint is evaluated on. [[FIG: panel designs orderable after the change, and
+the codon-quality cost | PANEL_WRAPPER_AWARE_2026-10-11.md §1 and §3]]
 
-A refusal is not silent and not destructive. The files are still written, every filename and
+A refusal is still not silent and not destructive. The files are still written, every filename and
 key marked `REJECTED`, so a design can be inspected — but no downstream step can mistake it
 for an order.
 
@@ -115,8 +119,12 @@ These are limits, not caveats to be read past:
 - **Nothing here is measured in a cell.** Every number the software reports is a prediction
   or a software check. We have not tested whether any designed protein binds its RNA, or
   whether a host expresses it.
-- **No vendor has refused anything.** We never submitted a sequence. Our own policy refuses
-  these fragments; a vendor might well accept them.
+- **No vendor has accepted or refused anything.** We never submitted a sequence. Passing our
+  policy is not vendor acceptance, and the refusals the panel used to record were our own
+  policy's, not a vendor's.
+- **The GC band is our own engineering choice**, settled as such on 2026-10-13. It equals
+  Twist's published codon-optimisation guidance numerically, we enforce it harder than that
+  document frames it, and no IDT document contains it — and IDT is who we order from.
 - **Predicted fidelity is not assembly efficiency.** It comes from published ligation-count
   matrices, not from a reaction in anyone's hands.
 - **The QC check is sequence complexity**, not a calibration against vendor outcomes.

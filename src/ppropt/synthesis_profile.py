@@ -185,7 +185,19 @@ class SynthesisProfile:
 #: retrospectively. See `docs/gc_band_and_constraint_model.md`.
 STRICT_LEGACY = SynthesisProfile(
     name="ppropt-strict-legacy",
-    source="unrecorded in this repository; see docs/gc_band_and_constraint_model.md",
+    # Decided 2026-10-13, after the provenance was traced and found absent. The numbers are
+    # this project's own engineering choice. They happen to equal Twist's published
+    # codon-optimisation guidance, but that document frames them as steps taken *during*
+    # optimisation and keeps them separate from its acceptance rules -- so the value is
+    # borrowed and the hard enforcement is ours. No IDT document contains this window at all,
+    # and PPROPT orders from IDT.
+    #
+    # It stays hard because it costs nothing to: with the ordered-fragment constraint on, all
+    # 200 corpus designs satisfy it. Loosening a rule the designs already pass would weaken
+    # the claim and buy nothing. What is not defensible is calling it a vendor requirement.
+    source=("this project's own engineering choice, decided 2026-10-13; numerically equal to "
+            "Twist's codon-optimisation guidance, enforced harder than that document frames "
+            "it, and required by no IDT document. See docs/vendor_rule_comparison.md §4"),
     product="not product-specific",
     read_on=None,
     local_gc=(0.35, 0.65),
@@ -196,8 +208,8 @@ STRICT_LEGACY = SynthesisProfile(
     unresolved=(
         "no global GC band is enforced, though every vendor guideline read pairs one with a "
         "local window",
-        "the constant's provenance is unknown; it matches Twist's published codon-optimisation "
-        "guidance but was not recorded as derived from it",
+        "no vendor document requires this window as a rejection gate; it is enforced as one "
+        "by this project's choice, and must never be described as vendor acceptance",
         "vendor acceptance is multifactorial and scored by proprietary models; no profile here "
         "predicts it",
     ),

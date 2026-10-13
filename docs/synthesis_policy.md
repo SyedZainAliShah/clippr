@@ -70,14 +70,22 @@ There is a test.
 | local GC / 50 nt | 0.35–0.65 **hard** | 0.35–0.65 **target** | 0.15–0.85 **hard** |
 | global GC | none | 0.25–0.65 **target** | none |
 | homopolymer | ≤ 4 **hard** | ≤ 4 **target** | ≤ 4 **hard** |
-| source | **unrecorded** | Twist gene resources, read 2026-09-16 | PPROPT experiment |
+| source | **this project's own choice**, settled 2026-10-13 | Twist gene resources, read 2026-09-16 | PPROPT experiment |
 | for ordering? | yes — the default | yes, with warnings | **no** |
 | mean CAI, 42 modules, 4 seeds | **0.618830** | — | **0.819921** |
 
-`STRICT_LEGACY` is the default. Its band matches Twist's published guidance exactly — and its
-`source` still says *unrecorded*, because this repository never recorded that as its origin.
-Matching a guideline after the fact is not being derived from it, and back-dating a citation
-would be the same class of error the rest of this project spent a week correcting.
+`STRICT_LEGACY` is the default. Its band matches Twist's published guidance exactly, and for
+most of this project its `source` read *unrecorded*, because nobody wrote down where the
+number came from and matching a guideline after the fact is not being derived from it.
+
+**Settled 2026-10-13:** the band is recorded as this project's own engineering choice, dated
+to that decision rather than to the commit that introduced the constant. It is not back-dated
+to Twist, and it is not described as a vendor requirement: no IDT document contains this
+window, Twist frames it as optimisation guidance rather than acceptance, and PPROPT orders
+from IDT. It stays **hard** because it now costs nothing — with the ordered-fragment
+constraint on, all 200 corpus designs satisfy it, so loosening a rule the designs already
+pass would weaken the claim and buy nothing. Reasoning in
+`docs/vendor_rule_comparison.md` §4.
 
 `BROAD_EXPERIMENTAL` is for measuring what the strict band costs. It is **not** a vendor rule
 and no vendor has been shown to accept sequences designed under it.

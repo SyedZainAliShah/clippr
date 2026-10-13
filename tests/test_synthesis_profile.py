@@ -46,14 +46,20 @@ class TestTheProfileObject:
         assert all(sp.STRICT_LEGACY.is_hard(r)
                    for r in ("local_gc", "homopolymer", "forbidden_sites"))
 
-    def test_the_strict_profile_does_not_claim_a_source_it_does_not_have(self):
+    def test_the_strict_profile_does_not_claim_a_vendor_requirement(self):
         """Its band matches Twist's published guidance. That is not where it came from.
 
+        The field used to say "unrecorded", because the provenance had not been traced. It was
+        traced on 2026-10-13 and the answer was that there is none: the numbers are this
+        project's own choice. Naming Twist is now allowed -- the resemblance is real and worth
+        stating -- but only alongside the fact that no vendor requires this window as a gate.
         Back-dating a citation would be the same class of error as every other in this
-        project's history, so the field says so in words.
+        project's history, so what the field may not do is imply one.
         """
-        assert "unrecorded" in sp.STRICT_LEGACY.source.lower()
-        assert "twist" not in sp.STRICT_LEGACY.source.lower()
+        source = sp.STRICT_LEGACY.source.lower()
+        assert "own engineering choice" in source, "it must say whose choice this is"
+        assert "no idt document" in source, "it must say no vendor requires it"
+        assert not source.startswith("http"), "a bare URL would read as a citation"
 
     def test_a_sourced_profile_carries_its_source_product_and_date(self):
         twist = sp.TWIST_CODON_GUIDANCE

@@ -91,7 +91,9 @@ def scan(rows: list[dict], label: str) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--baseline", default="work/independent/corpus200_pinned.jsonl")
+    ap.add_argument("--baseline",
+                    # the pre-change corpus, for the same reason as the panel
+                    default="work/independent/corpus200_prewrapper.jsonl")
     ap.add_argument("--candidates", required=True,
                     help="the wrapper-aware candidate JSONL to compare against")
     ap.add_argument("--out", required=True)

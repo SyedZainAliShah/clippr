@@ -3,6 +3,12 @@
 **11 October 2026, revision 2.** The predeclared broader comparison the pilot called for.
 Both arms, every design reported. Nothing switched on.
 
+> **Superseded on one point, 2026-10-12.** The decision this document declined to take was
+> taken the next day: `wrapper_aware=True` is now the default in `design.py`, so "Nothing
+> switched on" above and *Does not support* §1 below describe the state at the time of the run,
+> not the current state. The measurements are unaffected and are still the ones quoted
+> elsewhere. Current state: `docs/vendor_rule_comparison.md` §4 and `docs/synthesis_policy.md`.
+
 > **Revision 1 of this document reported 192 of 200 and described a new failure mode in
 > which eight targets could not satisfy both ends of the GC band.** That was wrong. The
 > eight failures were a defect in the experiment's own constraint, not a property of the
@@ -115,7 +121,8 @@ over all 200 designs, independently verified from the written bytes.
 
 **Does not support:**
 
-- **It is still not switched on.** `optimize_cds(extra_constraints=...)` is empty for every
+- **It is still not switched on.** *(True when this ran; the default changed 2026-10-12 —
+  see the banner at the top.)* `optimize_cds(extra_constraints=...)` is empty for every
   shipped route and a test asserts no `src/` module other than its definition references it.
   Switching it on moves every published number and needs its own regression coverage in the
   shipped path. That decision is not taken here.

@@ -109,8 +109,11 @@ attributable to the change rather than to anything else that moved.
 Cost in codon quality is small but not zero, and a few designs improved.
 [[FIG: median and worst CAI cost, and how many designs improved | PANEL_WRAPPER_AWARE §3]]
 
-**It is not switched on.** A strong panel result is evidence, not a decision: enabling it
-would move every number this project has published.
+**It became the default on 2026-10-12**, after the panel and the control above. Enabling it
+moved every number this project had published, so the pre-change corpus is kept alongside the
+current one (`corpus200_prewrapper.jsonl` beside `corpus200_pinned.jsonl`) and
+`wrapper_aware=False` still reproduces the old behaviour exactly, which is how the control is
+run.
 
 ### A correction we are keeping on the record
 

@@ -71,7 +71,12 @@ acceptance, which is why `STRICT_LEGACY.unresolved` has always said so.
 
 ## 3. How our 1050 ordered fragments score
 
-Measured on the pinned corpus:
+Measured on `work/independent/corpus200_prewrapper.jsonl`, the corpus produced before the
+ordered-fragment constraint became the default on 2026-10-12. That file used to be the pinned
+corpus and these numbers were measured against it under that name; the canonical name now
+points at the current corpus, where the last row reads 0 of 1050. The comparison below is kept
+on the old corpus deliberately, because it is the one that shows the disagreement between our
+band and the vendors' rules:
 
 | Rule | Result |
 |---|---|
@@ -85,9 +90,11 @@ Measured on the pinned corpus:
 | **our rule: window 35–65% absolute** | **277 of 1050 violate** |
 
 **Every published vendor rule we can find accepts every fragment we refuse.** The only
-document that rejects them is the one our band was modelled on, and that document is Twist's
-codon-optimiser guidance — a different vendor, a different product, and explicitly a design
-target rather than an acceptance criterion.
+document containing a rule that rejects them is Twist's codon-optimiser guidance, which states
+our band and our window verbatim — a different vendor, a different product, and explicitly a
+design target rather than an acceptance criterion. That document is not where our band came
+from; nobody recorded an origin, and §4 settles the band as this project's own choice rather
+than retro-fitting Twist as its source.
 
 ## 3a. Verified against IDT's live pages, 11 October 2026
 
@@ -160,10 +167,16 @@ instrument that applies.
    completely, and the spread rule is a better fit for oligo pools than an absolute band:
    pool synthesis uniformity depends on fragments resembling each other, which is what a
    spread limit controls and an absolute band does not.
-3. **Demote the 35–65% absolute window from hard to a declared target.** It is not a vendor
-   requirement — no IDT document contains it, and the one Twist document that does frames it
-   as optimisation guidance. Keeping it visible is reasonable engineering conservatism;
-   enforcing it as a rejection gate is not supportable by any document found.
+3. ~~**Demote the 35–65% absolute window from hard to a declared target.**~~ **Not adopted.
+   Settled 2026-10-13: the window stays hard, and is recorded as this project's own
+   engineering choice.** The factual half of this recommendation stands — it is not a vendor
+   requirement, no IDT document contains it, and the one Twist document that does frames it as
+   optimisation guidance. What changed is the cost of keeping it. This recommendation was
+   written when 277 of 1050 fragments breached the band; with the ordered-fragment constraint
+   on (item 2 of *What this does not decide*, below), **0 of 1050 breach it**. Demoting a rule
+   every design already passes would weaken the claim and buy nothing. The label is what was
+   wrong, not the threshold: `STRICT_LEGACY.source` now says whose choice it is, and nothing in
+   this repository may describe it as vendor acceptance.
 4. **Add a secondary-structure check, which is the real gap.** Both vendors screen structure;
    neither publishes a GC window rule we match. Tuning the proxy while ignoring the quantity
    it proxies for is the wrong priority. IDT's OligoAnalyzer computes hairpin and dimer ΔG and
@@ -183,13 +196,26 @@ optimal one.
 So a conservative band is defensible **as our own engineering choice**. What is not defensible
 is calling it a vendor rule, or keeping it hard while no vendor document supports it.
 
-### What this does not decide
+### What this did not decide, and how it was decided
 
-Whether to switch the default. That interacts with the wrapper-aware result
+Whether to switch the default. That interacted with the wrapper-aware result
 (`PANEL_WRAPPER_AWARE_2026-10-11.md`): with the wrapper-aware constraint on, all 200 designs
 satisfy even the strict band, so the band could be kept hard **and** the route made usable.
-Loosening the band and fixing the optimiser are alternative solutions to the same problem, and
-doing both is not required.
+Loosening the band and fixing the optimiser were alternative solutions to the same problem,
+and doing both was not required.
+
+**Resolved 2026-10-12/13.** We took the optimiser, not the band:
+
+1. `wrapper_aware=True` became the default in `design.py`, so the GC constraint is evaluated
+   on the ordered fragment rather than the coding span. `wrapper_aware=False` reproduces the
+   old sequences exactly and is how the negative control is run.
+2. The band stayed at 0.35–0.65 hard, with its provenance relabelled rather than its value
+   changed (item 3 above).
+3. The corpus was regenerated under the new default and holds the canonical name
+   `work/independent/corpus200_pinned.jsonl`; the corpus these §3 numbers were measured on is
+   kept as `corpus200_prewrapper.jsonl`. Both are scored by
+   `validation/independent/final_artifact_contract.py`, which reports 200 accepted and 0 of
+   1050 fragments with hard findings on the current one.
 
 ## 5. Sources
 

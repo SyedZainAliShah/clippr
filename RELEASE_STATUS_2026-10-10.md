@@ -11,6 +11,15 @@ are corrected in place, with the correction named: see §10.
 Nothing here has been committed, pushed, published, ordered or sent to a third party. All
 changes are local and uncommitted on `479690b53663c397926aa431e72f4965dfbe4998`.
 
+> **Superseded in part, 2026-10-12/13.** Two things this document records as not done have
+> since been done. The de novo route is no longer refused: the ordered-fragment GC constraint
+> became the default, and 200 of 200 corpus designs are now orderable with 0 of 1050 fragments
+> carrying a hard finding, so the 277-breach counts below describe the pre-change corpus
+> (`work/independent/corpus200_prewrapper.jsonl`). The GC band's provenance is no longer
+> unrecorded: it is settled as this project's own engineering choice. The band's value did not
+> change. Current state: `docs/vendor_rule_comparison.md` §4 and `docs/synthesis_policy.md`.
+> Everything else here stands and the body is left as the record of 10 October.
+
 **RAN** = executed for this document. **READ** = inspected a retained record.
 
 ---
@@ -129,7 +138,8 @@ fixing only the outer gene boundaries cannot settle this.
 **The threshold was not weakened and no optimiser default was changed.** The decision taken
 is to keep the strict band and publish the counts. Whether a wrapper-aware optimiser can
 recover a usable one-shot route is a separate, predeclared experiment that has **not** been
-attempted.
+attempted. *(That experiment was run on 11 October and its result became the default on 12
+October; the band was still not weakened. See the banner at the top.)*
 
 Honest wording:
 
@@ -173,7 +183,8 @@ Do not present the failed one-shot sequence as an accepted synthesis design.
 - **Whether a wrapper-aware optimiser can recover a usable one-shot route.** Not attempted.
   There is **no positive final-export control under the strict policy**, so no successful de
   novo synthesis route should be claimed. Its runtime is unmeasured; nothing in this run
-  predicts it.
+  predicts it. *(Attempted 11 October: it can, and there is now such a control over all 200
+  designs. See the banner at the top.)*
 - **Browser or Colab execution.** Only installed local notebook execution was verified.
 - **Level-1 assembly context.** Participants are not established from a flat role list, so no
   level-1 score is reported.

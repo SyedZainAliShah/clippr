@@ -74,6 +74,23 @@ from ppropt import workflow as w
 from ppropt import constants as _C
 from ppropt.design import _resolve_codon_table as _resolve
 
+
+def done(result):
+    """The result if the task succeeded, else None, with the reasons printed.
+
+    Every task here can refuse, and a refused result carries no artefacts. Reaching into
+    `.artefacts[...]` anyway turned a designed refusal into `KeyError: 'inventory'`, which
+    reads like a broken notebook rather than the explanation it actually is.
+    """
+    if result is None or result.ok:
+        return result
+    for failure in result.failures:
+        print(f"   {failure.get('stage', '?')}: {failure.get('reason', failure)}")
+    print()
+    print("Nothing was written. Fix the above and re-run this cell; later steps will stay")
+    print("skipped until it succeeds.")
+    return None
+
 _host_code = genetic_code_override or _C.ORGANISMS[organism][1]
 host_codon_table = _resolve(codon_table_file or None, organism, _host_code)
 print(f"codon table for {organism}, genetic code {_host_code}: "
@@ -120,6 +137,9 @@ if deposited is not None:
     recoded = w.recode_for_host(table_s1, host_codon_table, "out/inventory", label=label,
                                 seeds=candidate_seeds, wall_seconds=recode_seconds)
     print(recoded.summary)
+    recoded = done(recoded)
+
+if recoded is not None:
     print(f"saved to {recoded.artefacts['inventory']}")
 
     report = _json.loads(Path(recoded.artefacts["report"]).read_text(encoding="utf-8"))
@@ -158,6 +178,9 @@ if recoded is not None:
     for failure in compiled.failures:
         print(f"   could not build {failure['target']}: {failure['reason']}")
 
+# Not `compiled.ok`: one unspellable target makes this False while the others still
+# compiled and the artefact still exists. The artefact's presence is the real condition.
+if compiled is not None and "compiled_targets" in compiled.artefacts:
     products = _json.loads(
         Path(compiled.artefacts["compiled_targets"]).read_text(encoding="utf-8"))
     for name, product in products.items():
@@ -191,6 +214,9 @@ if recoded is not None:
                                       "out/collection", mode=mode,
                                       max_proposals=max_proposals, wall_seconds=600)
     print(optimised.summary)
+    optimised = done(optimised)
+
+if optimised is not None:
     search = _json.loads(Path(optimised.artefacts["report"]).read_text(encoding="utf-8"))
     print(f"   adaptation {search['incumbent']['adaptation']} -> "
           f"{search['final']['adaptation']}")
@@ -224,6 +250,9 @@ if recoded is not None:
                                  "out/interfaces", max_evaluations=max_evaluations,
                                  wall_seconds=600)
     print(front.summary)
+    front = done(front)
+
+if front is not None:
     print()
     print(f"incumbent  : {front.data['incumbent']}")
     print(f"recommended: {front.data['recommended']}")
@@ -255,15 +284,18 @@ selected = recompiled = order_items = None
 if front is not None:
     selected = w.select_interface(recoded.artefacts["inventory"],
                                   front.artefacts["front"], "out/selected",
-                                  choice=choice)
+                                  choice=choice, codon_table=host_codon_table)
     print(selected.summary)
+    selected = done(selected)
 
-    recompiled = w.load_and_compile(selected.artefacts["inventory"], wanted,
-                                    "out/recompiled")
-    print(recompiled.summary)
+if selected is not None:
+    recompiled = done(w.load_and_compile(selected.artefacts["inventory"], wanted,
+                                         "out/recompiled"))
+    print(recompiled.summary if recompiled is not None else "recompile refused")
 
-    order_items = w.order_items_for(selected.artefacts["inventory"], "out/order_items")
-    print(order_items.summary)
+    order_items = done(w.order_items_for(selected.artefacts["inventory"],
+                                         "out/order_items"))
+    print(order_items.summary if order_items is not None else "order items refused")
 ''', title="Step 6 — commit to a choice and rebuild"))
 
     out.append(md("""

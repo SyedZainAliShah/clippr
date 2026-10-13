@@ -50,7 +50,10 @@ from wrapper_aware_pilot import (frozen_geometry, make_constraint,    # noqa: E4
 
 #: Declared before execution.
 BUDGET = {
-    "panel": "work/independent/corpus200_pinned.jsonl",
+    # The pre-change corpus: this experiment measures against what the software produced
+    # before the ordered-fragment constraint, so its baseline must not follow the
+    # canonical name when that name moves to the current corpus.
+    "panel": "work/independent/corpus200_prewrapper.jsonl",
     "designs": 200,
     "seed": 42,
     "wall_seconds_per_design": 300,
