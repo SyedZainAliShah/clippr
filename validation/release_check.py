@@ -388,12 +388,20 @@ def check_optional_inputs() -> dict:
                    f"{n} tests covering absent Table S1, disabled and unavailable screening")
 
 
+#: Both shipped notebooks. The inventory route used to be the second half of the designer
+#: notebook, and this gate ran it by running that one file. It is its own notebook now, so
+#: naming only the designer here would leave half the product never executed -- which is the
+#: exact failure the comment below records.
+NOTEBOOKS = ("PPROPT_designer.ipynb", "PPROPT_inventory.ipynb")
+
+
 def check_notebook() -> dict:
-    """7. The notebook exposes supported workflows, not deferred experiments."""
-    path = ROOT / "notebooks" / "PPROPT_designer.ipynb"
-    if not path.is_file():
-        return _result("7. notebook scope", "MANUAL", None, "notebook not found")
-    text = path.read_text(encoding="utf-8")
+    """7. The notebooks expose supported workflows, not deferred experiments."""
+    paths = [ROOT / "notebooks" / name for name in NOTEBOOKS]
+    absent = [p.name for p in paths if not p.is_file()]
+    if absent:
+        return _result("7. notebook scope", "MANUAL", None, f"not found: {absent}")
+    text = "".join(p.read_text(encoding="utf-8") for p in paths)
     # M2 was a negative result and M3 is gated; neither may be advertised as a shipped
     # workflow. Their experiment entry points must not appear in the notebook at all.
     deferred = [name for name in ("m2_joint_selection", "build_banks", "compare_methods",
@@ -408,21 +416,34 @@ def check_notebook() -> dict:
     # an earlier cell, and three cells raised the moment a real input reached them. Every
     # static test stayed green, because the only path anything exercised was the one where
     # Supplementary Table S1 is absent and the cells short-circuit. So this runs the thing.
-    proc = subprocess.run([str(PYTHON), str(ROOT / "validation" / "run_notebook.py")],
-                          capture_output=True, text=True, encoding="utf-8",
-                          errors="replace", cwd=str(ROOT),
-                          env={**os.environ, "PYTHONUTF8": "1"})
-    tail = (proc.stdout or "").strip().splitlines()
-    verdict = next((line for line in reversed(tail) if line.strip() in
-                    ("PASS", "FAIL", "SKIP")), "")
-    counts = next((line for line in reversed(tail) if "cells executed" in line), "")
-    if verdict == "SKIP":
+    executed, failed, skipped = [], [], []
+    for path in paths:
+        proc = subprocess.run([str(PYTHON), str(ROOT / "validation" / "run_notebook.py"),
+                               "--notebook", str(path)],
+                              capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", cwd=str(ROOT),
+                              env={**os.environ, "PYTHONUTF8": "1"})
+        tail = (proc.stdout or "").strip().splitlines()
+        verdict = next((line for line in reversed(tail) if line.strip() in
+                        ("PASS", "FAIL", "SKIP")), "")
+        counts = next((line for line in reversed(tail) if "cells executed" in line), "")
+        if verdict == "SKIP":
+            skipped.append(f"{path.name}: {tail[0] if tail else 'skipped'}")
+        elif verdict == "PASS":
+            executed.append(f"{path.name} ({counts})")
+        else:
+            failed.append(f"{path.name}: {counts or proc.stderr[-200:]}")
+
+    if failed:
+        return _result("7. notebook scope and execution", "RAN", False,
+                       "notebook execution failed -- " + "; ".join(failed))
+    if skipped and not executed:
         return _result("7. notebook scope and execution", "MANUAL", None,
-                       "scope clean; execution skipped -- " + (tail[0] if tail else ""))
-    return _result("7. notebook scope and execution", "RAN", verdict == "PASS",
-                   f"no deferred experiment advertised; every cell executed ({counts})"
-                   if verdict == "PASS" else
-                   f"notebook execution failed: {counts or proc.stderr[-200:]}")
+                       "scope clean; execution skipped -- " + "; ".join(skipped))
+    detail = "no deferred experiment advertised; every cell executed in " +              ", ".join(executed)
+    if skipped:
+        detail += "; skipped " + "; ".join(skipped)
+    return _result("7. notebook scope and execution", "RAN", True, detail)
 
 
 def check_claim_labels() -> dict:

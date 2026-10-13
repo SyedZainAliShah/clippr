@@ -78,9 +78,17 @@ from ppropt.design import _resolve_codon_table as _resolve
 def done(result):
     """The result if the task succeeded, else None, with the reasons printed.
 
-    Every task here can refuse, and a refused result carries no artefacts. Reaching into
-    `.artefacts[...]` anyway turned a designed refusal into `KeyError: 'inventory'`, which
-    reads like a broken notebook rather than the explanation it actually is.
+    For the two tasks that refuse *without writing an artefact*: `explore_interfaces` (an
+    empty front has nothing to select) and `select_interface` (it returns before publishing
+    anything the verifier rejected). Reaching into `.artefacts[...]` after one of those
+    turned a designed refusal into `KeyError: 'inventory'`, which reads like a broken
+    notebook rather than the explanation it actually is.
+
+    Not for `recode_for_host`, `load_and_compile` or `order_items_for`. Those write their
+    artefact either way and report `ok=False` for a *partial* result -- one infeasible
+    module, one unspellable target, one substrate outside the synthesis contract. Nulling
+    those would throw away 41 good modules because of the 42nd. They guard on the artefact
+    being present instead, and print what fell short.
     """
     if result is None or result.ok:
         return result
@@ -137,9 +145,10 @@ if deposited is not None:
     recoded = w.recode_for_host(table_s1, host_codon_table, "out/inventory", label=label,
                                 seeds=candidate_seeds, wall_seconds=recode_seconds)
     print(recoded.summary)
-    recoded = done(recoded)
+    for failure in recoded.failures:
+        print(f"   {failure['module']}: {failure['reason']}")
 
-if recoded is not None:
+if recoded is not None and "inventory" in recoded.artefacts:
     print(f"saved to {recoded.artefacts['inventory']}")
 
     report = _json.loads(Path(recoded.artefacts["report"]).read_text(encoding="utf-8"))
@@ -214,9 +223,8 @@ if recoded is not None:
                                       "out/collection", mode=mode,
                                       max_proposals=max_proposals, wall_seconds=600)
     print(optimised.summary)
-    optimised = done(optimised)
 
-if optimised is not None:
+if optimised is not None and "report" in optimised.artefacts:
     search = _json.loads(Path(optimised.artefacts["report"]).read_text(encoding="utf-8"))
     print(f"   adaptation {search['incumbent']['adaptation']} -> "
           f"{search['final']['adaptation']}")
@@ -289,13 +297,18 @@ if front is not None:
     selected = done(selected)
 
 if selected is not None:
-    recompiled = done(w.load_and_compile(selected.artefacts["inventory"], wanted,
-                                         "out/recompiled"))
-    print(recompiled.summary if recompiled is not None else "recompile refused")
+    recompiled = w.load_and_compile(selected.artefacts["inventory"], wanted,
+                                    "out/recompiled")
+    print(recompiled.summary)
+    for failure in recompiled.failures:
+        print(f"   could not build {failure['target']}: {failure['reason']}")
 
-    order_items = done(w.order_items_for(selected.artefacts["inventory"],
-                                         "out/order_items"))
-    print(order_items.summary if order_items is not None else "order items refused")
+    # ok=False here means some substrate is outside the synthesis contract, not that the
+    # order failed. All 42 are still written; the flagged ones are named so you can decide.
+    order_items = w.order_items_for(selected.artefacts["inventory"], "out/order_items")
+    print(order_items.summary)
+    for failure in order_items.failures:
+        print(f"   {failure['module']}: {failure['reason']}")
 ''', title="Step 6 — commit to a choice and rebuild"))
 
     out.append(md("""
@@ -326,7 +339,7 @@ profile = load_profile(profile_file) if profile_file.strip() else CURRENT_OPOOL_
 # notebook memory. Taking sequences from the synthesis route's `lib` here meant a user could
 # explore one inventory and order something unrelated to it.
 order = None
-if order_items is None:
+if order_items is None or "order_items" not in order_items.artefacts:
     print("Run the cells above first -- the order is built from the selected inventory.")
 else:
     items = _json.loads(Path(order_items.artefacts["order_items"]).read_text(

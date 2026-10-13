@@ -57,3 +57,8 @@ work/
 # GitHub rejects anything over 100 MB, so an accidental `git add -A` would wedge the push.
 exp_a_*.pkl
 exp_a_*.json
+
+# Supplementary Table S1, staged at the repo root by validation/run_notebook.py so the
+# inventory cells run against a real input. It is not ours to distribute -- see NOTICE.md.
+# The harness removes it on a clean exit; a killed run leaves it behind.
+/Table S1.xlsx

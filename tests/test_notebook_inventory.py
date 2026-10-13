@@ -112,7 +112,7 @@ class TestARefusalIsPrintedRatherThanIndexed:
                 # which is the right guard where ok=False still writes an artefact: one
                 # unspellable target does not invalidate the targets that compiled.
                 if (isinstance(node, ast.Compare)
-                        and any(isinstance(o, ast.In) for o in node.ops)):
+                        and any(isinstance(o, (ast.In, ast.NotIn)) for o in node.ops)):
                     for side in node.comparators:
                         if (isinstance(side, ast.Attribute) and side.attr == "artefacts"
                                 and isinstance(side.value, ast.Name)):

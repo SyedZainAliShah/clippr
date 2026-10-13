@@ -15,10 +15,19 @@ reports rather than fails when IPython is missing, so a checkout without them st
 useful answer instead of a misleading red.
 
     PYTHONUTF8=1 .venv\\Scripts\\python.exe validation\\run_notebook.py
+
+A notebook and its form values can both be chosen, which is what makes this a check of
+the route a user actually takes rather than of the defaults alone. `--set` rewrites a
+`#@param` assignment before the cell runs, exactly as typing in the form does:
+
+    ... validation\\run_notebook.py --notebook notebooks\\PPROPT_inventory.ipynb \\
+        --set organism=e_coli --set label=ecoli-demo
 """
 from __future__ import annotations
 
+import argparse
 import json
+import re
 import sys
 import traceback
 from pathlib import Path
@@ -36,7 +45,52 @@ NOTEBOOK = ROOT / "notebooks" / "PPROPT_designer.ipynb"
 SUPPLIED_TABLE_S1 = ROOT / "data" / "grasp_supp" / "Table S1.xlsx"
 
 
+def _literal(value: str):
+    """`24` as an int, `True` as a bool, anything else as the string it came in as.
+
+    A form field declared `{type:"integer"}` hands the cell an int, so quoting everything
+    makes `max_evaluations` a string and the first comparison against it raises
+    `'>=' not supported between instances of 'int' and 'str'` -- a harness artefact that
+    looks exactly like a notebook bug.
+    """
+    import ast
+
+    try:
+        parsed = ast.literal_eval(value)
+    except (ValueError, SyntaxError):
+        return value
+    return parsed if isinstance(parsed, (int, float, bool)) else value
+
+
+def _override(src: str, settings: dict[str, str]) -> str:
+    """Rewrite `name = <literal>` to the requested value, keeping the `#@param` comment.
+
+    Colab's form widgets do exactly this: the comment declares the widget, the assignment
+    holds the value. Setting the variable after the cell has run would be too late, because
+    the cell uses it in the same breath.
+    """
+    for name, value in settings.items():
+        pattern = re.compile("^" + re.escape(name) + " = [^" + chr(10) + "]*$", re.MULTILINE)
+        found = pattern.search(src)
+        if not found:
+            continue
+        comment = ""
+        if "#@param" in found.group(0):
+            comment = "  #@param" + found.group(0).split("#@param", 1)[1]
+        src = pattern.sub(lambda _m: f"{name} = {_literal(value)!r}{comment}", src, count=1)
+    return src
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Execute every code cell of a PPROPT notebook, as a user would.")
+    parser.add_argument("--notebook", default=str(NOTEBOOK),
+                        help="notebook to execute (default: the designer notebook)")
+    parser.add_argument("--set", action="append", default=[], metavar="NAME=VALUE",
+                        help="override a #@param value, as typing in the form would")
+    args = parser.parse_args()
+    settings = dict(s.split("=", 1) for s in args.set)
+
     try:
         import IPython  # noqa: F401
     except ImportError:
@@ -60,23 +114,26 @@ def main() -> None:
         print("one that previously hid a crash on the real path.")
 
     try:
-        _run(staged)
+        _run(staged, Path(args.notebook), settings)
     finally:
         if staged_by_us:
             staged.unlink(missing_ok=True)
 
 
-def _run(staged: Path) -> None:
-    nb = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+def _run(staged: Path, notebook: Path, settings: dict[str, str]) -> None:
+    nb = json.loads(notebook.read_text(encoding="utf-8"))
     cells = [c for c in nb["cells"] if c["cell_type"] == "code"]
-    print(f"{len(cells)} code cells in {NOTEBOOK.name}\n")
+    print(f"{len(cells)} code cells in {notebook.name}")
+    if settings:
+        print("form values: " + ", ".join(f"{k}={v}" for k, v in settings.items()))
+    print()
 
     env: dict = {"__name__": "__main__"}
     failures: list[tuple[int, str, str]] = []
     ran = 0
 
     for i, cell in enumerate(cells, 1):
-        src = "".join(cell["source"])
+        src = _override("".join(cell["source"]), settings)
         title = next((ln for ln in src.splitlines() if ln.startswith("#@title")), "")
         label = title.replace("#@title", "").split("{")[0].strip() or f"cell {i}"
         if any(ln.lstrip().startswith(("%", "!")) for ln in src.splitlines()):
