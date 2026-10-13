@@ -17,7 +17,7 @@ DIAGRAM = Path("notebooks/pipeline.svg")
 #: `release_check.py` check 12 fails when this does not equal what the suite reports, so it
 #: cannot drift unnoticed -- reading it from `work/` instead made a fresh clone fail
 #: `tests/test_notebook.py`, because that directory is gitignored.
-TESTS = 1226
+TESTS = 1195
 #: Served from the repository rather than inlined -- see pipeline_svg().
 DIAGRAM_URL = f"https://raw.githubusercontent.com/{REPO}/main/{DIAGRAM.as_posix()}"
 
