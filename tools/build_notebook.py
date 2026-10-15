@@ -353,6 +353,11 @@ result = design_oneshot(
 )
 
 qc = result["qc"]
+
+# tests/test_display_verdict.py renders this card from the cell's tail alone, with only
+# `result` in scope, so the card must not depend on names defined beside the design call
+# above. In the notebook this finds the real value; under the test it falls back.
+table_source = globals().get("chosen_table_source", "as supplied")
 TONE = {"PASS": "#1a7f5a", "WARNING": "#9a6b1f", "FAIL": "#a8402c"}
 
 # The badge is the SYNTHESIS verdict, not the coding-span QC. It used to read the CDS
@@ -381,7 +386,7 @@ if len(ppr_code) > 22:
 ppr_code = f"PPR code {ppr_code}"
 
 cards = "".join([
-    _stat("codon table", chosen_table_source,
+    _stat("codon table", table_source,
           "the dropdown is ignored when a file or taxid is set"),
     _stat("architecture", result["architecture"], f'{len(result["protein"])} aa protein'),
     _stat("coding sequence", f'{len(result["cds"])} nt', ppr_code),
