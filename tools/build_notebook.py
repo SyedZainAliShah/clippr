@@ -949,6 +949,12 @@ else:
               f"(published guideline: {introns.MAX_EXON_NT} or shorter)")
         print(f"   you would order {len(advice['exon_lengths'])} exon pieces plus "
               f"{len(advice['suggested'])} intron piece(s)")
+        if advice.get("predicted_fidelity") is not None:
+            print(f"   predicted assembly fidelity {advice['predicted_fidelity']:.3f}, "
+                  f"against {result['fidelity']:.3f} for the design without introns")
+        if advice.get("fidelity_warning"):
+            print()
+            print(f"   WARNING: {advice['fidelity_warning']}")
     else:
         print()
         print(advice.get("blocked_by", "no placement found"))

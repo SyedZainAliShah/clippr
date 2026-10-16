@@ -268,3 +268,58 @@ class TestTheEnzymeChoiceIsLoadBearing:
 
     def test_the_declared_part_enzyme_is_the_one_that_works(self):
         assert introns.part_problems(introns.RBCS2I1, introns.PART_ENZYME) == []
+
+
+class TestPlacementIsChosenForAssembly:
+    """Where the introns go decides whether the thing assembles at all.
+
+    The overhang at an intron junction is the four bases before it. Every candidate sits
+    between two Gs, so the obvious walk -- take the first clean site past each spacing
+    target -- keeps picking the same four-mer. Identical overhangs in one Golden Gate
+    reaction let fragments swap places.
+
+    Measured on the three architectures with fixed codons: the naive walk gives 0.18 on 9S,
+    0.03 on 14S and 0.003 on 19S, against a baseline near 0.83. Choosing the set for
+    fidelity recovers 0.80 on 9S, 0.68 on 14S and 0.48 on 19S. So selection is not a
+    refinement here; without it the advice is actively harmful.
+    """
+
+    CDS = TestTheRealChlamydomonasCase.CDS
+
+    def test_no_two_junctions_share_an_overhang(self):
+        out = introns.advise(self.CDS, "c_reinhardtii_nuclear")
+        ohs = [self.CDS[p - 4:p] for p in out["suggested"]]
+        assert len(set(ohs)) == len(ohs), f"repeated overhang in {ohs}: fragments can swap"
+
+    def test_the_chosen_set_beats_the_first_fit_walk(self):
+        """The whole point of _select. If these converge, selection has stopped working."""
+        from ppropt.assembly import reverse_complement
+        from ppropt.assembly_spec import DESTINATION_OVERHANGS
+        from ppropt.overhangs import set_fidelity
+
+        out = introns.advise(self.CDS, "c_reinhardtii_nuclear")
+        clean = out["route_b_own_part"]["clean_positions"]
+        assert out["suggested"], "expected a placement to compare against"
+
+        naive, target = [], introns.NATIVE_EXON_NT
+        while target < len(self.CDS):
+            nxt = next((p for p in clean if p >= target
+                        and p > (naive[-1] if naive else 0)
+                        and p - (naive[-1] if naive else 0) <= introns.MAX_EXON_NT), None)
+            if nxt is None:
+                break
+            naive.append(nxt)
+            target = nxt + introns.NATIVE_EXON_NT
+
+        dest = DESTINATION_OVERHANGS["level0"]
+        fixed = [dest[0], reverse_complement(dest[1])]
+        naive_score = set_fidelity(fixed + [self.CDS[p - 4:p] for p in naive], "BsaI-HFv2")
+        assert out["predicted_fidelity"] > naive_score, (
+            f"selection {out['predicted_fidelity']} did not beat first-fit {naive_score:.4f}")
+
+    def test_a_poor_placement_is_declared_rather_than_handed_over(self):
+        """A number this far below baseline must not arrive without a sentence."""
+        out = introns.advise(self.CDS, "c_reinhardtii_nuclear")
+        if out["predicted_fidelity"] is not None and out["predicted_fidelity"] < 0.75:
+            assert out.get("fidelity_warning"), (
+                "a placement under 0.75 was offered with no warning attached")

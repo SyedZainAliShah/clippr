@@ -66,6 +66,12 @@ EVIDENCE_HOSTS = frozenset({"c_reinhardtii_nuclear"})
 #: idiomatic choice and the one that passes are the same choice.
 PART_ENZYME: str = "BbsI"
 
+#: Shortest exon worth designing. MoInClo's were 234-432 nt and Baier's about 240-583, so
+#: this is a floor against arithmetic artefacts rather than a published rule: a search that
+#: optimises fidelity alone will happily place two introns one base apart, which is not a
+#: design.
+MIN_EXON_NT = 100
+
 #: Native *C. reinhardtii* average exon length, and the practical ceiling Baier 2018 gives.
 #: The paper's own best construct has a 583 bp exon, so the ceiling is a guideline rather
 #: than a threshold even to its authors.
@@ -254,6 +260,58 @@ def insertion_sites(cds: str) -> list[int]:
     return [i for i in range(1, len(cds)) if cds[i - 1] == "G" and cds[i] == "G"]
 
 
+def _overhang(cds: str, position: int) -> str:
+    """The four bases a junction at `position` would expose."""
+    return cds[position - 4:position]
+
+
+def _select(cds: str, clean: list[int], spacing: int,
+            intron: str) -> tuple[list[int], float | None]:
+    """Pick the intron positions whose junction overhangs assemble best.
+
+    Enumerates the sets that satisfy the exon-length rules and scores each with the same
+    published mis-ligation data PPROPT uses for its own cut positions, so the number here is
+    comparable with the fidelity the design already reports. Sets that repeat an overhang are
+    discarded outright rather than scored: two identical four-base ends in one reaction is
+    not a low-fidelity design, it is fragments that can swap.
+    """
+    import itertools
+
+    from .assembly import reverse_complement
+    from .overhangs import set_fidelity
+    from .assembly_spec import DESTINATION_OVERHANGS
+
+    if not clean:
+        return [], None
+    dest = DESTINATION_OVERHANGS["level0"]
+    fixed = [dest[0], reverse_complement(dest[1])]
+    want = max(1, round(len(cds) / spacing) - 1)
+
+    def ok(combo) -> bool:
+        bounds = [0] + list(combo) + [len(cds)]
+        return all(MIN_EXON_NT <= b - a <= MAX_EXON_NT
+                   for a, b in zip(bounds, bounds[1:]))
+
+    best: tuple[float, tuple[int, ...]] | None = None
+    for k in range(want, 0, -1):
+        if len(clean) > 40 and k > 6:          # keep the enumeration bounded
+            continue
+        for combo in itertools.combinations(clean, k):
+            if not ok(combo):
+                continue
+            ohs = [_overhang(cds, s) for s in combo]
+            if len(set(ohs)) != len(ohs):
+                continue
+            score = set_fidelity(fixed + ohs, "BsaI-HFv2")
+            if best is None or score > best[0]:
+                best = (score, combo)
+        if best is not None:
+            break
+    if best is None:
+        return [], None
+    return list(best[1]), round(best[0], 4)
+
+
 def advise(cds: str, organism: str, *, intron: str = RBCS2I1,
            spacing: int = NATIVE_EXON_NT,
            profile: SynthesisProfile | None = None) -> dict:
@@ -343,19 +401,34 @@ def advise(cds: str, organism: str, *, intron: str = RBCS2I1,
     report["clean_positions"] = clean
     report["rejected_for_synthesis"] = rejected[:10]
 
-    # Walk the exon-spacing rule over the clean sites only.
-    chosen: list[int] = []
-    target = spacing
-    while target < len(cds):
-        nxt = next((p for p in clean
-                    if p >= target and p > (chosen[-1] if chosen else 0)
-                    and p - (chosen[-1] if chosen else 0) <= MAX_EXON_NT), None)
-        if nxt is None:
-            break
-        chosen.append(nxt)
-        target = nxt + spacing
-
+    # Choose the set, not the first thing that fits.
+    #
+    # Taking the first clean site past each spacing target is the obvious walk and it is
+    # badly wrong: the overhang at an intron junction is the four bases before it, every
+    # candidate sits between two Gs, and so the naive walk repeatedly picks the *same*
+    # four-mer. Identical overhangs in one Golden Gate reaction let fragments swap places.
+    # Measured on the 9S design, that walk gives a predicted fidelity of 0.18 against a
+    # baseline of 0.83; on 19S it gives 0.003. Choosing the set for fidelity instead
+    # recovers 0.80 on 9S.
+    chosen, chosen_fidelity = _select(cds, clean, spacing, intron)
     report["suggested"] = chosen
+    report["predicted_fidelity"] = chosen_fidelity
+
+    # Say when the placement is not worth having. Measured across the three architectures
+    # with fixed codons: 9S reaches 0.80 against a 0.83 baseline, 14S 0.68, 19S 0.48. The
+    # longer the protein the more introns the spacing rule wants, the more junctions compete
+    # in one reaction, and the smaller the pool of usable overhangs they must come from.
+    if chosen_fidelity is not None:
+        if chosen_fidelity < 0.5:
+            report["fidelity_warning"] = (
+                f"predicted assembly fidelity falls to {chosen_fidelity:.3f}. About half the "
+                f"assembled plasmids would carry the wrong arrangement. This placement is "
+                f"not usable as it stands.")
+        elif chosen_fidelity < 0.75:
+            report["fidelity_warning"] = (
+                f"predicted assembly fidelity falls to {chosen_fidelity:.3f}, against "
+                f"roughly 0.83 without introns. Expect to screen more colonies, and treat "
+                f"this as a trade-off to decide rather than a plan to follow.")
     bounds = [0] + chosen + [len(cds)]
     report["exon_lengths"] = [b - a for a, b in zip(bounds, bounds[1:])]
 
