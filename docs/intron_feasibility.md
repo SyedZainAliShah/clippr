@@ -5,6 +5,14 @@ not an implementation. Every measurement in §4 was taken from this checkout; ev
 §2 and §3 is from the cited literature and was measured by someone else, in someone else's
 construct, in an organism that is sometimes not ours.*
 
+> **Partly superseded, 2026-10-16.** This document established *whether* an intron can be
+> ordered. It did not measure what placing one costs in assembly fidelity, and that turned out
+> to dominate: the naive placement it implies scores 0.18 on 9S and 0.003 on 19S, because
+> every candidate position sits between two guanines and the junction overhangs repeat.
+> `docs/intron_fidelity.md` has the measurements, the corrected placement, and the finding
+> that the acceptor vector rather than the introns is what caps the result. Read that one for
+> the current numbers; this one for how the question was framed.
+
 > **Independently verified 2026-10-16.** 37 claims were re-checked by a separate reader that
 > did not write this document: every `file:line`, every measurement re-derived from scratch,
 > and every published figure against the primary paper rather than a search result. 34 came
@@ -390,10 +398,15 @@ region at residues 20–24, chosen for codon diversity — the same reasoning PP
 
 ### Recommendation
 
-**Route B.** Route A cannot serve 19S at all, locks us into the weaker intron, and depends on
-a 70 bp sequence whose compliance is unverified. Route B matches a published working system,
-reuses an enzyme scheme GRASP already uses, and is the only route that can carry the stronger
-intron.
+**Route B.** Route A cannot serve 19S at all and depends on a 70 bp sequence whose compliance
+is unverified. Route B matches a published working system and reuses an enzyme scheme GRASP
+already uses.
+
+*Corrected 2026-10-16:* an earlier version of this paragraph also claimed Route B was "the
+only route that can carry the stronger intron". There is no route that carries it. LHCBM1i2
+breaches the GC band 0.680 at offset 14, inside the intron rather than at a seam, so no
+wrapping enzyme or pad moves it. rbcS2i1 is not a preference; it is the only one that fits.
+See `docs/intron_fidelity.md`.
 
 ---
 

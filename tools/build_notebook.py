@@ -915,6 +915,12 @@ trust.
 Three hosts are **refused, not warned**: `e_coli` and both chloroplast tables have no nuclear
 spliceosome, so the intron is never cut out. At 145 nt it would shift the reading frame and it
 carries a stop in all three frames, which destroys the protein rather than failing to help it.
+
+**Introns cost assembly fidelity**, because each one adds a junction competing in the same
+reaction. How much depends on how many you place, so the count is searched rather than
+derived from the spacing rule, and the whole curve is printed. The ceiling is set by your
+destination vector, not by the introns: at level 0 the two acceptor ends are `CTCA` and
+`CTCG`, one base apart, which caps any reaction here at about 0.83 before an intron exists.
 """))
 
 cells.append(code('''
@@ -952,9 +958,22 @@ else:
         if advice.get("predicted_fidelity") is not None:
             print(f"   predicted assembly fidelity {advice['predicted_fidelity']:.3f}, "
                   f"against {result['fidelity']:.3f} for the design without introns")
+        curve = advice.get("fidelity_by_intron_count") or {}
+        if len(curve) > 1:
+            print()
+            print("   what each count would cost:")
+            for n, f in sorted(curve.items()):
+                mark = "  <- chosen" if n == len(advice["suggested"]) else ""
+                print(f"     {n} intron(s): {f:.3f}{mark}")
+            print("   More introns raised expression in every published series, so this")
+            print("   takes the most that still assembles acceptably.")
         if advice.get("fidelity_warning"):
             print()
             print(f"   WARNING: {advice['fidelity_warning']}")
+        print()
+        print("   This is one seed. Across five seeds on the same target the same")
+        print("   machinery gave two or three introns at 0.75 to 0.80, so read the count")
+        print("   and the number as a draw from that range rather than a fixed answer.")
     else:
         print()
         print(advice.get("blocked_by", "no placement found"))

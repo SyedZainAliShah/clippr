@@ -37,6 +37,21 @@ RBCS2I1 = (
     "TGCAG"
 )
 
+#: *C. reinhardtii* LHCBM1 intron 2, NCBI AF495473.1 bases 527..779, 253 bp.
+#:
+#: The strongest enhancing intron in Baier 2020's screen of 33 native sequences -- about
+#: 8-fold against rbcS2i1's 5.5 -- and **unusable here**. It breaches the GC band on its own,
+#: not at a wrapper seam: a 50-nt window at offset 14 reaches 0.680 against a 0.65 ceiling.
+#: The breach is interior, so no choice of wrapping enzyme or pad moves it, and an intron
+#: cannot be recoded. Kept as a named constant so the question "why not the better intron?"
+#: has an answer in the code rather than being rediscovered.
+LHCBM1I2 = (
+    "GTAAGTCTTTCTGTGTCGCGGGGTTCTGGGCGTTCGCATGCGCAACAGTGTCGCACGGTCGCTCTTGCAG"
+    "CACAGTCACTACAGATAGTCCAAGTCCGACGCATGGCGATCGGGCAACTGCGATTTGCACATGCGGCAAG"
+    "GGATCTCTAGCTCGGGCTGGCGAAGCCTTCAGGACATGGAGCGCTGTCCAGCAGCTGGTTGGTGATGCTC"
+    "TATCCTAAATTGCCCCTCCCACACACCCTTACTTGCTTTCCAG"
+)
+
 #: Hosts with a nuclear spliceosome, where a spliceosomal intron is excised at all.
 #: Named explicitly rather than derived from the genetic code: `e_coli` uses code 1 like the
 #: nuclear eukaryotes but is a bacterium, so code alone would wrongly admit it.
@@ -65,6 +80,20 @@ EVIDENCE_HOSTS = frozenset({"c_reinhardtii_nuclear"})
 #: with BbsI, and the GRASP kit assembles level 0 with BpiI, which is the same site. The
 #: idiomatic choice and the one that passes are the same choice.
 PART_ENZYME: str = "BbsI"
+
+#: Predicted assembly fidelity below which a placement is not offered as a default.
+#:
+#: The level 0 acceptor caps any reaction at about 0.83 before an intron exists, because the
+#: strands that meet in the tube are CTCA and CTCG and they differ by one base. 0.75 is
+#: therefore "noticeably worse than no introns, still workable", not a published threshold.
+#:
+#: **It is a knife-edge, and callers should know that.** Across five seeds on the same 9S
+#: target, four produced placements scoring exactly 0.7507 -- seven ten-thousandths above
+#: this line. A floor of 0.751 would have dropped an intron from all four and tripped the
+#: warning branch for each. The reported `margin_to_floor` exists so that closeness is
+#: visible in the result rather than buried in a constant, because a threshold this tight is
+#: deciding more than its precision justifies.
+FIDELITY_FLOOR = 0.75
 
 #: Shortest exon worth designing. MoInClo's were 234-432 nt and Baier's about 240-583, so
 #: this is a floor against arithmetic artefacts rather than a published rule: a search that
@@ -234,9 +263,22 @@ def has_evidence(organism: str) -> bool:
 
 
 def why_not(organism: str) -> str | None:
-    """The reason a host is refused, or None when it is not."""
+    """The reason a host is refused, or None when it is not.
+
+    A host this module does not recognise is reported as unrecognised. Saying it has no
+    spliceosome would be a confident biological claim about something we have not looked at,
+    and a mistyped organism name would collect it.
+    """
     if applicable(organism):
         return None
+    from .constants import ORGANISMS
+
+    if organism not in ORGANISMS:
+        return (
+            f"{organism!r} is not one of the hosts this module knows, so whether a "
+            f"spliceosomal intron would be excised in it has not been assessed. Known hosts: "
+            f"{', '.join(sorted(ORGANISMS))}."
+        )
     return (
         f"{organism} has no nuclear spliceosome, so the intron would never be excised. It "
         f"would be read as coding sequence: at {len(RBCS2I1)} nt it frameshifts everything "
@@ -266,7 +308,7 @@ def _overhang(cds: str, position: int) -> str:
 
 
 def _select(cds: str, clean: list[int], spacing: int,
-            intron: str) -> tuple[list[int], float | None]:
+            intron: str) -> tuple[list[int], float | None, dict[int, float]]:
     """Pick the intron positions whose junction overhangs assemble best.
 
     Enumerates the sets that satisfy the exon-length rules and scores each with the same
@@ -282,7 +324,7 @@ def _select(cds: str, clean: list[int], spacing: int,
     from .assembly_spec import DESTINATION_OVERHANGS
 
     if not clean:
-        return [], None
+        return [], None, {}
     dest = DESTINATION_OVERHANGS["level0"]
     fixed = [dest[0], reverse_complement(dest[1])]
     want = max(1, round(len(cds) / spacing) - 1)
@@ -292,10 +334,15 @@ def _select(cds: str, clean: list[int], spacing: int,
         return all(MIN_EXON_NT <= b - a <= MAX_EXON_NT
                    for a, b in zip(bounds, bounds[1:]))
 
-    best: tuple[float, tuple[int, ...]] | None = None
-    for k in range(want, 0, -1):
+    # Score every intron count, not just the one the spacing rule implies. Each extra
+    # intron adds a junction to the same reaction, and fidelity falls steeply: on 14S the
+    # spacing count of five scores 0.517 where three score 0.687, and on 19S seven score
+    # 0.307. Fixing the count from spacing alone was picking the worst end of that curve.
+    by_count: dict[int, tuple[float, tuple[int, ...]]] = {}
+    for k in range(1, want + 1):
         if len(clean) > 40 and k > 6:          # keep the enumeration bounded
-            continue
+            break
+        best_k: tuple[float, tuple[int, ...]] | None = None
         for combo in itertools.combinations(clean, k):
             if not ok(combo):
                 continue
@@ -303,13 +350,22 @@ def _select(cds: str, clean: list[int], spacing: int,
             if len(set(ohs)) != len(ohs):
                 continue
             score = set_fidelity(fixed + ohs, "BsaI-HFv2")
-            if best is None or score > best[0]:
-                best = (score, combo)
-        if best is not None:
-            break
-    if best is None:
-        return [], None
-    return list(best[1]), round(best[0], 4)
+            if best_k is None or score > best_k[0]:
+                best_k = (score, combo)
+        if best_k is not None:
+            by_count[k] = best_k
+    if not by_count:
+        return [], None, {}
+
+    # More introns is more expression in the literature -- Baier found every added copy
+    # helped -- so prefer the most that still assembles acceptably, rather than the single
+    # highest-scoring count. Below the floor, fall back to whatever scores best and let the
+    # warning say so.
+    affordable = [k for k, (f, _) in by_count.items() if f >= FIDELITY_FLOOR]
+    k = max(affordable) if affordable else max(by_count, key=lambda n: by_count[n][0])
+    score, combo = by_count[k]
+    curve = {n: round(f, 4) for n, (f, _) in sorted(by_count.items())}
+    return list(combo), round(score, 4), curve
 
 
 def advise(cds: str, organism: str, *, intron: str = RBCS2I1,
@@ -410,9 +466,12 @@ def advise(cds: str, organism: str, *, intron: str = RBCS2I1,
     # Measured on the 9S design, that walk gives a predicted fidelity of 0.18 against a
     # baseline of 0.83; on 19S it gives 0.003. Choosing the set for fidelity instead
     # recovers 0.80 on 9S.
-    chosen, chosen_fidelity = _select(cds, clean, spacing, intron)
+    chosen, chosen_fidelity, curve = _select(cds, clean, spacing, intron)
     report["suggested"] = chosen
     report["predicted_fidelity"] = chosen_fidelity
+    report["fidelity_by_intron_count"] = curve
+    report["margin_to_floor"] = (None if chosen_fidelity is None
+                                 else round(chosen_fidelity - FIDELITY_FLOOR, 4))
 
     # Say when the placement is not worth having. Measured across the three architectures
     # with fixed codons: 9S reaches 0.80 against a 0.83 baseline, 14S 0.68, 19S 0.48. The
@@ -424,11 +483,17 @@ def advise(cds: str, organism: str, *, intron: str = RBCS2I1,
                 f"predicted assembly fidelity falls to {chosen_fidelity:.3f}. About half the "
                 f"assembled plasmids would carry the wrong arrangement. This placement is "
                 f"not usable as it stands.")
-        elif chosen_fidelity < 0.75:
+        elif chosen_fidelity < FIDELITY_FLOOR:
             report["fidelity_warning"] = (
                 f"predicted assembly fidelity falls to {chosen_fidelity:.3f}, against "
                 f"roughly 0.83 without introns. Expect to screen more colonies, and treat "
                 f"this as a trade-off to decide rather than a plan to follow.")
+        elif chosen_fidelity - FIDELITY_FLOOR < 0.01:
+            report["fidelity_warning"] = (
+                f"this placement clears the acceptable line by {chosen_fidelity - FIDELITY_FLOOR:.4f}, "
+                f"which is too close to read as a verdict. Dropping one intron would score "
+                f"{max((f for n, f in curve.items() if n < len(chosen)), default=float('nan')):.4f}. "
+                f"Treat the count as a choice rather than a recommendation.")
     bounds = [0] + chosen + [len(cds)]
     report["exon_lengths"] = [b - a for a, b in zip(bounds, bounds[1:])]
 

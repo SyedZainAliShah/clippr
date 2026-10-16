@@ -323,3 +323,117 @@ class TestPlacementIsChosenForAssembly:
         if out["predicted_fidelity"] is not None and out["predicted_fidelity"] < 0.75:
             assert out.get("fidelity_warning"), (
                 "a placement under 0.75 was offered with no warning attached")
+
+
+class TestTheIntronCountIsSearched:
+    """How many introns to place is a result, not an input derived from spacing.
+
+    Each extra intron adds a junction to the same reaction and fidelity falls steeply. The
+    first version fixed the count at `round(len(cds) / 240) - 1`, which on 14S meant five
+    introns scoring 0.517 where three score 0.687, and on 19S seven scoring 0.307. It was
+    picking the worst end of the curve and reporting it as the recommendation.
+    """
+
+    CDS = TestTheRealChlamydomonasCase.CDS
+
+    def test_a_curve_is_reported_not_a_single_count(self):
+        out = introns.advise(self.CDS, "c_reinhardtii_nuclear")
+        curve = out["fidelity_by_intron_count"]
+        assert curve, "the trade-off across counts should be reported"
+        assert len(out["suggested"]) in curve
+
+    def test_the_chosen_count_is_the_most_that_clears_the_floor(self):
+        """More introns is more expression in the literature, so take the most affordable."""
+        out = introns.advise(self.CDS, "c_reinhardtii_nuclear")
+        curve = out["fidelity_by_intron_count"]
+        affordable = [k for k, f in curve.items() if f >= introns.FIDELITY_FLOOR]
+        if affordable:
+            assert len(out["suggested"]) == max(affordable), (
+                f"chose {len(out['suggested'])} introns from curve {curve} with floor "
+                f"{introns.FIDELITY_FLOOR}")
+
+    def test_fidelity_does_not_improve_with_more_introns(self):
+        """The shape the search exists to exploit. If it inverted, the reasoning is wrong."""
+        out = introns.advise(self.CDS, "c_reinhardtii_nuclear")
+        curve = out["fidelity_by_intron_count"]
+        counts = sorted(curve)
+        assert curve[counts[0]] >= curve[counts[-1]], (
+            f"more introns scored better than fewer, which contradicts the measurement: "
+            f"{curve}")
+
+
+class TestTheStrongerIntronIsRefused:
+    """Why the advisory does not offer LHCBM1i2, which the literature prefers.
+
+    Baier 2020 screened 33 native introns and LHCBM1i2 was the strongest, about 8-fold
+    against rbcS2i1's 5.5. It cannot be used here: a 50-nt window at offset 14 reaches 0.680
+    against this project's 0.65 ceiling, and the breach is *interior* to the intron rather
+    than at a wrapper seam. No wrapping enzyme or pad moves an interior window, and an intron
+    is not coding so it cannot be recoded. The only lever would be the band itself.
+    """
+
+    def test_it_is_the_published_sequence(self):
+        assert len(introns.LHCBM1I2) == 253
+        assert introns.LHCBM1I2.startswith("GT") and introns.LHCBM1I2.endswith("AG")
+
+    def test_it_breaches_the_band_on_its_own(self):
+        problems = introns.sequence_problems(introns.LHCBM1I2, STRICT_LEGACY)
+        assert problems, "if this now passes, the stronger intron has become available"
+        assert "0.68" in problems[0]
+
+    def test_no_wrapping_enzyme_rescues_an_interior_breach(self):
+        """The contrast with rbcS2i1, whose breach was at the seam and BbsI fixed."""
+        for enzyme in ("BsaI", "BbsI", "SapI"):
+            assert introns.part_problems(introns.LHCBM1I2, enzyme), (
+                f"{enzyme} appeared to rescue an interior window, which should be impossible")
+        assert introns.part_problems(introns.RBCS2I1, "BbsI") == [], (
+            "rbcS2i1 with BbsI is the case that does work; it anchors the contrast")
+
+
+class TestAnUnknownHostIsNotGivenABiologicalVerdict:
+    """A mistyped organism must not collect a confident claim about its spliceosome."""
+
+    def test_an_unknown_host_is_reported_as_unknown(self):
+        why = introns.why_not("c_reinhardti_nuclear")        # one letter short
+        assert why and "not one of the hosts" in why
+        assert "has no nuclear spliceosome" not in why
+
+    def test_a_known_host_without_a_spliceosome_still_says_so(self):
+        why = introns.why_not("e_coli")
+        assert why and "spliceosome" in why.lower()
+        assert "not one of the hosts" not in why
+
+
+class TestTheFloorIsAKnifeEdgeAndSaysSo:
+    """Four of five seeds land at 0.7507 against a 0.75 floor. That is not a verdict.
+
+    A threshold clearing by seven ten-thousandths is deciding more than its precision
+    justifies: a floor of 0.751 would have dropped an intron from four of those five
+    placements. The result therefore carries the margin, and a placement scraping over the
+    line is flagged rather than presented as a clean pass.
+    """
+
+    CDS = TestTheRealChlamydomonasCase.CDS
+
+    def test_the_margin_to_the_floor_is_reported(self):
+        out = introns.advise(self.CDS, "c_reinhardtii_nuclear")
+        if out["predicted_fidelity"] is not None:
+            assert out["margin_to_floor"] is not None
+            assert abs(out["margin_to_floor"]
+                       - (out["predicted_fidelity"] - introns.FIDELITY_FLOOR)) < 1e-6
+
+    def test_a_placement_scraping_the_line_is_flagged(self):
+        """Synthesised rather than hoped for: drive the floor up to just under the result."""
+        out = introns.advise(self.CDS, "c_reinhardtii_nuclear")
+        if out["predicted_fidelity"] is None:
+            pytest.skip("no placement to probe")
+        tight = round(out["predicted_fidelity"] - 0.005, 4)
+        original = introns.FIDELITY_FLOOR
+        try:
+            introns.FIDELITY_FLOOR = tight
+            probed = introns.advise(self.CDS, "c_reinhardtii_nuclear")
+            assert probed["margin_to_floor"] < 0.01
+            assert probed.get("fidelity_warning"), (
+                "a placement within 0.01 of the floor was offered with no caveat")
+        finally:
+            introns.FIDELITY_FLOOR = original
