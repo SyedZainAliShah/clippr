@@ -11,6 +11,13 @@ from __future__ import annotations
 
 #: Deposited destination overhangs as *coding sites*, 5' then 3'.
 #:
+#: **Level 0 confirmed against the wet lab's own vector, 2026-10-16.** Jan Vollmer reports
+#: that the Chlamydomonas toolbox uses the same level 0 acceptor as the original GRASP
+#: toolbox, that CTCA/CGAG are the correct level 0 overhangs, and that the vector in use is
+#: labelled **pIM 046**. So this is not an assumption inherited from the deposited designs;
+#: it is the backbone the constructs would actually be cloned into. Level -1 and level 1
+#: carry no such confirmation.
+#:
 #: The 3' entry is the coding site, not the overhang: the enzyme leaves its reverse
 #: complement. Level 0 is stored ("CTCA", "CGAG"), but the strands that actually meet in
 #: the tube are CTCA and CTCG -- which differ by a single nucleotide and score 0.794

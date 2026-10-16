@@ -63,8 +63,17 @@ For the 9S placement above, scoring the acceptor pair alone and then the whole r
 else — 0.17 at level 0 — is the acceptor's two ends being one base apart.
 
 That reframes the question for the lab. It is not "can we afford introns"; it is "why are we
-paying 0.17 for our backbone". PPROPT's own level −1 pair scores 0.9364, so a better-separated
-pair is not exotic.
+paying 0.17 for our backbone".
+
+**Asked and answered, 2026-10-16.** Jan Vollmer confirms the Chlamydomonas toolbox uses the
+same level 0 acceptor as the original GRASP toolbox, that `CTCA`/`CGAG` are the correct level 0
+overhangs, and that the vector in use is **pIM 046**. PPROPT's assumption was right, and the
+lever is therefore shut: **the 0.17 is a fixed property of the backbone the lab actually
+clones into, not a parameter anyone can tune.**
+
+So the numbers in the first table stand as the real ones. The intron junctions cost 0.03; the
+backbone costs 0.17; and only the first of those is ours to argue about. That also means the
+19S result is marginal for good — there is no cheap fidelity recovery waiting.
 
 ## The floor is deciding more than it should
 
@@ -176,5 +185,6 @@ sites. **Read the sweep table as a floor, not a ceiling.**
   expression in a designed PPR. Nobody has tested that.
 - **One seed, one host, one intron.** Seed 42, *C. reinhardtii* nuclear, rbcS2i1 throughout.
   LHCBM1i2 is the stronger intron in the literature and is untested against any of this.
-- **Whether a better level 0 acceptor exists** for this lab, which is the single change that
-  would matter most.
+- ~~Whether a better level 0 acceptor exists for this lab.~~ **Answered 2026-10-16:** it is
+  pIM 046, `CTCA`/`CGAG`, shared with the original GRASP toolbox. No alternative was offered
+  and none is assumed.
