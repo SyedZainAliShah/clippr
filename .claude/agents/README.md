@@ -48,6 +48,7 @@ cannot write production code, so it has nothing to defend.
 | citations resolve | a `file:line` past the end of the file, or a missing file |
 | banned phrases | wording `CLAUDE.md` forbids |
 | working tree | reports what is uncommitted (advisory) |
+| notebooks execute *(`--deep`)* | a cell that type-checks and raises when actually run |
 
 ```bash
 cd C:/CodePractice/Drylab/clippr
@@ -56,6 +57,17 @@ PYTHONUTF8=1 .venv/Scripts/python.exe validation/gate.py
 
 `--quick` skips the suite and reports `INCOMPLETE`, which **exits 1**. A gate that has not
 run the suite has not gated anything, so it cannot report success.
+
+`--deep` additionally runs every cell of both notebooks in order against live code. It is off
+by default because it adds several minutes, and on for anything touching a notebook or its
+generator. It catches a cell that type-checks and then raises — the inventory notebook once
+shipped having never executed at all.
+
+It would **not** have caught the regression that prompted all of this. That bug was a name
+defined and used within one cell, which runs fine in order; it only broke when a test
+rendered part of that cell in a narrower namespace. `tests/test_display_verdict.py` is the
+guard for that class. Saying so here is the point: a check whose advertised reach exceeds its
+real one is worse than no check, because people stop looking.
 
 It reads counts from JUnit XML rather than pytest's stdout because the summary line does not
 reliably survive redirection in this environment — the specific quirk that once let an

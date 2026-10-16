@@ -5,6 +5,15 @@ not an implementation. Every measurement in §4 was taken from this checkout; ev
 §2 and §3 is from the cited literature and was measured by someone else, in someone else's
 construct, in an organism that is sometimes not ours.*
 
+> **Independently verified 2026-10-16.** 37 claims were re-checked by a separate reader that
+> did not write this document: every `file:line`, every measurement re-derived from scratch,
+> and every published figure against the primary paper rather than a search result. 34 came
+> back correct, two were wrong and one was over-reached. All three are corrected here: a
+> citation off by one line, a table cell carrying the 19S value in the 14S column, and a claim
+> that GRASP uses BpiI at level −1, which its paper does not state. Two framings that were
+> technically true but would have misled a reader were also tightened. The corrections are in
+> place; this note records that they were needed.
+
 ---
 
 ## 0. The short version
@@ -111,8 +120,9 @@ motif.
 [The MoInClo system (PMC11925875)](https://pmc.ncbi.nlm.nih.gov/articles/PMC11925875/)
 combined two introns in one gene and reported **more than 16-fold** NanoLuc activity over the
 intron-free control, with about 60-fold mRNA in the top pools. Fewer than 5% of intron-free
-transformants gave any signal at all, against roughly one third for single-intron constructs
-— so introns change the *hit rate*, not only the ceiling.
+transformants gave any signal at all, against roughly one third for its two best
+single-intron constructs — a third single-intron design managed only about 10% — so introns
+change the *hit rate*, not only the ceiling.
 
 The effect was first described by
 [Lumbreras et al. 1998](https://onlinelibrary.wiley.com/doi/10.1046/j.1365-313X.1998.00145.x),
@@ -136,7 +146,8 @@ immediate pair showed no correlation. The authors note, usefully for us, that hi
 codon-optimised sequence contains many such sites.
 
 Spacing follows the native architecture: exons of **≤500 bp**, against a *C. reinhardtii*
-average exon length of **240 nt**. A construct with a 1,057 bp exon expressed worse than the
+average exon length of **240 nt**. Worth noting that the paper's own best construct has a
+583 bp exon, so its guideline is a guideline and not a threshold even to its authors. A construct with a 1,057 bp exon expressed worse than the
 evenly-spaced design. MoInClo's own constructs used exons of 234–432 bp.
 
 Position matters as well as spacing: enhancement is stronger closer to the transcription
@@ -146,12 +157,12 @@ start site, and removing the N-terminal introns lowered expression more than rem
 
 [Nucleic Acids Research 2025, 53(4):gkaf097](https://academic.oup.com/nar/article/53/4/gkaf097/8039171)
 made over 300,000 introns carrying **160 nt of fully random internal sequence** between
-constant splice signals, and assayed 19,346 of them by single-copy genomic integration in
-human HEK293T cells.
+constant splice signals, integrated them singly into the genome of human HEK293T cells, and
+analysed the **19,346** that met its minimum read-count threshold.
 
 Nearly every one enhanced expression. The library averaged **8.5-fold mRNA and 8.9-fold
 protein**, with about 95% of introns falling between roughly 6.5- and 11-fold. More than 98%
-of transcripts were spliced as expected despite the random interiors. The authors' conclusion
+of GFP reads were spliced as expected despite the random interiors. The authors' conclusion
 is that enhancement is "a general property of splicing, largely independent of intron
 sequence", correlating only weakly with splicing efficiency (Spearman ρ = 0.072) and with
 intronic poly-uridine content.
@@ -318,7 +329,7 @@ Adding an intron to a fragment's payload:
 |---|---:|---|---|---|
 | rbcS2i1, full | 145 nt | 409 ✗ | 409 ✗ | 442 ✗ |
 | rbcS2i1, truncated | 70 nt | 334 ✓ | 334 ✓ | 367 ✗ |
-| LHCBM1i2, strongest | 253 nt | 517 ✗ | 550 ✗ | 550 ✗ |
+| LHCBM1i2, strongest | 253 nt | 517 ✗ | 517 ✗ | 550 ✗ |
 
 **Only the truncated intron fits, and only on 9S and 14S.** This single table is what forces
 the choice in §5.
@@ -356,8 +367,8 @@ BbsI-flanked for the exon junctions, with outer BsaI sites for cloning.
 **This sidesteps the 350 nt cap entirely.** Full 145 bp rbcS2i1 becomes available on every
 architecture, and so does the stronger 253 bp LHCBM1i2.
 
-**It fits the kit's existing architecture better than I expected.** GRASP already assembles
-level −1 and level 0 with **BpiI** and level 1 with **BsaI** — and PPROPT already records
+**It fits the kit's existing architecture better than I expected.** GRASP assembles level 0
+with **BpiI** and level 1 with **BsaI** — and PPROPT already records
 that BpiI is an isoschizomer of BbsI, same `GAAGAC` site (`policy.py:59`). So the two-enzyme
 scheme MoInClo needs is the scheme GRASP already uses, and PPROPT already models BbsI as a
 wrapping enzyme (`substrates.py:134`). GRASP also places its own junctions in the ARELF
@@ -392,20 +403,23 @@ From a full survey of the codebase at `30cf908`. **Nothing in this repository mo
 non-coding DNA.** The CDS is built as `reverse_translate(protein)` (`codons.py:326`) and is
 therefore exactly `3 × len(protein)` by construction.
 
-**Four hard refusals.** The first is `assembly.py:106`, which rejects any CDS that is not a
-whole number of codons — and rbcS2i1 at 145 nt is not. Also `codons.py:369`,
-`products.py:334` and `products.py:379`.
+**Four hard refusals.** Three are codon-multiple gates: `assembly.py:106`, which rejects any
+CDS that is not a whole number of codons — and rbcS2i1 at 145 nt is not — plus
+`products.py:334` and `products.py:379`. The fourth, `codons.py:369`, is a different thing and
+worth naming separately: a locked-site bounds check that raises when a lock offset computed
+against a longer sequence falls outside the optimiser's own. There is no whole-number-of-codons
+refusal anywhere in `codons.py`.
 
 **About fifteen silent-corruption sites** converting residue index to nucleotide offset by
 multiplying or dividing by 3. These do not raise; they address the wrong bases. The ones that
 matter most: the overhang locks at `design.py:422`, `design.py:476` and `search.py:172`; the
 fragment boundary arithmetic at `assembly.py:109–137`; `arelf.py:46`; and **every PPR repeat
-annotation in the GenBank export** at `export.py:75–94`, which would place every feature
+annotation in the GenBank export** at `export.py:79–95`, which would place every feature
 after the intron at the wrong coordinates.
 
 **Nine tests and six validation scripts** pin the invariant deliberately, including
 `validation/integration.py:46` (`len(cds) != 3 * len(protein)`) and
-`tests/test_assembly.py:132` (`test_non_codon_sequence_rejected`). These are guards, not
+`tests/test_assembly.py:131` (`test_non_codon_sequence_rejected`). These are guards, not
 incidental assertions, and would need rewriting rather than deleting.
 
 **One genuine seam exists.** `extra_constraints` (`codons.py:377`) is the caller-supplied

@@ -24,6 +24,7 @@ achievable, and what this provides, is two things:
 Usage:
 
     python validation/gate.py                 # everything, including the full suite
+    python validation/gate.py --deep          # also execute both notebooks, cell by cell
     python validation/gate.py --quick         # everything except the suite, for iteration
     python validation/gate.py --self          # print this file's SHA-256 and exit
     python validation/gate.py --json out.json # also write a machine-readable verdict
@@ -237,6 +238,43 @@ def check_banned_phrases() -> Check:
                  "none present" if not hits else "; ".join(hits), {"hits": hits})
 
 
+def check_notebooks_execute() -> Check:
+    """Both notebooks run every cell in order against live code.
+
+    Catches a cell that type-checks and raises: the inventory notebook once shipped having
+    never executed, because a display DataFrame was passed where a codon table was expected
+    and three cells raised the moment a real input reached them, while every static test
+    stayed green.
+
+    **What it does not catch**, stated so nobody relies on it for this: a name defined and
+    used within one cell is fine here but can still break a *slice* of that cell. The
+    `chosen_table_source` regression was exactly that shape -- defined beside the design
+    call, used in the result card, both in cell 7 -- so running cells in order never saw it.
+    `tests/test_display_verdict.py` caught it, by rendering the card from the cell's tail in
+    a narrower namespace. That test is the guard for that class, not this check.
+
+    Slow -- several minutes per notebook -- so it runs only under `--deep`.
+    """
+    broken, ran = [], []
+    for nb in NOTEBOOKS:
+        proc = _run([str(PYTHON), str(ROOT / "validation" / "run_notebook.py"),
+                     "--notebook", str(ROOT / nb)])
+        tail = (proc.stdout or "").strip().splitlines()
+        verdict = next((ln for ln in reversed(tail)
+                        if ln.strip() in ("PASS", "FAIL", "SKIP")), "")
+        counts = next((ln for ln in reversed(tail) if "cells executed" in ln), "")
+        name = Path(nb).name
+        if verdict == "PASS":
+            ran.append(f"{name} ({counts})")
+        elif verdict == "SKIP":
+            broken.append(f"{name}: skipped -- {tail[0] if tail else 'no reason given'}")
+        else:
+            broken.append(f"{name}: {counts or (proc.stderr or '')[-160:]}")
+    return Check("notebooks execute", not broken,
+                 "; ".join(ran) if not broken else "; ".join(broken),
+                 {"ran": ran, "broken": broken})
+
+
 def check_tree_state() -> Check:
     """Reports what is uncommitted. Advisory: a dirty tree is normal mid-task."""
     proc = _run(["git", "status", "--porcelain"])
@@ -260,6 +298,8 @@ def main() -> None:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--quick", action="store_true",
                     help="skip the suite; reports INCOMPLETE and never exits 0")
+    ap.add_argument("--deep", action="store_true",
+                    help="also execute both notebooks cell by cell; adds several minutes")
     ap.add_argument("--self", action="store_true", help="print this file's SHA-256 and exit")
     ap.add_argument("--json", metavar="PATH", help="also write the verdict as JSON")
     args = ap.parse_args()
@@ -279,6 +319,9 @@ def main() -> None:
         check_banned_phrases(),
         check_tree_state(),
     ]
+    if args.deep:
+        print("  executing both notebooks ...", flush=True)
+        checks.append(check_notebooks_execute())
     if args.quick:
         checks.append(Check("suite", None, "skipped by --quick"))
     else:
