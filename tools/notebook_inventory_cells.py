@@ -312,6 +312,11 @@ if selected is not None:
 ''', title="Step 6 — commit to a choice and rebuild"))
 
     out.append(md("""
+> **This route does not take introns into consideration.** The deposited kit modules carry
+> none, recoding would silently remove one from a module it rewrote, and nothing here checks
+> for them. If you are building for a nuclear host where intron-mediated enhancement matters,
+> that is a reason to look at the de novo notebook, not this one.
+
 ## Plan the order
 
 Eligibility, pooling and export against a written product profile.

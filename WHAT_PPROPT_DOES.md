@@ -35,7 +35,7 @@ scaffold ends the published design needs.
 *codons* — like synonyms. We pick spellings the host cell reads easily, while avoiding
 patterns that cause trouble later.
 
-**5. Cut it into orderable pieces.** Synthesis companies won't make one long piece reliably,
+**5. Cut it into fragments you can order.** Synthesis companies won't make one long piece reliably,
 so we split the DNA into about four fragments, each with **sticky ends** — four unpaired
 letters that only match their partner, like Lego studs, so the pieces snap together in one
 order and no other.
@@ -106,5 +106,12 @@ comes from the version with it on; the earlier corpus is kept as
   from. Defend it as conservatism, never as vendor acceptance.
 - **The 200 designs are our own**, generated from random sequences by this software, frozen so
   every check measures the same set. They are not real biological targets.
+- **Good codons are not enough for this host, and we only do codons.** In *Chlamydomonas*,
+  a codon-optimised gene with no introns expressed barely at all; adding three copies of a
+  short intron to the same gene raised mRNA more than 100-fold and protein about 8-fold
+  (Baier 2018). Codon choice is the whole of what this software does for expression, so a
+  design it calls good may still express poorly for a reason it does not model. The
+  designer notebook now reports where introns could go; it does not put them there. See
+  `docs/intron_feasibility.md`.
 - **The kit route's pooling plan** is checked against vendor rules we copied by hand. That is
   not vendor approval.
