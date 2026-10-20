@@ -19,7 +19,7 @@ cells = [
     md(f"""
 <div align="center">
 
-# PPR-opt — reusable inventory
+# PPR-opt - reusable inventory
 
 ### Build PPRs from the deposited GRASP module kit instead of ordering new DNA
 
@@ -51,7 +51,7 @@ recode works from a *saved inventory* carrying its own sequences, so Table S1 is
     # then raises ImportError twelve cells down. That is a maintainer's concern. The reader
     # wants to know whether they can carry on, and what to do if not.
     code('''
-#@markdown Checks this notebook can run on the copy of PPR-opt you have installed.
+#@markdown Checks if this notebook can run on the copy of PPR-opt you have installed.
 #@markdown
 #@markdown **Green?** Carry on. **Red?** Run the Setup cell above again, then
 #@markdown **Runtime → Restart session**, then Setup once more.

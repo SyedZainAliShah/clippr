@@ -29,10 +29,10 @@ def code(text, title=None, form=True):
 #: The install cell. Identical in both notebooks, so it lives here: a fix to the private-repo
 #: fallback or the version banner should never land in one notebook and not the other.
 _SETUP = '''
-#@markdown Installs PPR-opt, or updates it when this notebook is newer than the copy you
-#@markdown already have. Safe to re-run. About a minute the first time, seconds after that.
+#@markdown Installs PPR-opt or updates it when this notebook is newer than the copy you
+#@markdown already have. Safe to re-run. Will take about a minute the first time, seconds after that.
 #@markdown
-#@markdown **If it fails:** run it again — a dropped network call is the usual cause. If it
+#@markdown **If it fails:** run it again - a dropped network call is the usual cause. If it
 #@markdown reports that it updated, use **Runtime → Restart session** and run it once more:
 #@markdown the old copy stays loaded in memory until you do. Every cell below needs this one
 #@markdown to have succeeded, so do not skip past a red error here.
@@ -120,7 +120,7 @@ display(HTML(
 
 
 def setup_cell():
-    return code(_SETUP.replace("__REPO__", REPO), title="Setup — install PPR-opt")
+    return code(_SETUP.replace("__REPO__", REPO), title="Setup - install PPR-opt")
 
 
 #: Terms both notebooks use. Written for someone who wants a PPR and has not met Golden Gate

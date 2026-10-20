@@ -127,13 +127,13 @@ cells.append(md(f"""
 
 # PPR-opt
 
-**Design a PPR protein that binds any RNA sequence you choose**
+**Design a PPR protein binding a specific RNA sequence of your choice**
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]({COLAB})
 [![License: MIT](https://img.shields.io/badge/License-MIT-1a7f5a.svg)](https://github.com/{REPO}/blob/main/LICENSE)
 {TESTS_BADGE}
 
-**iGEM Marburg 2026**
+**CLiPPR - iGEM Marburg 2026**
 
 </div>
 
@@ -145,7 +145,7 @@ cells.append(md(f"""
 
 ---
 
-Pentatricopeptide repeat proteins are built from tandem ~31-residue repeats, and **each
+**P**entatrico**p**eptide **R**epeat (PPR) proteins are built from ~31-residue repeats, and **each
 repeat reads exactly one RNA base** through two specificity residues:
 
 | 5th + last residue | reads |     | 5th + last residue | reads |
@@ -153,30 +153,33 @@ repeat reads exactly one RNA base** through two specificity residues:
 | `T` `N` | **A** |  | `T` `D` | **G** |
 | `N` `N` | **C** |  | `N` `D` | **U** |
 
-So the protein is a deterministic function of your target — no catalogue to search. Give it
-nine bases and you get a nine-repeat protein, a synthesisable coding sequence, a Golden Gate
-assembly plan, and the fragments it would order if they passed the final check.
+T = threonine
+N = asparagine
+D = aspartate
 
-**Four steps.** Run **0 · Setup** once, edit **1**, then run **2**, **3** and **4** in order.
-Everything under *Optional extras* can be skipped — open one when you want that check.
-Code is hidden behind the forms; use a cell's ⋮ menu → **Form → Show code** to read it.
+Therefore, a RNA sequence of 9 bases would result in a PPR protein of 9 repeats.
+This tool will give you a synthesisable coding sequence, a Golden Gate
+assembly plan, and the ready-to-order fragments.
 
-> **Designing from the deposited 42-module kit instead?** That is a different workflow with a
-> different set of answers, so it has its own notebook:
+**Four steps.**
+Run **0 · Setup** once, edit **1**, then run **2**, **3** and **4** in order.
+Everything under *Optional extras* can be skipped - open one when you want that particular check.
+The code is hidden behind the forms. You can use a cell's ⋮ **menu → Form → Show code** to read it.
+
+> **You want to design a flexible toolbox instead of a single PPR?**
+That is a different workflow, so it has its own notebook here:
 > [PPROPT_inventory.ipynb]({INVENTORY_COLAB}).
 
-> ##### Before you read any number
-> **Predicted fidelity** comes from published ligation-count matrices (Pryor *et al.* 2020) —
-> it is not a measured assembly efficiency in your hands. **QC** is a sequence-complexity
-> check, not calibrated against vendor outcomes.
-> Nothing here has been validated at the bench.
+> ##### Disclaimer:
+> **Predicted fidelity** comes from published ligation-count matrices (Pryor *et al.* 2020). **QC** is a common sequence-complexity
+> check, this might vary depending on the supplier of your choice. As of now only one synthetic PPR designed for *Chlamydomonas reinhardtii* has been transformed and tested.
 """))
 
 # ---------------------------------------------------------------- install
 cells.append(md("""
 ## 0 · Setup
 
-Run once — installs PPR-opt from GitHub, about a minute.
+Run once - installs PPR-opt from GitHub, takes about a minute.
 """))
 
 cells.append(setup_cell())
@@ -186,10 +189,11 @@ cells.append(setup_cell())
 # imports cleanly and then raises KeyError('synthesis_ready') nine cells down, which reads
 # as a broken notebook rather than a stale kernel.
 cells.append(code('''
-#@markdown Checks this notebook can run on the copy of PPR-opt this session has loaded.
+#@markdown Checks if this notebook can run on the copy of PPR-opt this session has loaded.
 #@markdown
-#@markdown **Green?** Carry on to step 1. **Red?** **Runtime → Restart session**, then run
-#@markdown Setup again — reinstalling alone will not help, because the old copy stays in
+#@markdown **Green?** Carry on to step 1.
+#@markdown **Red?** **Runtime → Restart session**, then run
+#@markdown Setup again - reinstalling alone will not help, because the old copy stays in
 #@markdown memory until the session restarts.
 from IPython.display import HTML, display
 
@@ -217,9 +221,9 @@ else:
 
 # ---------------------------------------------------------------- parameters
 cells.append(md("""
-## 1 · Your target and host
+## 1 · Your Target and Host
 
-The only cell you have to edit. Everything else runs on what you set here.
+Fill this in and the rest of the notebook follows. Nothing below needs editing.
 """))
 
 cells.append(code('''
@@ -228,11 +232,11 @@ cells.append(code('''
 #@markdown The RNA sequence your PPR will recognise. **Its length sets the architecture** —
 #@markdown 9, 14 or 19 bases give a 9S, 14S or 19S protein.
 #@markdown
-#@markdown ⏱️ **Length also sets how long Step 2 takes, and the difference is large.** Measured
-#@markdown once each on the project's own machine, screening off: **9 bases ≈ 0.5 s**,
-#@markdown **14 bases ≈ 14 s**, **19 bases ≈ 3—4 minutes**. The codon optimiser has to route a
+#@markdown ⏱️ **The length of your RNA sequence also sets how long Step 2 takes, and the difference is large.**
+#@markdown Measured once each on the project's own machine, screening off: **9 bases ≈ 0.5 s**,
+#@markdown **14 bases ≈ 14 s** and **19 bases ≈ 3-4 minutes**. The codon optimiser has to route a
 #@markdown longer coding sequence around more fixed junctions and more forbidden enzyme sites,
-#@markdown so the cost climbs far faster than the length does. A 19-mer has not hung — it is
+#@markdown so the cost climbs far faster than the length does. A longer sequence is not stuck - it is
 #@markdown working.
 #@markdown
 #@markdown 💡 **Not sure which window of your gene to aim at?** Leave this field alone and use
@@ -242,24 +246,23 @@ target_rna = "AAAAUGUGG"  #@param {type:"string"}
 
 #@markdown # B · Where will it be expressed?
 #@markdown ---
-#@markdown Sets the codon usage and the genetic code (nuclear hosts use table 1,
-#@markdown chloroplasts table 11).
+#@markdown Sets the codon usage and the genetic code. (Nuclear hosts use table 1, Chloroplasts table 11)
 #@markdown
 #@markdown ⚠️ **The two Chlamydomonas entries are not interchangeable.** The nucleus is
 #@markdown GC-rich and prefers Leu `CTG`; the chloroplast is AT-rich and prefers Leu `TTA`.
 #@markdown Using one for the other produces DNA that looks fine and is wrong.
 organism = "c_reinhardtii_nuclear"  #@param ["c_reinhardtii_nuclear", "c_reinhardtii_chloroplast", "e_coli", "s_cerevisiae", "a_thaliana_nuclear", "n_tabacum_chloroplast"]
 
-#@markdown ### Your own codon usage — optional
+#@markdown ### Your own codon usage - optional
 #@markdown Leave all three blank to use the host above. Highest filled one wins.
 #@markdown
-#@markdown **`codon_table_file`** — a `codon,frequency` CSV or a CDS FASTA. Upload it with
+#@markdown **`codon_table_file`** - a `codon,frequency` CSV or a CDS FASTA. Upload it with
 #@markdown the folder icon in the sidebar, then put the filename here.
 #@markdown
-#@markdown **`kazusa_taxid`** — any NCBI taxonomy id Kazusa carries, e.g. `4577` for maize.
+#@markdown **`kazusa_taxid`** - any NCBI taxonomy ID Kazusa carries, e.g. `4577` for maize.
 #@markdown Fetched and cached on first use.
 #@markdown
-#@markdown **`genetic_code_override`** — the genetic code for a table you supplied. Leave 0
+#@markdown **`genetic_code_override`** - the genetic code for a table you supplied. Leave 0
 #@markdown to inherit from the host; set 11 for anything organellar.
 codon_table_file = ""  #@param {type:"string"}
 kazusa_taxid = 0  #@param {type:"integer"}

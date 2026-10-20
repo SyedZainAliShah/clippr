@@ -97,8 +97,10 @@ comes from the version with it on; the earlier corpus is kept as
 
 - **No vendor said no.** We never submitted anything. Our own rule refused these, and the
   sequences may well be makeable.
-- **Nothing biological is measured.** We have not tested whether any protein grips its RNA or
-  whether a cell makes it. Every number is a prediction or a software check.
+- **One PPR has been to the bench. Nothing this software reports was measured.** One
+  synthetic PPR designed for *Chlamydomonas reinhardtii* has been transformed and tested.
+  Beyond that single construct we have not tested whether a protein grips its RNA or whether
+  a cell makes it, and every number here is a prediction or a software check.
 - **The GC limit is our own choice, not a vendor rule.** Nobody recorded where the number
   first came from; on 2026-10-13 we settled it as this project's own engineering decision. It
   happens to equal Twist's published codon-optimisation guidance, we enforce it harder than
