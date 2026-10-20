@@ -1,4 +1,4 @@
-# What PPROPT does
+# What PPR-opt does
 
 ## The problem
 

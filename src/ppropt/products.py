@@ -499,7 +499,7 @@ def write_genbank(rec: Reconstruction, path: str | Path, *,
 
     stage = rec.final
     record = SeqRecord(Seq(stage.sequence), id=rec.target[:16], name=rec.target[:16],
-                       description=f"PPROPT kit reconstruction of {rec.target}")
+                       description=f"PPR-opt kit reconstruction of {rec.target}")
     record.annotations = {
         "molecule_type": "DNA", "topology": "linear", "data_file_division": "SYN",
         "comment": (f"{rec.scope}. Reconstructed from supplied insert records "

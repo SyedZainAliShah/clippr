@@ -1,4 +1,4 @@
-"""Layer 3 of 3 — what PPROPT *chose*. None of this is required by GRASP or by biology.
+"""Layer 3 of 3 — what PPR-opt *chose*. None of this is required by GRASP or by biology.
 
 Everything here is a project decision: which enzyme sites to exclude, which host to
 optimise for, where to put a QC threshold. Each is defensible and each is documented with
@@ -45,7 +45,7 @@ ENZYME_ROLES: dict[str, str] = {
 #:
 #: ``igem_rfc1000`` -- adds SapI. RFC[1000]'s own formal requirement is that **BsaI and
 #: SapI** sites be absent; it does not make BbsI illegal. BbsI is in this profile because
-#: PPROPT's assembly uses it, not because the standard asks for it. The profile is the
+#: PPR-opt's assembly uses it, not because the standard asks for it. The profile is the
 #: union of two independent requirements, not an inheritance.
 #:
 #: ``moclo_compat`` -- adds BsmBI, purely to keep later MoClo-family levels available.

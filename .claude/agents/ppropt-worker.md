@@ -1,6 +1,6 @@
 ---
 name: ppropt-worker
-description: Implements a specified change in the PPROPT repo, writing the failing control first and using the Edit tool rather than shell heredocs. Never commits, never pushes, never edits validation/gate.py. Use when a change has been specified precisely enough to build.
+description: Implements a specified change in the PPR-opt repo, writing the failing control first and using the Edit tool rather than shell heredocs. Never commits, never pushes, never edits validation/gate.py. Use when a change has been specified precisely enough to build.
 tools: Read, Edit, Write, Bash, PowerShell, Grep, Glob, NotebookEdit
 model: opus
 effort: max

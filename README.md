@@ -1,4 +1,4 @@
-# PPROPT
+# PPR-opt
 
 **Design tooling for synthetic PPR regulators.** iGEM Marburg 2026.
 

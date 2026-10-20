@@ -1,4 +1,4 @@
-# PPROPT — methods and parameters
+# PPR-opt — methods and parameters
 
 *13 October 2026. Two Colab notebooks, no local install.* **Designer:** give it an RNA target,
 get a brand-new gene cut into synthesis fragments. **Inventory:** you hold the 42-part GRASP

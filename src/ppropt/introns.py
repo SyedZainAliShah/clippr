@@ -2,13 +2,13 @@
 
 **This module never changes a design.** It reads a coding sequence and reports candidate
 positions. Nothing here inserts anything, and `design_oneshot` does not call it. A design
-PPROPT produces contains no intron, and the advisory says so in every result it returns.
+PPR-opt produces contains no intron, and the advisory says so in every result it returns.
 
-**Why the question exists.** PPROPT's default host is *Chlamydomonas reinhardtii*, where the
+**Why the question exists.** PPR-opt's default host is *Chlamydomonas reinhardtii*, where the
 published work is blunt about codon optimisation alone being insufficient: Baier et al. 2018
 built a codon-optimised, intron-free gene, got minimal expression, and recovered more than
 100-fold the mRNA and about 8-fold the protein by inserting three copies of the *rbcS2*
-intron 1. Codon optimisation is the whole of what PPROPT does for expression. See
+intron 1. Codon optimisation is the whole of what PPR-opt does for expression. See
 `docs/intron_feasibility.md` for the assessment, including what it would cost to act on this
 rather than merely report it.
 
@@ -28,7 +28,7 @@ import re
 from .synthesis_profile import SynthesisProfile, resolve
 
 #: *Chlamydomonas reinhardtii* rbcS2 intron 1, NCBI X04472.1 bases 1307..1451, 145 bp.
-#: The canonical enhancing intron for this host and the one PPROPT's synthesis policy was
+#: The canonical enhancing intron for this host and the one PPR-opt's synthesis policy was
 #: measured against: GC 0.579, no 50-nt window outside 0.35-0.65, longest homopolymer 4, and
 #: no BsaI, BbsI or SapI site. It needs no exemption from our own rules.
 RBCS2I1 = (
@@ -109,7 +109,7 @@ MAX_EXON_NT = 500
 
 #: What goes on every result, including the ones that succeed.
 DISCLAIMER = (
-    "This design does not take introns into consideration. The sequence PPROPT produced "
+    "This design does not take introns into consideration. The sequence PPR-opt produced "
     "contains no intron and was neither optimised for nor checked against one. The "
     "positions reported here are a reading of published placement rules, not a "
     "modification of your design, and no expression effect has been measured here."
@@ -191,7 +191,7 @@ def junction_problems(cds: str, position: int, intron: str,
     candidate position, reporting "nowhere to put an intron" when the real finding is
     "this sequence has a problem that has nothing to do with introns".
 
-    A real PPROPT coding sequence satisfies the band by construction, so in practice the two
+    A real PPR-opt coding sequence satisfies the band by construction, so in practice the two
     readings agree. They diverge exactly when something has already gone wrong, which is
     when a misleading answer would cost the most.
     """
@@ -312,7 +312,7 @@ def _select(cds: str, clean: list[int], spacing: int,
     """Pick the intron positions whose junction overhangs assemble best.
 
     Enumerates the sets that satisfy the exon-length rules and scores each with the same
-    published mis-ligation data PPROPT uses for its own cut positions, so the number here is
+    published mis-ligation data PPR-opt uses for its own cut positions, so the number here is
     comparable with the fidelity the design already reports. Sets that repeat an overhang are
     discarded outright rather than scored: two identical four-base ends in one reaction is
     not a low-fidelity design, it is fragments that can swap.

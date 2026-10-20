@@ -1,6 +1,6 @@
 ---
 name: ppropt-researcher
-description: Verifies factual claims for PPROPT - every file:line reference, every published number, every citation - and returns each one marked VERIFIED, WRONG or UNVERIFIABLE with the quoted evidence. Read-only; never edits, never commits. Use before any document or design decision that rests on a claim.
+description: Verifies factual claims for PPR-opt - every file:line reference, every published number, every citation - and returns each one marked VERIFIED, WRONG or UNVERIFIABLE with the quoted evidence. Read-only; never edits, never commits. Use before any document or design decision that rests on a claim.
 tools: Read, Grep, Glob, Bash, PowerShell, WebSearch, WebFetch
 model: opus
 effort: max

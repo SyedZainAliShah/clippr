@@ -235,7 +235,7 @@ def load_deposited(table_path: str | Path, context: dict | None = None) -> Inven
 
 
 def synthesis_profile_notes(inv: Inventory, profile=None) -> dict[str, list[str]]:
-    """Modules that do not fit PPROPT's synthesis profile, whatever their provenance.
+    """Modules that do not fit PPR-opt's synthesis profile, whatever their provenance.
 
     Separate from `validate`, which is about structural integrity. This is about fit to a
     profile, and a deposited module can be structurally perfect and still fall outside it:

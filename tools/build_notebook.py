@@ -1,4 +1,4 @@
-"""Generate the PPROPT Colab notebook.
+"""Generate the PPR-opt Colab notebook.
 
 Written as a generator rather than hand-edited JSON so cell order, titles and the form
 metadata stay consistent, and so the whole notebook can be regenerated after an API change
@@ -98,7 +98,7 @@ def pipeline_svg():
         f'<svg viewBox="0 0 {end_x + right_margin} 150" '
         f'width="{end_x + right_margin}" height="150" '
         f'xmlns="http://www.w3.org/2000/svg" '
-        f'role="img" aria-label="PPROPT pipeline: a target RNA passes through ppr, a joint '
+        f'role="img" aria-label="PPR-opt pipeline: a target RNA passes through ppr, a joint '
         f'choice of cuts and overhangs, codon optimisation, assembly and QC to become '
         f'orderable DNA fragments, with a fallback from codons to a different split">'
         f'<text x="0" y="{y + 21}" {label}>target</text>'
@@ -125,7 +125,7 @@ def pipeline_svg():
 cells.append(md(f"""
 <div align="center">
 
-# PPROPT
+# PPR-opt
 
 **Design a PPR protein that binds any RNA sequence you choose**
 
@@ -139,7 +139,7 @@ cells.append(md(f"""
 
 <div align="center">
 
-<img src="{DIAGRAM_URL}" alt="PPROPT pipeline: a target RNA passes through ppr, a joint choice of cuts and overhangs, codon optimisation, assembly and qc to become orderable DNA fragments, with a fallback from codons to a different split" width="100%" style="max-width:980px">
+<img src="{DIAGRAM_URL}" alt="PPR-opt pipeline: a target RNA passes through ppr, a joint choice of cuts and overhangs, codon optimisation, assembly and qc to become orderable DNA fragments, with a fallback from codons to a different split" width="100%" style="max-width:980px">
 
 </div>
 
@@ -176,7 +176,7 @@ Code is hidden behind the forms; use a cell's ⋮ menu → **Form → Show code*
 cells.append(md("""
 ## 0 · Setup
 
-Run once — installs PPROPT from GitHub, about a minute.
+Run once — installs PPR-opt from GitHub, about a minute.
 """))
 
 cells.append(setup_cell())
@@ -186,7 +186,7 @@ cells.append(setup_cell())
 # imports cleanly and then raises KeyError('synthesis_ready') nine cells down, which reads
 # as a broken notebook rather than a stale kernel.
 cells.append(code('''
-#@markdown Checks this notebook can run on the copy of PPROPT this session has loaded.
+#@markdown Checks this notebook can run on the copy of PPR-opt this session has loaded.
 #@markdown
 #@markdown **Green?** Carry on to step 1. **Red?** **Runtime → Restart session**, then run
 #@markdown Setup again — reinstalling alone will not help, because the old copy stays in
@@ -204,7 +204,7 @@ except ImportError as exc:
 if _stale:
     display(HTML(
         '<div style="border-left:3px solid #a8402c;padding:.6em 1em;font-size:13px;'
-        'line-height:1.55">This kernel has an older PPROPT loaded.<br><code>'
+        'line-height:1.55">This kernel has an older PPR-opt loaded.<br><code>'
         + _stale + '</code><br><br>Run <b>Runtime &gt; Restart session</b>, then run the '
         'setup cell again. Reinstalling alone will not help: the old copy stays in memory '
         'until the kernel restarts.</div>'))
@@ -601,7 +601,7 @@ import ppropt  # unguarded: a broken install should show its real traceback, not
 if not hasattr(ppropt, "select_window"):
     # Only the one case this guard is for: a build predating targeting.py. Anything else --
     # a missing Biopython, a half-installed package -- must raise and say what it is.
-    print("This build of PPROPT has no window selection.")
+    print("This build of PPR-opt has no window selection.")
     print("Use Runtime -> Restart session, re-run Setup, then run this cell again.")
     print("Nothing else is affected: target_rna from Step 1 is untouched.")
 else:
@@ -862,7 +862,7 @@ Sequence separation and *predicted binding* are different questions, so they sta
 | **A — Hamming distance** | two targets differ in *k* of *n* positions | **the only thing that gates** |
 | **B — predicted affinity** | the PPR designed for A, scored against B | an annotation; gates nothing |
 
-Tier B needs a PPR specificity table. **PPROPT does not ship one** — the available table
+Tier B needs a PPR specificity table. **PPR-opt does not ship one** — the available table
 carries no licence, and it comes from **P-type** experiments while this scaffold is
 **S-type**. A high score means *look*, never *fail*.
 
@@ -1029,7 +1029,7 @@ cells.append(md(f"""
 
 | Step | What happens |
 |---|---|
-| **0 · Setup** | installs PPROPT from GitHub |
+| **0 · Setup** | installs PPR-opt from GitHub |
 | **1 · Target and host** | your target RNA, codon table, enzyme and destination |
 | **2 · Design it** | target to protein, then cuts and overhangs chosen **before** the coding sequence is optimised, so the optimiser cannot rewrite the bases the junctions depend on |
 | **3 · Fragments** | the oligo table you order |
@@ -1056,7 +1056,7 @@ cells.append(glossary(md, [
                 "rather than one at a time."),
     ("intron", "A stretch of DNA inside a gene that the cell cuts out of the RNA copy before "
                "the protein is made. It is not part of the protein, but in some hosts having "
-               "one raises how much protein you get. PPROPT designs none."),
+               "one raises how much protein you get. PPR-opt designs none."),
     ("splicing", "The cutting-out step. Only hosts with the right machinery do it: a nucleus "
                  "can, a bacterium and a chloroplast cannot, which is why an intron would "
                  "wreck a construct meant for those."),

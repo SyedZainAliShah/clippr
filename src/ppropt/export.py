@@ -123,18 +123,18 @@ def write_genbank(
         Seq(cds),
         id=f"PPROPT_{target_rna}"[:16],
         name=f"PPROPT_{target_rna}"[:16],
-        description=f"PPROPT PPR binder CDS targeting {target_rna}.",
+        description=f"PPR-opt PPR binder CDS targeting {target_rna}.",
         annotations={"molecule_type": "DNA", "topology": "linear",
                      "data_file_division": "SYN",
                      "comment": (
-                         f"PPROPT PPR binder ORF for {target_rna}. Wrap enzyme {enzyme}. "
+                         f"PPR-opt PPR binder ORF for {target_rna}. Wrap enzyme {enzyme}. "
                          f"Destination overhangs {dest5}/{dest3} sit outside this record; "
                          f"they are contributed by the backbone, not the CDS.")},
     )
 
     record.features.append(SeqFeature(
         SimpleLocation(0, len(cds)), type="CDS",
-        qualifiers={"label": [f"PPROPT binder CDS ({target_rna})"],
+        qualifiers={"label": [f"PPR-opt binder CDS ({target_rna})"],
                     "codon_start": ["1"], "transl_table": [str(genetic_code)],
                     "translation": [str(Seq(cds).translate(table=genetic_code))]}))
     record.features += _repeat_features(cds, target_rna)

@@ -2,10 +2,10 @@
 
 What each capability takes, returns, and refuses. Written before the code it governs, so the
 implementation answers to this document rather than the document describing whatever got
-built. Behaviour stated here is PPROPT's own; where it follows a published fact rather than an
+built. Behaviour stated here is PPR-opt's own; where it follows a published fact rather than an
 engineering choice, `methodology_sources.md` names the source.
 
-Semantic contracts, not mandated class names. An existing PPROPT type that already satisfies
+Semantic contracts, not mandated class names. An existing PPR-opt type that already satisfies
 one of these is the right implementation of it.
 
 ---

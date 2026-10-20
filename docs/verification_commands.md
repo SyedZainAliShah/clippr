@@ -158,7 +158,7 @@ Count from the collection total and the summary line, never from progress dots.
 | fitness | python -m pytest tests/test_synthesis_fitness.py | pins that repeat_burden is zero at k=20,16,12,10 |
 | runtime | python validation/experiments/runtime_profile.py | work/runtime/runtime_profile.json; isolated stage medians **and** measured end-to-end chain times under two policies |
 | regressions are not vacuous | python validation/falsify_boundaries.py | reverts each policy repair in a scratch worktree and checks the boundary suite goes red; exits non-zero if any defect leaves it green |
-| the notebook runs on the build users install | see below | 21/21 cells against a pip-installed PPROPT; the in-tree notebook harness cannot catch a version split |
+| the notebook runs on the build users install | see below | 21/21 cells against a pip-installed PPR-opt; the in-tree notebook harness cannot catch a version split |
 
 Each accepts `--out` so a reviewer can write to their own directory.
 
@@ -175,7 +175,7 @@ the notebook against the code being edited. It cannot catch a notebook that depe
 something the *published* package lacks — and that failure has happened here, taking out every
 Colab session while the in-tree harness stayed green.
 
-Three steps. Build a throwaway environment, install PPROPT the way the notebook's Setup cell
+Three steps. Build a throwaway environment, install PPR-opt the way the notebook's Setup cell
 does, then run the notebook's code cells against it.
 
 ```bash

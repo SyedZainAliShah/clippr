@@ -383,7 +383,7 @@ def level1_readiness(block_subset, outdir, *, roles=None, evidence: str = "",
                      matrix: str = "BsaI-HFv2") -> WorkflowResult:
     """Is a level-1 reaction fully specified, and if so, how well does it ligate?
 
-    PPROPT derives the **block join geometry** from the deposited kit, but a level-1 reaction
+    PPR-opt derives the **block join geometry** from the deposited kit, but a level-1 reaction
     also needs the linker, editing domain, bridging parts and final cassette, and the deposited
     material does not supply their ends. That gap is real and documented; what was missing was
     a way for a user who *has* those parts to say so and get an answer.

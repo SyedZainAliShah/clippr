@@ -1,4 +1,4 @@
-"""Demo: design an orthogonal PPROPT regulator library and the matching PPR binders."""
+"""Demo: design an orthogonal PPR-opt regulator library and the matching PPR binders."""
 from __future__ import annotations
 
 import sys
@@ -12,7 +12,7 @@ N = 8
 LENGTH = 9
 
 print("=" * 74)
-print(f"PPROPT regulator library: {N} orthogonal targets, {LENGTH} nt")
+print(f"PPR-opt regulator library: {N} orthogonal targets, {LENGTH} nt")
 print("=" * 74)
 print()
 

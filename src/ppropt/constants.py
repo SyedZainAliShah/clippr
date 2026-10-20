@@ -6,7 +6,7 @@ the package:
 
     from .biology import REPEAT_TEMPLATE        # published fact -- GRASP requires this
     from .assembly_spec import DESTINATION_OVERHANGS   # how the assembly works
-    from .policy import ENZYME_PROFILES         # what PPROPT chose
+    from .policy import ENZYME_PROFILES         # what PPR-opt chose
 
 A contributor who sees `constants.ENZYME_PROFILES` beside `constants.REPEAT_TEMPLATE`
 cannot tell that one is a published scaffold sequence and the other is this project's

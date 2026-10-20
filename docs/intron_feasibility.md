@@ -1,4 +1,4 @@
-# Should PPROPT insert introns?
+# Should PPR-opt insert introns?
 
 *Written 2026-10-16, against commit `30cf908`. A feasibility assessment, not a decision and
 not an implementation. Every measurement in §4 was taken from this checkout; every number in
@@ -26,22 +26,22 @@ construct, in an organism that is sometimes not ours.*
 
 ## 0. The short version
 
-PPROPT's default host is *Chlamydomonas reinhardtii*, and the published work on that organism
+PPR-opt's default host is *Chlamydomonas reinhardtii*, and the published work on that organism
 says plainly that **codon optimisation alone does not produce expression**. Codon
-optimisation is the whole of what PPROPT does for expression. The intervention that closes
+optimisation is the whole of what PPR-opt does for expression. The intervention that closes
 the gap in the literature is intron insertion, and it is worth between 4- and 100-fold
 depending on what is measured.
 
 Three findings decide the feasibility:
 
-1. **The canonical intron passes every PPROPT synthesis rule unchanged.** I expected this to
+1. **The canonical intron passes every PPR-opt synthesis rule unchanged.** I expected this to
    be the blocker. It is not. *rbcS2* intron 1 sits at GC 0.579 with no 50-nt window outside
    0.35–0.65, a longest homopolymer of exactly 4, and no BsaI, BbsI or SapI site.
-2. **Insertion sites are abundant in PPROPT's own output** — 65 of them in a 906 nt design,
+2. **Insertion sites are abundant in PPR-opt's own output** — 65 of them in a 906 nt design,
    one every 13.9 nt — because the published placement rule rewards the GC-rich sequence that
    Chlamydomonas codon optimisation already produces.
 3. **The binding constraint is oligo length, not biology.** IDT caps oPools at 350 nt and
-   PPROPT's fragments leave 53–86 nt of headroom. The full 145 nt intron does not fit inside
+   PPR-opt's fragments leave 53–86 nt of headroom. The full 145 nt intron does not fit inside
    a fragment on any architecture.
 
 The honest verdict is **staged**: one thing worth recording today at zero risk, one advisory
@@ -52,7 +52,7 @@ not be attempted before the current release is behind us. §8 gives the detail.
 
 ## 1. Why the question exists at all
 
-PPROPT designs a PPR coding sequence, picks codons the host reads easily, splits the DNA into
+PPR-opt designs a PPR coding sequence, picks codons the host reads easily, splits the DNA into
 orderable fragments and checks what would go on the order form. Nothing in it addresses
 whether the resulting gene is *expressed*. That was a defensible scope while the project
 claimed only orderable DNA — `src/ppropt/parts.py:42` says so explicitly: the route "does not
@@ -69,7 +69,7 @@ more open ([Neupert et al. 2009](https://onlinelibrary.wiley.com/doi/full/10.111
 Even in those strains, nuclear expression remains below chloroplast expression and below
 other eukaryotic platforms.
 
-**The thing we are designing is big.** PPROPT emits 302, 457 or 612 aa proteins — 906 to
+**The thing we are designing is big.** PPR-opt emits 302, 457 or 612 aa proteins — 906 to
 1836 nt of CDS. That is squarely the size class the intron literature is about.
 
 And the kit we build from has never been tested in this organism. The GRASP toolkit was
@@ -106,7 +106,7 @@ intron addition raised expression, and a fourth copy improved on the third.
 
 **The control is the part that matters to us.** Their intron-free arm *was* codon-optimised.
 Codon optimisation on its own was not sufficient. That is a direct statement about the
-limits of what PPROPT currently does.
+limits of what PPR-opt currently does.
 
 ### 2.2 How large the effect is, and which intron
 
@@ -176,7 +176,7 @@ sequence", correlating only weakly with splicing efficiency (Spearman ρ = 0.072
 intronic poly-uridine content.
 
 If that transferred to *Chlamydomonas*, it would change the engineering problem completely:
-we would not need a particular natural intron, we could **design** one to satisfy PPROPT's own
+we would not need a particular natural intron, we could **design** one to satisfy PPR-opt's own
 GC and homopolymer rules.
 
 **It does not obviously transfer, and this is the most important caveat in this document.**
@@ -209,7 +209,7 @@ well, and put it in the right place".
 
 ### 2.6 There is precedent for a tool doing this
 
-PPROPT would not be inventing the category. The
+PPR-opt would not be inventing the category. The
 [Wild Worm Codon Adapter](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8496300/)
 is a published web tool that codon-optimises a transgene for non-*Caenorhabditis* nematodes
 and then inserts introns automatically, dividing the optimised cDNA at three predicted
@@ -223,18 +223,18 @@ screen for *artificial* splice sites — the opposite concern.
 
 ---
 
-## 3. Why it might not belong in PPROPT
+## 3. Why it might not belong in PPR-opt
 
 ### 3.1 It is outside the declared scope
 
-PPROPT claims orderable DNA and refuses to claim expression. Adding introns is an expression
+PPR-opt claims orderable DNA and refuses to claim expression. Adding introns is an expression
 intervention, and `parts.py:42` already puts the non-PPR elements of the transcriptional unit
 out of scope. The counter-argument is that an intron sits *inside* the PPR coding sequence,
 not beside it — it is not a promoter or a terminator — but the boundary is genuinely arguable.
 
 ### 3.2 It would be a second unvalidated layer
 
-Nothing in PPROPT is validated against a bench result. Every figure it reports is a
+Nothing in PPR-opt is validated against a bench result. Every figure it reports is a
 prediction or a software check. Intron placement would add a second predictive layer on top
 of the first, and the evidence for it is from other people's constructs.
 
@@ -276,7 +276,7 @@ So this is a de novo-route feature only.
 *rbcS2* intron 1, NCBI X04472.1 bases 1307–1451, 145 bp, retrieved and scored against
 `STRICT_LEGACY`:
 
-| check | PPROPT rule | rbcS2i1 | verdict |
+| check | PPR-opt rule | rbcS2i1 | verdict |
 |---|---|---|---|
 | overall GC | — | 0.5793 | — |
 | 50-nt window GC | 0.35–0.65, hard | min 0.50, max **0.64** | **0 of 96 windows breach** |
@@ -312,7 +312,7 @@ rbcS2i1 is natively a **phase-2** intron — 164 coding nt precede it (1143→13
 164 mod 3 = 2. Baier inserted it at NG/GN sites without regard to codon phase. Spliceosomal
 introns occur in all three phases.
 
-This matters because PPROPT's cuts are codon-aligned by construction
+This matters because PPR-opt's cuts are codon-aligned by construction
 (`assembly_spec.py:260`, established by measurement over 750 cut contexts). Phase-0 insertion
 at a cut is therefore legitimate, and we are not fighting the existing geometry.
 
@@ -376,24 +376,24 @@ BbsI-flanked for the exon junctions, with outer BsaI sites for cloning.
 architecture, and so does the stronger 253 bp LHCBM1i2.
 
 **It fits the kit's existing architecture better than I expected.** GRASP assembles level 0
-with **BpiI** and level 1 with **BsaI** — and PPROPT already records
+with **BpiI** and level 1 with **BsaI** — and PPR-opt already records
 that BpiI is an isoschizomer of BbsI, same `GAAGAC` site (`policy.py:59`). So the two-enzyme
-scheme MoInClo needs is the scheme GRASP already uses, and PPROPT already models BbsI as a
+scheme MoInClo needs is the scheme GRASP already uses, and PPR-opt already models BbsI as a
 wrapping enzyme (`substrates.py:134`). GRASP also places its own junctions in the ARELF
-region at residues 20–24, chosen for codon diversity — the same reasoning PPROPT applies.
+region at residues 20–24, chosen for codon diversity — the same reasoning PPR-opt applies.
 
 **What it costs.** Three things, all real:
 
-1. **Fidelity.** PPROPT currently chooses every junction overhang freely to minimise
+1. **Fidelity.** PPR-opt currently chooses every junction overhang freely to minimise
    mis-ligation. At an intron junction the overhang is fixed by the intron's ends. Pinning it
-   will lower predicted fidelity, and by how much is precisely the kind of thing PPROPT is
+   will lower predicted fidelity, and by how much is precisely the kind of thing PPR-opt is
    built to measure — it should be quantified, not assumed small.
 2. **Reachability.** The cut must land on a G|G site. `balanced_cuts` allows only ±4 residues
    (±12 nt) of movement (`arelf.py:274`), and G|G sites occur every ~13.9 nt, so a site is
    usually but not always within reach. The better fix is to constrain the optimiser to
    *create* G|G at the chosen cut rather than hunt for one.
 3. **Enzyme policy.** `igem_rfc1000` forbids BbsI sites while this route uses BbsI for
-   assembly. PPROPT already supports BbsI as an assembly enzyme, so this is a policy question
+   assembly. PPR-opt already supports BbsI as an assembly enzyme, so this is a policy question
    — which enzyme is "ours" at which level — not a blocker.
 
 ### Recommendation
@@ -465,11 +465,11 @@ cryptic sites elsewhere in it, and the consequence is context-dependent. The 202
 work found cryptic sites absent beyond about 150 nt, implying a practical minimum intron
 length near 70 nt — which happens to be the truncated variant. A real implementation should
 screen the assembled transcript for cryptic donors and acceptors, which is a capability
-PPROPT does not currently have.
+PPR-opt does not currently have.
 
 **Silencing is upstream of all of this.** Introns do not address the epigenetic pathway that
 selectively silences transgenic DNA. Strain choice (UVM4/UVM11) and promoter choice sit
-outside PPROPT's scope and may matter more than anything PPROPT can do to the sequence.
+outside PPR-opt's scope and may matter more than anything PPR-opt can do to the sequence.
 
 ---
 
@@ -479,7 +479,7 @@ Staged, because the three stages have very different risk.
 
 **1 — Now, zero risk, no code.** Record two things in `WHAT_PPROPT_DOES.md`: that codon
 optimisation alone is documented as insufficient for this host, and that rbcS2i1 passes our
-synthesis policy unchanged. The first is a limitation of PPROPT that is true whether or not
+synthesis policy unchanged. The first is a limitation of PPR-opt that is true whether or not
 introns are ever built, and it belongs in the honest-limitations list next to "nothing
 biological is measured". We should not wait for an implementation to admit it.
 
@@ -498,7 +498,7 @@ start until the current release and corpus are no longer load-bearing.
 ## 9. What this does not decide
 
 - **No expression was measured here, and adding this would measure none.** Every fold-change
-  quoted is from another group's constructs. PPROPT would be predicting that a published
+  quoted is from another group's constructs. PPR-opt would be predicting that a published
   effect transfers to our gene, which is a weaker claim than the numbers look.
 - **Whether LHCBM1i2 passes the synthesis policy.** It was not tested — only rbcS2i1 was. It
   is the stronger intron and the one Route B would most want.
@@ -511,7 +511,7 @@ start until the current release and corpus are no longer load-bearing.
 - **Whether the wet lab can run a two-enzyme MoClo assembly**, and which enzyme is ours at
   which level.
 - **Whether any of this matters more than strain and promoter choice**, which are outside
-  PPROPT entirely.
+  PPR-opt entirely.
 
 ---
 

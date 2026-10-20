@@ -1,6 +1,6 @@
 """Design a set of mutually orthogonal PPR targets for a regulator library.
 
-For a PPROPT library, PPR_i must bind 5'UTR_i and not 5'UTR_j. Cross-talk destroys
+For a PPR-opt library, PPR_i must bind 5'UTR_i and not 5'UTR_j. Cross-talk destroys
 independent control. Because the 5'UTRs are designed rather than given by biology, the
 targets can be chosen to be maximally distinguishable in the first place - a freedom
 GRASP does not have, since it targets whichever transcript nature supplies.

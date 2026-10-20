@@ -1,4 +1,4 @@
-# Prompt: vendor sequence-rule research for PPROPT
+# Prompt: vendor sequence-rule research for PPR-opt
 
 *Hand this to a web-research agent verbatim. Self-contained — it assumes no knowledge of the
 project.*

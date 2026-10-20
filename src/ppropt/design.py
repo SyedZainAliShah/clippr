@@ -399,7 +399,7 @@ def design_oneshot(
 
     # A profile says which sites this project always excludes. `extra_blacklist` is for
     # the site a particular experiment needs clear -- an EcoRI in a downstream vector, say
-    # -- which is a property of that experiment, not of PPROPT's policy, so it is added
+    # -- which is a property of that experiment, not of PPR-opt's policy, so it is added
     # here rather than becoming a new profile.
     if extra_blacklist:
         extra = (tuple(e.strip() for e in extra_blacklist.split(",") if e.strip())

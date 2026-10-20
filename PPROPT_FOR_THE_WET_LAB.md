@@ -1,7 +1,7 @@
-# PPROPT — everything you need to present it
+# PPR-opt — everything you need to present it
 
 A briefing for the dry lab lead, written to be read once before a meeting with biologists
-who have not seen the software. It covers what PPROPT does, the biology behind it, every
+who have not seen the software. It covers what PPR-opt does, the biology behind it, every
 number it reports and what that number means, a walkthrough of the notebook, what we can
 honestly claim today, and a pitch structure with the questions you will be asked.
 
@@ -13,7 +13,7 @@ Nothing here assumes the reader has used the tool.
 
 ## The one-sentence version
 
-**PPROPT designs the DNA for a custom RNA-binding protein, given only the RNA sequence you
+**PPR-opt designs the DNA for a custom RNA-binding protein, given only the RNA sequence you
 want it to grab, and checks the design well enough that you can order it.**
 
 ## The three-minute version, in the order to say it
@@ -37,7 +37,7 @@ hard:
 Doing this by hand is a day of work per target and mistakes are invisible until the cloning
 fails.
 
-**2. What PPROPT is.** A design tool that takes the RNA target and returns fragments ready to
+**2. What PPR-opt is.** A design tool that takes the RNA target and returns fragments ready to
 order, having checked all of those constraints simultaneously. It runs in a Colab notebook —
 no install, no command line.
 
@@ -48,7 +48,7 @@ no install, no command line.
   coding sequence. A design that fails is reported as a failure with the reason.
 - **It shows the trade-offs instead of hiding them.** There is no single best design. Better
   codon usage often means worse GC content; better assembly fidelity often means worse codon
-  usage. PPROPT gives you the set of designs where you cannot improve one thing without
+  usage. PPR-opt gives you the set of designs where you cannot improve one thing without
   worsening another, and you pick.
 - **Every number it prints is labelled as predicted or measured.** It will tell you the
   predicted ligation fidelity; it will never tell you the protein works.
@@ -92,12 +92,12 @@ Everything else in the repeat is the same scaffold.
 
 **Consequence for the DNA:** the protein is 14 copies of one sequence differing at two
 positions. Translated back to DNA naively, that is 14 near-identical stretches — exactly what
-synthesis companies refuse. Most of what PPROPT does is choosing *synonymous codons* to break
+synthesis companies refuse. Most of what PPR-opt does is choosing *synonymous codons* to break
 that repetitiveness without changing a single amino acid.
 
 ## Architectures
 
-PPROPT supports three, and the architecture follows from the target length — it is not a
+PPR-opt supports three, and the architecture follows from the target length — it is not a
 choice you make:
 
 | target length | architecture | approximate protein |
@@ -111,7 +111,7 @@ choice you make:
 Type IIS restriction enzymes cut *outside* their recognition site, so you can choose the
 four-base sticky end they leave. Give every fragment ends that match only its intended
 neighbour and the whole construct assembles in one tube, in order, with the enzyme sites
-destroyed in the product. The enzymes PPROPT works with:
+destroyed in the product. The enzymes PPR-opt works with:
 
 | enzyme | recognition site |
 |---|---|
@@ -120,7 +120,7 @@ destroyed in the product. The enzymes PPROPT works with:
 | SapI | `GCTCTTC` |
 
 **The critical constraint:** these sites must not appear *anywhere else* in your sequence, or
-the enzyme cuts your construct in the middle. Every codon choice PPROPT makes is checked
+the enzyme cuts your construct in the middle. Every codon choice PPR-opt makes is checked
 against this.
 
 ## Assembly levels
@@ -135,7 +135,7 @@ The parts system builds up in stages. You will hear these numbers:
 
 ---
 
-# Part 3 — Every number PPROPT reports, and what it means
+# Part 3 — Every number PPR-opt reports, and what it means
 
 This is the section to have open during the meeting.
 
@@ -193,7 +193,7 @@ Measured two ways, and both matter:
 A sequence can have a perfect global GC and still contain a 50-base stretch at 80% GC that
 fails synthesis. The window is the one that actually bites.
 
-**Thresholds PPROPT uses for its QC verdict:**
+**Thresholds PPR-opt uses for its QC verdict:**
 
 | | warn below | warn above | fail below | fail above |
 |---|---|---|---|---|
@@ -219,7 +219,7 @@ measurement, so you can rank designs on the numbers rather than on the label.
 
 ## Search and trade-off metrics
 
-When PPROPT explores alternative designs it scores each on three axes at once:
+When PPR-opt explores alternative designs it scores each on three axes at once:
 
 | axis | direction | meaning |
 |---|---|---|
@@ -284,7 +284,7 @@ Use when you want a binder for a target and you do not have parts.
 
 | cell | what it does | what to look at |
 |---|---|---|
-| **Setup** | installs PPROPT | takes ~1 min, once |
+| **Setup** | installs PPR-opt | takes ~1 min, once |
 | **Design parameters** | your RNA target, host organism, enzyme set | the only cell you normally edit |
 | **Upload a codon table** *(optional)* | supply your own host codon usage | skip it and a *Chlamydomonas* table is used |
 | **Design** | runs the whole design | the summary line: length, fragments, fidelity, QC |
@@ -421,7 +421,7 @@ We do not know, and the tool does not claim to. The PPR code is well established
 recognition is not measured affinity. This is exactly what we want the wet lab to find out.
 
 **"How much does it cost to order?"**
-PPROPT does not price anything. We cannot get quotes, and a stale list price presented as a
+PPR-opt does not price anything. We cannot get quotes, and a stale list price presented as a
 current one is worse than no number, so it reports the pool plan and leaves cost to you and
 your vendor.
 

@@ -19,7 +19,7 @@ a P-type model to an S-type scaffold has not been established. Treating its outp
 guarantee would import exactly the kind of unvalidated assumption the rest of this package
 refuses to make.
 
-**The scoring table is not distributed with PPROPT.** PPRmatcher carries no licence, so
+**The scoring table is not distributed with PPR-opt.** PPRmatcher carries no licence, so
 redistributing its table would be a rights problem regardless of how useful it is. Obtain
 it yourself and pass the path; without one, this module reports tier A alone and says so.
 

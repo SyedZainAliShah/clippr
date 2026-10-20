@@ -22,7 +22,7 @@ and Twist is still not retro-fitted as one. Current state: `docs/vendor_rule_com
 
 ## 0. The short version
 
-PPROPT enforces `GC_BAND = (0.35, 0.65)` over every 50-nt window of a synthesised sequence.
+PPR-opt enforces `GC_BAND = (0.35, 0.65)` over every 50-nt window of a synthesised sequence.
 That constant is the **single largest determinant of our headline codon-adaptation figure** —
 worth about 0.16 CAI — and it has **no recorded source in this repository**.
 
@@ -43,7 +43,7 @@ What survives the correction, and it is still the point:
   a policy; the product is. Twist's own page separates this guidance from its sequence
   acceptance and complexity rules.
 - **We enforce the local half and not the global half.** Twist pairs the 50-bp window with a
-  global 25–65% band. PPROPT has no global band at all — so we are not simply "stricter", we
+  global 25–65% band. PPR-opt has no global band at all — so we are not simply "stricter", we
   are *differently* scoped, which is harder to defend than either.
 - **We enforce as hard what Twist frames as optimisation guidance.** That reading is worth the
   0.16 CAI on its own.
@@ -58,12 +58,12 @@ change — see §7.1.
 The matched oracle benchmark scores both systems' delivered sequences with one scorer, over the
 translated span they share:
 
-| | PPROPT | reference |
+| | PPR-opt | reference |
 |---|---:|---:|
 | mean CAI, aligned spans | 0.621004 | **0.658672** |
 | modules ahead | **22** | 20 |
 
-The reference is ahead on the mean while PPROPT wins the per-module split, so their advantage
+The reference is ahead on the mean while PPR-opt wins the per-module split, so their advantage
 is concentrated rather than uniform. The question this document answers is *why*, and whether
 it is something to copy.
 
@@ -141,18 +141,18 @@ The reference carries **five named vendor profiles**, each with a product URL, a
 | Twist · Complex Genes tolerant | 0.25–0.65 | 0.10–0.90 / 50 nt | 3 | ≤ 30 |
 | **IDT · gBlocks / eBlocks conservative** | 0.25–0.70 | 0.20–0.80 / 40 nt | 3 | — |
 | Generic · conservative (default) | 0.30–… | 0.25–0.75 / 50 nt | 3 | — |
-| **PPROPT** | **none** | **0.35–0.65 / 50 nt** | 4 | — |
+| **PPR-opt** | **none** | **0.35–0.65 / 50 nt** | 4 | — |
 
 **Read that table with care — it is the reference's transcription, not the vendors' pages.**
 Trusting it is how this document originally reached a false conclusion. Twist's own page gives
 **35–65% over 50 bp** for codon optimisation, which no row above reproduces, and which is
-exactly PPROPT's band.
+exactly PPR-opt's band.
 
 What the primary pages support, product by product:
 
 | primary source | supports | does **not** support |
 |---|---|---|
-| Twist gene resources (read 2026-09-16) | global 25–65%, local 35–65% over 50 bp, as **codon-optimisation** guidance | treating it as an acceptance rule, or as PPROPT's historical source |
+| Twist gene resources (read 2026-09-16) | global 25–65%, local 35–65% over 50 bp, as **codon-optimisation** guidance | treating it as an acceptance rule, or as PPR-opt's historical source |
 | Twist Complex Genes | 50-bp GC outside 10–90% among high-complexity criteria | universal acceptance bounds |
 | IDT gBlocks FAQ *(orchestrator's reading; the page redirect-loops for me)* | GC below 25% or above 75% can cause synthesis problems; acceptance is multifactorial | applying gBlocks rules to oPools |
 | IDT oPools product page | length and scale-dependent pool counts; **no numeric GC threshold** | that any sequence will be accepted |
@@ -236,7 +236,7 @@ a constraint-veto reading *for those modules and those attempts*. "Every unchang
 the band vetoed every possible improvement" is a wider claim and was not tested.)
 
 **7.2 — Source the band, or declare it.** Either attach a citation to `GC_BAND`, or relabel it
-as a PPROPT engineering choice and publish the codon adaptation it costs. Matching Twist's
+as a PPR-opt engineering choice and publish the codon adaptation it costs. Matching Twist's
 published guidance is not the same as having been derived from it, and the repository still
 records no source.
 

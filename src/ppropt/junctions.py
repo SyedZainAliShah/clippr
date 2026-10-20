@@ -5,12 +5,12 @@ two modules it joins, so changing it changes codons in both — and only the fou
 reachable by *synonymous* substitution are available at all. Everything here derives that set
 from the architecture and the genetic code rather than proposing overhangs and hoping.
 
-**Published kit rules versus PPROPT extensions**, kept apart deliberately:
+**Published kit rules versus PPR-opt extensions**, kept apart deliberately:
 
   *published*   the deposited kit's own junction overhangs, one per block transition, and the
                 external destination ends. These are facts about the deposited vectors.
-  *PPROPT*      any *other* synonymous four-mer at the same position. The kit does not
-                sanction these; this package derives them, and a design using one is a PPROPT
+  *PPR-opt*      any *other* synonymous four-mer at the same position. The kit does not
+                sanction these; this package derives them, and a design using one is a PPR-opt
                 extension that no published protocol has validated.
 
 **An assignment is global, not per-position.** The kit gives every B→C join the same overhang,
