@@ -147,8 +147,10 @@ class TestNotebookControlsAreWired:
         from pathlib import Path
 
         nb_path = Path(__file__).resolve().parents[1] / "notebooks" / "PPROPT_designer.ipynb"
-        if not nb_path.exists():
-            pytest.skip("notebook not present")
+        # Deliberately not a skip. A skip here disarms the guard exactly when it matters --
+        # rename or move the notebook and this test goes green while nothing is checked.
+        # `tests/test_notebook_inventory.py` fails loudly in the same situation; so does this.
+        assert nb_path.exists(), f"{nb_path} is missing, so nothing below was checked"
         nb = json.loads(nb_path.read_text(encoding="utf-8"))
         source = "".join("".join(c["source"]) for c in nb["cells"]
                          if c["cell_type"] == "code")

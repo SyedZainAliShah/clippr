@@ -62,3 +62,7 @@ exp_a_*.json
 # inventory cells run against a real input. It is not ours to distribute -- see NOTICE.md.
 # The harness removes it on a clean exit; a killed run leaves it behind.
 /Table S1.xlsx
+
+# Git worktrees the desktop app creates for side sessions. A whole second checkout lives
+# here; `git add -A` from the repo root would otherwise commit all of it.
+.claude/worktrees/
