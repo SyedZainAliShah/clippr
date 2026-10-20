@@ -18,8 +18,6 @@ DIAGRAM = Path("notebooks/pipeline.svg")
 #: cannot drift unnoticed -- reading it from `work/` instead made a fresh clone fail
 #: `tests/test_notebook.py`, because that directory is gitignored.
 TESTS = 1195
-#: Served from the repository rather than inlined -- see pipeline_svg().
-DIAGRAM_URL = f"https://raw.githubusercontent.com/{REPO}/main/{DIAGRAM.as_posix()}"
 
 
 TESTS_BADGE = (f"[![Tests](https://img.shields.io/badge/tests-{TESTS}%20passing-1a7f5a.svg)]"
@@ -39,9 +37,14 @@ INK = "#7d918a"
 def pipeline_svg():
     """The pipeline diagram, as a standalone SVG file.
 
-    Written to `notebooks/pipeline.svg` and referenced by URL rather than inlined: Colab's
-    markdown sanitiser removes inline <svg> entirely, so an inlined diagram renders as
-    nothing at all.
+    Written to `notebooks/pipeline.svg`. **The notebook no longer embeds it** -- the header
+    carried it by URL until 2026-10-20, when the team took it out. It is still generated
+    because the drawing is derived from the stage list below and would otherwise go stale
+    as a hand-kept asset; `wiki/software.md` has `[[FIG:` slots that may want it. Nothing
+    references the file today, so it is an asset on offer, not a dependency.
+
+    Inlining is not an option if it ever goes back: Colab's markdown sanitiser removes
+    inline <svg> entirely, so an inlined diagram renders as nothing at all.
     """
     # One box per thing the code actually does. `arelf` is deliberately absent: it is an
     # anchor for reporting cut positions, not a stage. Cuts and overhangs share a box
@@ -134,12 +137,6 @@ cells.append(md(f"""
 {TESTS_BADGE}
 
 **CLiPPR - iGEM Marburg 2026**
-
-</div>
-
-<div align="center">
-
-<img src="{DIAGRAM_URL}" alt="PPR-opt pipeline: a target RNA passes through ppr, a joint choice of cuts and overhangs, codon optimisation, assembly and qc to become orderable DNA fragments, with a fallback from codons to a different split" width="100%" style="max-width:980px">
 
 </div>
 
