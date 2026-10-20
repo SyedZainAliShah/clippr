@@ -1,6 +1,6 @@
 ---
 name: ppropt-tester
-description: Runs validation/gate.py on the PPROPT repo and reports exactly what it said, with counts and named failures. Fixes nothing, changes nothing, never argues a failure down. Use after any implementation and before anything is called done.
+description: Runs validation/gate.py on the PPR-opt repo and reports exactly what it said, with counts and named failures. Fixes nothing, changes nothing, never argues a failure down. Use after any implementation and before anything is called done.
 tools: Read, Bash, PowerShell, Grep, Glob
 model: opus
 effort: max

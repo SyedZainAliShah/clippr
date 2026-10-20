@@ -101,6 +101,48 @@ class TestBlacklist:
         assert synthesis_qc(CLEAN)["blacklist_hits"] == []
 
 
+class TestBlacklistFollowsTheDeclaredProfile:
+    """The gate applies the set the caller declared, not a module constant.
+
+    Each case plants a site and asserts the verdict turns on whether the profile excludes
+    that enzyme -- a planted site no profile covers must be ignored, which is the half that
+    a fixed blacklist silently got wrong for `moclo_compat` and BsmBI.
+    """
+
+    #: (planted site, the profile that excludes it, a profile that does not)
+    CASES = [("GCTCTTC", "igem_rfc1000", "assembly"),      # SapI -- the RFC[1000] rule
+             ("CGTCTC", "moclo_compat", "igem_rfc1000")]   # BsmBI -- MoClo headroom only
+
+    @pytest.mark.parametrize("site, excluding, allowing", CASES)
+    def test_site_fails_only_under_a_profile_that_excludes_it(self, site, excluding,
+                                                              allowing):
+        seq = CLEAN[:300] + site + CLEAN[300:]
+        assert synthesis_qc(seq, enzymes=excluding)["status"] == "FAIL"
+        assert synthesis_qc(seq, enzymes=allowing)["blacklist_hits"] == []
+
+    def test_none_profile_checks_nothing(self):
+        seq = CLEAN[:300] + "GGTCTC" + CLEAN[300:]
+        assert synthesis_qc(seq)["status"] == "FAIL"
+        q = synthesis_qc(seq, enzymes="none")
+        assert q["blacklist_hits"] == [] and q["blacklist_enzymes"] == []
+
+    def test_the_applied_set_is_reported(self):
+        """An empty hit list must be distinguishable from a gate that checked nothing."""
+        assert synthesis_qc(CLEAN)["blacklist_enzymes"] == ["BsaI", "BbsI", "SapI"]
+        assert synthesis_qc(CLEAN, enzymes="assembly")["blacklist_enzymes"] == ["BsaI",
+                                                                                "BbsI"]
+        assert synthesis_qc(CLEAN, enzymes=("EagI",))["blacklist_enzymes"] == ["EagI"]
+
+    def test_default_is_unchanged_so_the_calibration_still_holds(self):
+        """The docstring's 14/86/100 split was measured with no `enzymes` argument."""
+        seq = CLEAN[:300] + "GCTCTTC" + CLEAN[300:]
+        assert synthesis_qc(seq) == synthesis_qc(seq, enzymes="igem_rfc1000")
+
+    def test_an_unknown_profile_is_refused(self):
+        with pytest.raises(ValueError, match="unknown enzyme profile"):
+            synthesis_qc(CLEAN, enzymes="moclo")
+
+
 class TestFeasibilityGates:
     def test_extreme_gc_fails(self):
         assert synthesis_qc("GC" * 450)["status"] == "FAIL"

@@ -399,7 +399,7 @@ def design_oneshot(
 
     # A profile says which sites this project always excludes. `extra_blacklist` is for
     # the site a particular experiment needs clear -- an EcoRI in a downstream vector, say
-    # -- which is a property of that experiment, not of PPROPT's policy, so it is added
+    # -- which is a property of that experiment, not of PPR-opt's policy, so it is added
     # here rather than becoming a new profile.
     if extra_blacklist:
         extra = (tuple(e.strip() for e in extra_blacklist.split(",") if e.strip())
@@ -496,7 +496,10 @@ def design_oneshot(
                     "optimiser's budget; the coding-span design is reported unchanged")
 
     with _stage(timings, "qc"):
-        qc = synthesis_qc(cds)
+        # The blacklist the caller declared, not the module default. `enzyme_profile` has
+        # `extra_blacklist` merged in by this point, so the coding-span verdict and the
+        # ordered-oligo gate below judge one and the same declared policy.
+        qc = synthesis_qc(cds, enzymes=C.enzymes_for(enzyme_profile))
 
     dest = destination or C.DESTINATION_OVERHANGS["level0"]
     reaction = reaction_overhangs(overhangs, "level0") if destination is None else [

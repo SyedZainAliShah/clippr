@@ -313,7 +313,11 @@ class TestPlacementIsChosenForAssembly:
 
         dest = DESTINATION_OVERHANGS["level0"]
         fixed = [dest[0], reverse_complement(dest[1])]
-        naive_score = set_fidelity(fixed + [self.CDS[p - 4:p] for p in naive], "BsaI-HFv2")
+        # Both sides must be scored on the enzyme the reaction uses. Pinning the naive walk
+        # to a literal matrix made this comparison meaningless the moment selection moved
+        # to BbsI-HF: it reported a BsaI-HFv2 walk beating a BbsI-HF selection.
+        naive_score = set_fidelity(fixed + [self.CDS[p - 4:p] for p in naive],
+                                   introns.PART_MATRIX)
         assert out["predicted_fidelity"] > naive_score, (
             f"selection {out['predicted_fidelity']} did not beat first-fit {naive_score:.4f}")
 

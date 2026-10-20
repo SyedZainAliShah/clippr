@@ -45,7 +45,7 @@ MODES = ("greedy", "anneal", "random")
 
 #: Normalised terms and their weights for the scalar objective. Both terms are mapped to
 #: "higher is better" in [0, 1]-ish ranges before weighting, so the weights mean what they
-#: look like. These are PPROPT engineering defaults chosen from our own measurements, not
+#: look like. These are PPR-opt engineering defaults chosen from our own measurements, not
 #: values taken from any other implementation.
 DEFAULT_WEIGHTS = {"adaptation": 1.0, "sharing": 1.0}
 

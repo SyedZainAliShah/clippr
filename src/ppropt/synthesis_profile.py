@@ -190,7 +190,7 @@ STRICT_LEGACY = SynthesisProfile(
     # codon-optimisation guidance, but that document frames them as steps taken *during*
     # optimisation and keeps them separate from its acceptance rules -- so the value is
     # borrowed and the hard enforcement is ours. No IDT document contains this window at all,
-    # and PPROPT orders from IDT.
+    # and PPR-opt orders from IDT.
     #
     # It stays hard because it costs nothing to: with the ordered-fragment constraint on, all
     # 200 corpus designs satisfy it. Loosening a rule the designs already pass would weaken
@@ -223,7 +223,7 @@ STRICT_LEGACY = SynthesisProfile(
 #: Two differences from `STRICT_LEGACY` that matter: it adds the global band that guidance
 #: pairs with the window, and it treats both as **targets** rather than hard limits, because
 #: that page frames them as steps taken during optimisation and separates them from its
-#: sequence-acceptance rules. It is **not** an IDT oPools rule, and PPROPT orders from IDT.
+#: sequence-acceptance rules. It is **not** an IDT oPools rule, and PPR-opt orders from IDT.
 TWIST_CODON_GUIDANCE = SynthesisProfile(
     name="twist-codon-optimisation-guidance",
     source="https://www.twistbioscience.com/products/genes/resources",
@@ -242,7 +242,7 @@ TWIST_CODON_GUIDANCE = SynthesisProfile(
         "this is Twist's codon-optimisation guidance, not its sequence-acceptance rules, and "
         "not IDT's",
         "Twist's own homopolymer limit is a separate hard rule (< 14 nt); the value here is a "
-        "PPROPT target carried over from the strict profile",
+        "PPR-opt target carried over from the strict profile",
         "final acceptance is ML-scored by the vendor and is not predicted here",
     ),
     note="opt-in; adds the global band and makes the local band advisory, as the page frames it",
@@ -254,7 +254,7 @@ TWIST_CODON_GUIDANCE = SynthesisProfile(
 #: 42 modules with every selected substrate passing its own checks.
 BROAD_EXPERIMENTAL = SynthesisProfile(
     name="broad-experimental",
-    source="PPROPT experiment, not a vendor rule",
+    source="PPR-opt experiment, not a vendor rule",
     product="none; measurement only",
     read_on="2026-09-16",
     local_gc=(0.15, 0.85),

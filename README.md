@@ -1,4 +1,4 @@
-# PPROPT
+# PPR-opt
 
 **Design tooling for synthetic PPR regulators.** iGEM Marburg 2026.
 
@@ -92,8 +92,10 @@ downstream step can mistake them for an order.
 
 The limits matter more than the features here, so they are not buried:
 
-- **Nothing has been validated at the bench.** Every number is a software check or a
-  prediction from a published model.
+- **One construct has been to the bench; nothing else has.** One synthetic PPR designed for
+  *Chlamydomonas reinhardtii* has been transformed and tested. That is a single construct,
+  not a validation of what this package predicts: every number here is still a software
+  check or a prediction from a published model.
 - **No vendor has accepted or refused a sequence.** Nothing was ever submitted. The policy
   that refuses fragments is this project's own, and is stricter than any vendor rule we
   could verify first-hand — see [`docs/vendor_rule_comparison.md`](docs/vendor_rule_comparison.md).

@@ -1,4 +1,4 @@
-"""Generate the PPROPT Colab notebook.
+"""Generate the PPR-opt Colab notebook.
 
 Written as a generator rather than hand-edited JSON so cell order, titles and the form
 metadata stay consistent, and so the whole notebook can be regenerated after an API change
@@ -18,8 +18,6 @@ DIAGRAM = Path("notebooks/pipeline.svg")
 #: cannot drift unnoticed -- reading it from `work/` instead made a fresh clone fail
 #: `tests/test_notebook.py`, because that directory is gitignored.
 TESTS = 1195
-#: Served from the repository rather than inlined -- see pipeline_svg().
-DIAGRAM_URL = f"https://raw.githubusercontent.com/{REPO}/main/{DIAGRAM.as_posix()}"
 
 
 TESTS_BADGE = (f"[![Tests](https://img.shields.io/badge/tests-{TESTS}%20passing-1a7f5a.svg)]"
@@ -39,9 +37,14 @@ INK = "#7d918a"
 def pipeline_svg():
     """The pipeline diagram, as a standalone SVG file.
 
-    Written to `notebooks/pipeline.svg` and referenced by URL rather than inlined: Colab's
-    markdown sanitiser removes inline <svg> entirely, so an inlined diagram renders as
-    nothing at all.
+    Written to `notebooks/pipeline.svg`. **The notebook no longer embeds it** -- the header
+    carried it by URL until 2026-10-20, when the team took it out. It is still generated
+    because the drawing is derived from the stage list below and would otherwise go stale
+    as a hand-kept asset; `wiki/software.md` has `[[FIG:` slots that may want it. Nothing
+    references the file today, so it is an asset on offer, not a dependency.
+
+    Inlining is not an option if it ever goes back: Colab's markdown sanitiser removes
+    inline <svg> entirely, so an inlined diagram renders as nothing at all.
     """
     # One box per thing the code actually does. `arelf` is deliberately absent: it is an
     # anchor for reporting cut positions, not a stage. Cuts and overhangs share a box
@@ -98,7 +101,7 @@ def pipeline_svg():
         f'<svg viewBox="0 0 {end_x + right_margin} 150" '
         f'width="{end_x + right_margin}" height="150" '
         f'xmlns="http://www.w3.org/2000/svg" '
-        f'role="img" aria-label="PPROPT pipeline: a target RNA passes through ppr, a joint '
+        f'role="img" aria-label="PPR-opt pipeline: a target RNA passes through ppr, a joint '
         f'choice of cuts and overhangs, codon optimisation, assembly and QC to become '
         f'orderable DNA fragments, with a fallback from codons to a different split">'
         f'<text x="0" y="{y + 21}" {label}>target</text>'
@@ -125,27 +128,21 @@ def pipeline_svg():
 cells.append(md(f"""
 <div align="center">
 
-# PPROPT
+# PPR-opt
 
-**Design a PPR protein that binds any RNA sequence you choose**
+**Design a PPR protein binding a specific RNA sequence of your choice**
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]({COLAB})
 [![License: MIT](https://img.shields.io/badge/License-MIT-1a7f5a.svg)](https://github.com/{REPO}/blob/main/LICENSE)
 {TESTS_BADGE}
 
-**iGEM Marburg 2026**
-
-</div>
-
-<div align="center">
-
-<img src="{DIAGRAM_URL}" alt="PPROPT pipeline: a target RNA passes through ppr, a joint choice of cuts and overhangs, codon optimisation, assembly and qc to become orderable DNA fragments, with a fallback from codons to a different split" width="100%" style="max-width:980px">
+**CLiPPR - iGEM Marburg 2026**
 
 </div>
 
 ---
 
-Pentatricopeptide repeat proteins are built from tandem ~31-residue repeats, and **each
+**P**entatrico**p**eptide **R**epeat (PPR) proteins are built from ~31-residue repeats, and **each
 repeat reads exactly one RNA base** through two specificity residues:
 
 | 5th + last residue | reads |     | 5th + last residue | reads |
@@ -153,30 +150,33 @@ repeat reads exactly one RNA base** through two specificity residues:
 | `T` `N` | **A** |  | `T` `D` | **G** |
 | `N` `N` | **C** |  | `N` `D` | **U** |
 
-So the protein is a deterministic function of your target — no catalogue to search. Give it
-nine bases and you get a nine-repeat protein, a synthesisable coding sequence, a Golden Gate
-assembly plan, and the fragments it would order if they passed the final check.
+T = threonine
+N = asparagine
+D = aspartate
 
-**Four steps.** Run **0 · Setup** once, edit **1**, then run **2**, **3** and **4** in order.
-Everything under *Optional extras* can be skipped — open one when you want that check.
-Code is hidden behind the forms; use a cell's ⋮ menu → **Form → Show code** to read it.
+Therefore, a RNA sequence of 9 bases would result in a PPR protein of 9 repeats.
+This tool will give you a synthesisable coding sequence, a Golden Gate
+assembly plan, and the ready-to-order fragments.
 
-> **Designing from the deposited 42-module kit instead?** That is a different workflow with a
-> different set of answers, so it has its own notebook:
+**Four steps.**
+Run **0 · Setup** once, edit **1**, then run **2**, **3** and **4** in order.
+Everything under *Optional extras* can be skipped - open one when you want that particular check.
+The code is hidden behind the forms. You can use a cell's ⋮ **menu → Form → Show code** to read it.
+
+> **You want to design a flexible toolbox instead of a single PPR?**
+That is a different workflow, so it has its own notebook here:
 > [PPROPT_inventory.ipynb]({INVENTORY_COLAB}).
 
-> ##### Before you read any number
-> **Predicted fidelity** comes from published ligation-count matrices (Pryor *et al.* 2020) —
-> it is not a measured assembly efficiency in your hands. **QC** is a sequence-complexity
-> check, not calibrated against vendor outcomes.
-> Nothing here has been validated at the bench.
+> ##### Disclaimer:
+> **Predicted fidelity** comes from published ligation-count matrices (Pryor *et al.* 2020). **QC** is a common sequence-complexity
+> check, this might vary depending on the supplier of your choice. As of now only one synthetic PPR designed for *Chlamydomonas reinhardtii* has been transformed and tested.
 """))
 
 # ---------------------------------------------------------------- install
 cells.append(md("""
 ## 0 · Setup
 
-Run once — installs PPROPT from GitHub, about a minute.
+Run once - installs PPR-opt from GitHub, takes about a minute.
 """))
 
 cells.append(setup_cell())
@@ -186,10 +186,11 @@ cells.append(setup_cell())
 # imports cleanly and then raises KeyError('synthesis_ready') nine cells down, which reads
 # as a broken notebook rather than a stale kernel.
 cells.append(code('''
-#@markdown Checks this notebook can run on the copy of PPROPT this session has loaded.
+#@markdown Checks if this notebook can run on the copy of PPR-opt this session has loaded.
 #@markdown
-#@markdown **Green?** Carry on to step 1. **Red?** **Runtime → Restart session**, then run
-#@markdown Setup again — reinstalling alone will not help, because the old copy stays in
+#@markdown **Green?** Carry on to step 1.
+#@markdown **Red?** **Runtime → Restart session**, then run
+#@markdown Setup again - reinstalling alone will not help, because the old copy stays in
 #@markdown memory until the session restarts.
 from IPython.display import HTML, display
 
@@ -204,7 +205,7 @@ except ImportError as exc:
 if _stale:
     display(HTML(
         '<div style="border-left:3px solid #a8402c;padding:.6em 1em;font-size:13px;'
-        'line-height:1.55">This kernel has an older PPROPT loaded.<br><code>'
+        'line-height:1.55">This kernel has an older PPR-opt loaded.<br><code>'
         + _stale + '</code><br><br>Run <b>Runtime &gt; Restart session</b>, then run the '
         'setup cell again. Reinstalling alone will not help: the old copy stays in memory '
         'until the kernel restarts.</div>'))
@@ -217,9 +218,9 @@ else:
 
 # ---------------------------------------------------------------- parameters
 cells.append(md("""
-## 1 · Your target and host
+## 1 · Your Target and Host
 
-The only cell you have to edit. Everything else runs on what you set here.
+Fill this in and the rest of the notebook follows. Nothing below needs editing.
 """))
 
 cells.append(code('''
@@ -228,11 +229,11 @@ cells.append(code('''
 #@markdown The RNA sequence your PPR will recognise. **Its length sets the architecture** —
 #@markdown 9, 14 or 19 bases give a 9S, 14S or 19S protein.
 #@markdown
-#@markdown ⏱️ **Length also sets how long Step 2 takes, and the difference is large.** Measured
-#@markdown once each on the project's own machine, screening off: **9 bases ≈ 0.5 s**,
-#@markdown **14 bases ≈ 14 s**, **19 bases ≈ 3—4 minutes**. The codon optimiser has to route a
+#@markdown ⏱️ **The length of your RNA sequence also sets how long Step 2 takes, and the difference is large.**
+#@markdown Measured once each on the project's own machine, screening off: **9 bases ≈ 0.5 s**,
+#@markdown **14 bases ≈ 14 s** and **19 bases ≈ 3-4 minutes**. The codon optimiser has to route a
 #@markdown longer coding sequence around more fixed junctions and more forbidden enzyme sites,
-#@markdown so the cost climbs far faster than the length does. A 19-mer has not hung — it is
+#@markdown so the cost climbs far faster than the length does. A longer sequence is not stuck - it is
 #@markdown working.
 #@markdown
 #@markdown 💡 **Not sure which window of your gene to aim at?** Leave this field alone and use
@@ -242,24 +243,23 @@ target_rna = "AAAAUGUGG"  #@param {type:"string"}
 
 #@markdown # B · Where will it be expressed?
 #@markdown ---
-#@markdown Sets the codon usage and the genetic code (nuclear hosts use table 1,
-#@markdown chloroplasts table 11).
+#@markdown Sets the codon usage and the genetic code. (Nuclear hosts use table 1, Chloroplasts table 11)
 #@markdown
 #@markdown ⚠️ **The two Chlamydomonas entries are not interchangeable.** The nucleus is
 #@markdown GC-rich and prefers Leu `CTG`; the chloroplast is AT-rich and prefers Leu `TTA`.
 #@markdown Using one for the other produces DNA that looks fine and is wrong.
 organism = "c_reinhardtii_nuclear"  #@param ["c_reinhardtii_nuclear", "c_reinhardtii_chloroplast", "e_coli", "s_cerevisiae", "a_thaliana_nuclear", "n_tabacum_chloroplast"]
 
-#@markdown ### Your own codon usage — optional
+#@markdown ### Your own codon usage - optional
 #@markdown Leave all three blank to use the host above. Highest filled one wins.
 #@markdown
-#@markdown **`codon_table_file`** — a `codon,frequency` CSV or a CDS FASTA. Upload it with
+#@markdown **`codon_table_file`** - a `codon,frequency` CSV or a CDS FASTA. Upload it with
 #@markdown the folder icon in the sidebar, then put the filename here.
 #@markdown
-#@markdown **`kazusa_taxid`** — any NCBI taxonomy id Kazusa carries, e.g. `4577` for maize.
+#@markdown **`kazusa_taxid`** - any NCBI taxonomy ID Kazusa carries, e.g. `4577` for maize.
 #@markdown Fetched and cached on first use.
 #@markdown
-#@markdown **`genetic_code_override`** — the genetic code for a table you supplied. Leave 0
+#@markdown **`genetic_code_override`** - the genetic code for a table you supplied. Leave 0
 #@markdown to inherit from the host; set 11 for anything organellar.
 codon_table_file = ""  #@param {type:"string"}
 kazusa_taxid = 0  #@param {type:"integer"}
@@ -601,7 +601,7 @@ import ppropt  # unguarded: a broken install should show its real traceback, not
 if not hasattr(ppropt, "select_window"):
     # Only the one case this guard is for: a build predating targeting.py. Anything else --
     # a missing Biopython, a half-installed package -- must raise and say what it is.
-    print("This build of PPROPT has no window selection.")
+    print("This build of PPR-opt has no window selection.")
     print("Use Runtime -> Restart session, re-run Setup, then run this cell again.")
     print("Nothing else is affected: target_rna from Step 1 is untouched.")
 else:
@@ -862,7 +862,7 @@ Sequence separation and *predicted binding* are different questions, so they sta
 | **A — Hamming distance** | two targets differ in *k* of *n* positions | **the only thing that gates** |
 | **B — predicted affinity** | the PPR designed for A, scored against B | an annotation; gates nothing |
 
-Tier B needs a PPR specificity table. **PPROPT does not ship one** — the available table
+Tier B needs a PPR specificity table. **PPR-opt does not ship one** — the available table
 carries no licence, and it comes from **P-type** experiments while this scaffold is
 **S-type**. A high score means *look*, never *fail*.
 
@@ -887,103 +887,6 @@ if scores:
     print("A disagreement is a reading recommendation, not a failed design —")
     print("tier A alone decides what this library accepts.")
 ''', title="Run the cross-talk check"))
-
-
-cells.append(md("""
----
-
-## Where an intron could go
-
-**Your design has no intron in it.** This cell does not change that. It reads the published
-placement rules and reports where one *could* go, so the wet lab can decide.
-
-Why it is worth asking: in *Chlamydomonas*, a codon-optimised gene with no introns expressed
-barely at all, and three copies of a short intron in the same gene raised mRNA more than
-100-fold and protein about 8-fold (Baier 2018). Codon choice is the only expression lever
-this software has.
-
-A position qualifies when it sits **between two guanines** — that junction splices at 132% of
-control, while a C|C junction manages 3%.
-
-Then there are two ways to actually order it, and only one of them works. Putting the intron
-**inside an exon's oligo** means a 50-nt window spanning the seam is synthesised as one piece,
-and it almost always breaks the GC band this project enforces. Ordering the intron as **its
-own part** removes that window from synthesis entirely, because the two sides are made
-separately. Both are reported below so you can see the difference rather than take it on
-trust.
-
-Three hosts are **refused, not warned**: `e_coli` and both chloroplast tables have no nuclear
-spliceosome, so the intron is never cut out. At 145 nt it would shift the reading frame and it
-carries a stop in all three frames, which destroys the protein rather than failing to help it.
-
-**Introns cost assembly fidelity**, because each one adds a junction competing in the same
-reaction. How much depends on how many you place, so the count is searched rather than
-derived from the spacing rule, and the whole curve is printed. The ceiling is set by your
-destination vector, not by the introns: at level 0 the two acceptor ends are `CTCA` and
-`CTCG`, one base apart, which caps any reaction here at about 0.83 before an intron exists.
-"""))
-
-cells.append(code('''
-from ppropt import introns
-
-advice = introns.advise(result["cds"], organism)
-
-print(f"host {advice['organism']}: "
-      f"{'introns are spliced here' if advice['applicable'] else 'NOT APPLICABLE'}")
-if not advice["applicable"]:
-    print()
-    print(advice["why_not"])
-else:
-    if not advice["evidence_in_this_host"]:
-        print("   (a spliceosome exists here, but this intron was never tested in it)")
-    print()
-    a, b = advice["route_a_embedded"], advice["route_b_own_part"]
-    print(f"candidate positions (between two Gs) : {advice['sites_available']}")
-    print()
-    print(f"   inside an exon's own oligo      : {a['sites_clean']:3d} usable")
-    print(f"   ordered as its own {b['enzyme']} part   : {b['sites_clean']:3d} usable")
-    print()
-    print("   Putting the intron inside an exon oligo means a 50-nt window spanning the")
-    print("   seam gets synthesised as one piece, and it almost always breaks the GC band.")
-    print(f"   Ordering it separately removes that window entirely. {b['enzyme']} rather than")
-    print("   BsaI because its recognition site carries one less G or C, which is the")
-    print("   difference between 0.660 and 0.640 against a 0.65 ceiling.")
-    if advice["suggested"]:
-        print()
-        print(f"suggested: {len(advice['suggested'])} intron(s) at {advice['suggested']}")
-        print(f"   exon lengths would be {advice['exon_lengths']} nt "
-              f"(published guideline: {introns.MAX_EXON_NT} or shorter)")
-        print(f"   you would order {len(advice['exon_lengths'])} exon pieces plus "
-              f"{len(advice['suggested'])} intron piece(s)")
-        if advice.get("predicted_fidelity") is not None:
-            print(f"   predicted assembly fidelity {advice['predicted_fidelity']:.3f}, "
-                  f"against {result['fidelity']:.3f} for the design without introns")
-        curve = advice.get("fidelity_by_intron_count") or {}
-        if len(curve) > 1:
-            print()
-            print("   what each count would cost:")
-            for n, f in sorted(curve.items()):
-                mark = "  <- chosen" if n == len(advice["suggested"]) else ""
-                print(f"     {n} intron(s): {f:.3f}{mark}")
-            print("   More introns raised expression in every published series, so this")
-            print("   takes the most that still assembles acceptably.")
-        if advice.get("fidelity_warning"):
-            print()
-            print(f"   WARNING: {advice['fidelity_warning']}")
-        print()
-        print("   This is one seed. Across five seeds on the same target the same")
-        print("   machinery gave two or three introns at 0.75 to 0.80, so read the count")
-        print("   and the number as a draw from that range rather than a fixed answer.")
-    else:
-        print()
-        print(advice.get("blocked_by", "no placement found"))
-    print()
-    print(f"intron: {advice['intron']['name']}, {advice['intron']['length_nt']} nt, "
-          f"{advice['intron']['source']}")
-
-print()
-print(advice["disclaimer"])
-''', title="Where an intron could go"))
 
 
 cells.append(md("""
@@ -1029,7 +932,7 @@ cells.append(md(f"""
 
 | Step | What happens |
 |---|---|
-| **0 · Setup** | installs PPROPT from GitHub |
+| **0 · Setup** | installs PPR-opt from GitHub |
 | **1 · Target and host** | your target RNA, codon table, enzyme and destination |
 | **2 · Design it** | target to protein, then cuts and overhangs chosen **before** the coding sequence is optimised, so the optimiser cannot rewrite the bases the junctions depend on |
 | **3 · Fragments** | the oligo table you order |
@@ -1054,12 +957,6 @@ cells.append(glossary(md, [
                    "It is what stops several regulators being controlled independently."),
     ("library", "Several PPRs designed together, so they can be checked against each other "
                 "rather than one at a time."),
-    ("intron", "A stretch of DNA inside a gene that the cell cuts out of the RNA copy before "
-               "the protein is made. It is not part of the protein, but in some hosts having "
-               "one raises how much protein you get. PPROPT designs none."),
-    ("splicing", "The cutting-out step. Only hosts with the right machinery do it: a nucleus "
-                 "can, a bacterium and a chloroplast cannot, which is why an intron would "
-                 "wreck a construct meant for those."),
 ]))
 
 write_notebook(cells, OUT, NAME)

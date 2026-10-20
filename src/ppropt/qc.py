@@ -16,7 +16,21 @@ reference CDSs and the 200 our own optimiser produces for the same proteins:
     gc_pct              39.1 / 46.0 / 48.5           58.8 / 59.8 / 60.6
 
 Under the defaults here the baseline population splits **14 PASS / 86 WARNING /
-100 FAIL** -- a real distribution rather than a constant.
+100 FAIL** -- a real distribution rather than a constant. That split, and the percentiles
+below, were measured under the **default** enzyme profile, which is why `enzymes` defaults
+to it: the calibration describes this module's out-of-the-box behaviour and a caller
+declaring another profile changes the blacklist gate only.
+
+**The blacklist gate is a declared policy, not a calibrated threshold.** Every other gate
+here measures a property of the molecule -- repeats, GC, homopolymer runs -- and a Type IIS
+site is none of those: a SapI site does not make DNA harder to synthesise, it is excluded
+because iGEM RFC[1000] says so. So this one gate has to apply the set the *caller*
+declared, and `synthesis_qc` takes `enzymes` for that. Applying a fixed set instead reports
+a verdict about a policy nobody chose, in both directions: a design fails for a site the
+caller never excluded, and -- worse -- `moclo_compat`, whose entire purpose is excluding
+BsmBI, gets `blacklist_hits == []` from a sequence carrying a BsmBI site. The returned
+`blacklist_enzymes` names the set applied, so an empty hit list can be told apart from a
+gate that checked nothing.
 
 **Two honesty notes.**
 
@@ -38,13 +52,16 @@ been checked against an actual synthesis acceptance or refusal.
 """
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from . import constants as _C
 
 #: Enzyme sites that must not appear inside a fragment, by the default profile.
 #: `constants.ENZYME_PROFILES` records why each is excluded -- assembly chemistry for
 #: BsaI/BbsI, the iGEM RFC[1000] standard for SapI, downstream MoClo headroom for BsmBI.
+#:
+#: This is the *default* for `synthesis_qc`, not the only set it can apply: a caller that
+#: declared a different profile passes it in, and the verdict reports which set it used.
 BLACKLIST_ENZYMES: tuple[str, ...] = _C.enzymes_for()
 
 #: Default cut-points. `repeat_*` discriminate; the rest are feasibility floors.
@@ -139,11 +156,11 @@ def _repeats(cds: str, k: int = REPEAT_K) -> tuple[float, int, int]:
 
 
 def _blacklist(cds: str, enzymes=BLACKLIST_ENZYMES) -> list[str]:
-    """Enzyme sites present on either strand."""
+    """Enzyme sites present on either strand. `enzymes` may be a profile name."""
     from Bio import Restriction
 
     hits = []
-    for name in enzymes:
+    for name in _C.enzymes_for(enzymes):
         site = str(getattr(Restriction, name).site).upper()
         rc = site.translate(_COMPLEMENT)[::-1]
         n = cds.count(site) + (cds.count(rc) if rc != site else 0)
@@ -152,12 +169,19 @@ def _blacklist(cds: str, enzymes=BLACKLIST_ENZYMES) -> list[str]:
     return hits
 
 
-def synthesis_qc(cds: str, thresholds: Mapping[str, float] | None = None) -> dict:
+def synthesis_qc(cds: str, thresholds: Mapping[str, float] | None = None, *,
+                 enzymes: Sequence[str] | str = BLACKLIST_ENZYMES) -> dict:
     """Assess whether a coding sequence is likely to synthesise, and why not.
 
     Returns a verdict of PASS, WARNING or FAIL alongside every measurement behind it, so
     a caller can rank designs on the numbers rather than only on the label. `thresholds`
     overrides any subset of `DEFAULT_THRESHOLDS`.
+
+    `enzymes` is the blacklist this verdict applies -- a profile name or an explicit tuple,
+    resolved through `constants.enzymes_for`. It defaults to `BLACKLIST_ENZYMES` so the
+    calibration in the module docstring keeps describing the default behaviour; a caller
+    that declared a profile must pass it, or the verdict judges a policy nobody chose. The
+    set applied is returned as `blacklist_enzymes`.
     """
     cds = str(cds).upper().replace("U", "T")
     if not cds:
@@ -173,7 +197,8 @@ def synthesis_qc(cds: str, thresholds: Mapping[str, float] | None = None) -> dic
                for i in range(max(1, n - GC_WINDOW + 1))] or [gc_pct]
     longest_homopolymer, homopolymer_count = _homopolymers(cds)
     repeat_fraction, duplicated, longest_repeat = _repeats(cds)
-    blacklist_hits = _blacklist(cds)
+    enzymes_applied = _C.enzymes_for(enzymes)
+    blacklist_hits = _blacklist(cds, enzymes_applied)
 
     warnings: list[str] = []
     failures: list[str] = []
@@ -225,6 +250,9 @@ def synthesis_qc(cds: str, thresholds: Mapping[str, float] | None = None) -> dic
         "repeated_kmers": duplicated,
         "longest_repeat": longest_repeat,
         "blacklist_hits": blacklist_hits,
+        # Names the set the gate applied, so `blacklist_hits == []` can be told apart from
+        # a gate that checked nothing.
+        "blacklist_enzymes": list(enzymes_applied),
         "warnings": warnings,
         "failures": failures,
     }

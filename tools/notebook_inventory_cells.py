@@ -116,11 +116,11 @@ else:
     notes = inv.synthesis_profile_notes(deposited)
     if notes:
         print()
-        print("Modules outside PPROPT's synthesis profile, before you order anything:")
+        print("Modules outside PPR-opt's synthesis profile, before you order anything:")
         for module_id, why in notes.items():
             print(f"   {module_id}: {'; '.join(why)}")
         print()
-        print("That limit is PPROPT's engineering choice, not a published rule, so this")
+        print("That limit is PPR-opt's engineering choice, not a published rule, so this")
         print("is a statement about fit -- not a defect in the deposited kit.")
 ''', title="Step 1 — load the deposited kit"))
 
@@ -314,8 +314,9 @@ if selected is not None:
     out.append(md("""
 > **This route does not take introns into consideration.** The deposited kit modules carry
 > none, recoding would silently remove one from a module it rewrote, and nothing here checks
-> for them. If you are building for a nuclear host where intron-mediated enhancement matters,
-> that is a reason to look at the de novo notebook, not this one.
+> for them. Neither does the de novo notebook: PPR-opt places no introns on either route.
+> If you are building for a nuclear host where intron-mediated enhancement matters, that is
+> something to handle outside this software.
 
 ## Plan the order
 

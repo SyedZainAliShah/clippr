@@ -1,6 +1,6 @@
 # Third-party material and attribution
 
-PPROPT itself is MIT-licensed; see [LICENSE](LICENSE). This file records material that
+PPR-opt itself is MIT-licensed; see [LICENSE](LICENSE). This file records material that
 travels with the package but originates elsewhere, and the sources every scientific
 constant is derived from.
 

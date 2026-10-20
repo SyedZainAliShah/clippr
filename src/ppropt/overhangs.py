@@ -35,7 +35,7 @@ What licenses A is a direct measurement on the pools a design actually chooses f
 `_plan_fragments` under both formulas across all 200 corpus targets, spanning 9S, 14S and 19S,
 the plans `design_oneshot` consumes are **identical in 200 of 200 cases** -- same cuts, same
 overhangs, same order. The reversals exist among arbitrary four-member sets; they do not reach
-the reachable candidate space. So the defensible claim is "this choice changes no design PPROPT
+the reachable candidate space. So the defensible claim is "this choice changes no design PPR-opt
 produces on this corpus", never "the choice is immaterial". If the candidate space changes --
 a new destination, a different enzyme profile, another architecture -- that measurement is the
 one to repeat.

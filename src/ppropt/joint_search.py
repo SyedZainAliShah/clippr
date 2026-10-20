@@ -51,7 +51,7 @@ from .synthesis_profile import resolve as _resolve_profile
 DIRECTIONS = {"fidelity": "max", "adaptation": "max", "synthesis_fitness": "max"}
 
 #: How far below the best observed feasible fidelity a candidate may sit and still be
-#: considered for the default recommendation. A PPROPT engineering choice, stated so the
+#: considered for the default recommendation. A PPR-opt engineering choice, stated so the
 #: recommendation is a rule rather than a preference applied after seeing results.
 FIDELITY_TOLERANCE = 0.01
 
@@ -202,7 +202,7 @@ def evaluate(inv: Inventory, classes, assignment: dict[str, str], targets, table
     # construction is an argument and this is a check.
     #
     # Constraint violations are judged as *introduced*, not inherited. One deposited module
-    # already carries TTTTT and fails PPROPT's homopolymer rule; treating that as infeasible
+    # already carries TTTTT and fails PPR-opt's homopolymer rule; treating that as infeasible
     # would make the deposited inventory unusable as a baseline, and the incumbent has to be
     # evaluable or there is nothing to compare against.
     for module_id, record in rebuilt.modules.items():

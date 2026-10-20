@@ -61,6 +61,14 @@ def ref():
     return design_oneshot(**BASE)
 
 
+@pytest.fixture(scope="module")
+def sapi_pair():
+    """(assembly, igem_rfc1000) at a seed whose unconstrained sequence really has SapI."""
+    kw = {**BASE, "seed": 0}
+    return (design_oneshot(**{**kw, "enzyme_profile": "assembly"}),
+            design_oneshot(**kw))
+
+
 class TestControlsHaveEffect:
     def test_enzyme_changes_the_ordered_oligo(self, ref):
         alt = design_oneshot(**{**BASE, "enzyme": "BbsI"})
@@ -77,6 +85,47 @@ class TestControlsHaveEffect:
     def test_enzyme_profile_changes_what_is_excluded(self, ref):
         alt = design_oneshot(**{**BASE, "enzyme_profile": "assembly"})
         assert alt["audit"].enzymes_excluded != ref["audit"].enzymes_excluded
+
+    def test_enzyme_profile_changes_the_dna(self, sapi_pair):
+        """The site is genuinely there without the constraint, and gone with it.
+
+        The test above asserts only that the *audit record* differs, which a parameter
+        that reached nothing but the record would also satisfy. This one asserts the DNA.
+        SapI avoidance is load-bearing rather than an edge case: GCTCTTC falls out of the
+        repeat's own E-L-F-D motif (GAG CTC TTC GAC), which recurs about ten times per
+        design, and under `assembly` 24 of 30 seeds at 9S carry at least one site with the
+        real Chlamydomonas table. Seed 0 is used because the file's seed 42 happens to
+        produce a clean sequence even unconstrained, where the assertion would prove
+        nothing -- 10 of the first 16 toy-table seeds carry a site, 42 is not one.
+        """
+        assembly, default = sapi_pair
+        site = str(Restriction.SapI.site)
+        assert site == "GCTCTTC"
+
+        before = assembly["cds"].count(site) + assembly["cds"].count(rc(site))
+        assert before > 0, "pick a seed whose unconstrained sequence really has the site"
+        assert default["cds"].count(site) + default["cds"].count(rc(site)) == 0
+
+        assert assembly["protein"] == default["protein"]
+        assert assembly["constraints_ok"] and default["constraints_ok"]
+
+    def test_enzyme_profile_reaches_the_qc_verdict(self, sapi_pair):
+        """QC must judge the profile the caller declared, not the module default.
+
+        It did not: `qc.BLACKLIST_ENZYMES` was applied unconditionally, so `assembly`
+        failed a design for the SapI site it had deliberately allowed while the
+        ordered-oligo gate -- which does receive the caller's profile -- passed the same
+        design. The reverse case is worse: `moclo_compat` exists only to exclude BsmBI and
+        the verdict never checked for it.
+        """
+        assembly, default = sapi_pair
+        assert "SapI" in default["qc"]["blacklist_enzymes"]
+        assert "SapI" not in assembly["qc"]["blacklist_enzymes"]
+        assert assembly["qc"]["blacklist_enzymes"] != default["qc"]["blacklist_enzymes"]
+
+        # The site is present, so the old module-default gate reported it here.
+        assert not any("SapI" in h for h in assembly["qc"]["blacklist_hits"])
+        assert not any("SapI" in f for f in assembly["qc"]["failures"])
 
     def test_extra_blacklist_removes_a_site_that_was_there(self, ref):
         """Uses a site the default sequence actually contains.
@@ -256,13 +305,21 @@ NOTEBOOKS = Path(__file__).resolve().parents[1] / "notebooks"
 def designer_notebook() -> Path:
     """The designer notebook, found by content rather than by name.
 
-    The filename carries the package's brand, which is being renamed. Keying on it would
-    make every test below fail for a reason that has nothing to do with form controls.
+    The filename carries the package's brand, which has been renamed once already. Keying
+    on it would make every test below fail for a reason that has nothing to do with form
+    controls.
+
+    **Deliberately not a skip**, on either branch. A skip disarms these tests exactly when
+    it matters: move or rename the notebook and every control test below goes green while
+    nothing at all is checked. The notebook is in the repository, so its absence is a
+    failure and not a missing optional input. (External inputs are different: the cached
+    annotation and the Kazusa tables below do skip, because those genuinely may not be
+    present -- which is why 194 tests in this suite skip today.)
     """
     hits = [p for p in sorted(NOTEBOOKS.glob("*.ipynb"))
             if "design_oneshot(" in p.read_text(encoding="utf-8")]
-    if not hits:
-        pytest.skip("no notebook calling design_oneshot is present")
+    assert hits, (
+        f"no notebook in {NOTEBOOKS} calls design_oneshot, so nothing below was checked")
     assert len(hits) == 1, (
         f"expected one designer notebook, found {[p.name for p in hits]}; "
         f"this helper picks the notebook to test and cannot choose between two")

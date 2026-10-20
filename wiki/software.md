@@ -4,9 +4,9 @@
 > form `[[FIG: what it is | source]]`. Grep for `[[FIG:` to find them all. They were left out
 > deliberately so each one can be checked against its source before it ships.
 
-## What PPROPT is
+## What PPR-opt is
 
-PPROPT designs synthetic PPR proteins that bind a chosen RNA sequence, and turns that design
+PPR-opt designs synthetic PPR proteins that bind a chosen RNA sequence, and turns that design
 into DNA somebody can actually order. You give it an RNA target; it gives you back a protein,
 the DNA that encodes it, the fragments to order, and a verdict on whether those fragments are
 fit to be ordered at all.
@@ -134,8 +134,12 @@ These are limits, not caveats to be read past:
 - **Codon optimisation is the only expression lever here, and it is documented as
   insufficient for the default host.** A codon-optimised, intron-free gene expressed
   minimally in *Chlamydomonas*; three copies of *rbcS2* intron 1 in the same gene gave over
-  100-fold the mRNA (Baier 2018). PPROPT designs no introns. It reports candidate positions
-  and says what it has not accounted for.
+  100-fold the mRNA (Baier 2018). PPR-opt designs no introns, and takes no intron input. We
+  measured what it would take: the intron passes every synthesis rule unchanged and
+  placement sites are abundant, but at level 0 the acceptor's own two ends cap the reaction
+  at 0.794 and leave 0.044 of headroom, while three intron junctions cost 0.071. The best
+  architecture reached 0.723, and none of five seeds cleared our 0.75 line. A negative
+  result reached by measurement, with the cost reported rather than the feature shipped.
 
 ## Reproducibility
 

@@ -1,7 +1,7 @@
 # Methodology sources
 
 Where each fact and each method comes from, and — just as important — which parts are
-PPROPT's engineering choices rather than anything a source dictates.
+PPR-opt's engineering choices rather than anything a source dictates.
 
 Labels: **primary fact** (published or deposited, we did not choose it) · **documented
 method** (standard mathematics or algorithm from the literature) · **engineering choice**
@@ -18,12 +18,12 @@ at positions 5 and 35 (the 5th and last of the repeat as indexed here):
     TN → A      NN → C      TD → G      ND → U
 
 Transcribed from the published code, not lifted from any implementation. The protein is a
-deterministic function of the target, which is why PPROPT generates designs rather than
+deterministic function of the target, which is why PPR-opt generates designs rather than
 searching a catalogue.
 
 **Scaffold constants.** `N_TERMINAL` and `REPEAT_TEMPLATE` in `ppropt.biology` derive from the
 paper and were checked against the authors' deposited construct: for target `UUACACGUG`,
-PPROPT's 302-aa protein from index 2 equals the deposited sequence's first 300 residues.
+PPR-opt's 302-aa protein from index 2 equals the deposited sequence's first 300 residues.
 
 **Deposited records.** Three GenBank files from the authors' repository at commit
 `b569a8c499c87f0c825e4e5db237601dde99a1d5`, preserved under
@@ -102,7 +102,7 @@ implementation agrees.
 feasible move with probability `exp(-Δ/T)` under a declared cooling schedule.
 
 **Every annealing parameter is an engineering choice** — schedule, temperatures, move mix,
-iteration counts, scalarisation weights. They are chosen from PPROPT's own measurements and
+iteration counts, scalarisation weights. They are chosen from PPR-opt's own measurements and
 are not copied from any reference implementation's settings. Reported with every result so a
 reader can see what was actually run.
 
@@ -114,13 +114,13 @@ else ran first.
 
 Product profiles carry name, region, **source URL and retrieval date**, length bounds, count
 and scale limits, quantity assumptions, and the rules that cannot be machine-checked. They
-carry no prices: PPROPT does not cost an order.
+carry no prices: PPR-opt does not cost an order.
 
 Constraints:
 
 - Rules come from **current official vendor documentation**. Hardcoded numbers found in any
   other implementation are not authoritative and are not imported as fact.
-- **PPROPT does not cost an order.** Pricing was removed rather than kept stale: quotes are
+- **PPR-opt does not cost an order.** Pricing was removed rather than kept stale: quotes are
   not obtainable here, and a list price of unrecorded age shown as current misleads more than
   an absent number does. Eligibility, pooling and export never depended on one.
 - A local eligibility pass is an implementation check. **It is not vendor approval** and no

@@ -2,13 +2,13 @@
 
 **This module never changes a design.** It reads a coding sequence and reports candidate
 positions. Nothing here inserts anything, and `design_oneshot` does not call it. A design
-PPROPT produces contains no intron, and the advisory says so in every result it returns.
+PPR-opt produces contains no intron, and the advisory says so in every result it returns.
 
-**Why the question exists.** PPROPT's default host is *Chlamydomonas reinhardtii*, where the
+**Why the question exists.** PPR-opt's default host is *Chlamydomonas reinhardtii*, where the
 published work is blunt about codon optimisation alone being insufficient: Baier et al. 2018
 built a codon-optimised, intron-free gene, got minimal expression, and recovered more than
 100-fold the mRNA and about 8-fold the protein by inserting three copies of the *rbcS2*
-intron 1. Codon optimisation is the whole of what PPROPT does for expression. See
+intron 1. Codon optimisation is the whole of what PPR-opt does for expression. See
 `docs/intron_feasibility.md` for the assessment, including what it would cost to act on this
 rather than merely report it.
 
@@ -28,7 +28,7 @@ import re
 from .synthesis_profile import SynthesisProfile, resolve
 
 #: *Chlamydomonas reinhardtii* rbcS2 intron 1, NCBI X04472.1 bases 1307..1451, 145 bp.
-#: The canonical enhancing intron for this host and the one PPROPT's synthesis policy was
+#: The canonical enhancing intron for this host and the one PPR-opt's synthesis policy was
 #: measured against: GC 0.579, no 50-nt window outside 0.35-0.65, longest homopolymer 4, and
 #: no BsaI, BbsI or SapI site. It needs no exemption from our own rules.
 RBCS2I1 = (
@@ -83,9 +83,14 @@ PART_ENZYME: str = "BbsI"
 
 #: Predicted assembly fidelity below which a placement is not offered as a default.
 #:
-#: The level 0 acceptor caps any reaction at about 0.83 before an intron exists, because the
+#: The level 0 acceptor caps any reaction at **0.7944** before an intron exists, because the
 #: strands that meet in the tube are CTCA and CTCG and they differ by one base. 0.75 is
 #: therefore "noticeably worse than no introns, still workable", not a published threshold.
+#:
+#: Those two numbers leave **0.044** of headroom for everything else in the reaction, which
+#: is less than three intron junctions cost (0.071 on the 9S design). Read together they
+#: say the budget is spent before the introns arrive. An earlier version of this comment
+#: put the ceiling at 0.83, which was the BsaI-HFv2 figure -- the level 1 enzyme.
 #:
 #: **It is a knife-edge, and callers should know that.** Across five seeds on the same 9S
 #: target, four produced placements scoring exactly 0.7507 -- seven ten-thousandths above
@@ -94,6 +99,25 @@ PART_ENZYME: str = "BbsI"
 #: visible in the result rather than buried in a constant, because a threshold this tight is
 #: deciding more than its precision justifies.
 FIDELITY_FLOOR = 0.75
+
+#: Which reaction the intron parts are assembled in, and therefore which measured
+#: mis-ligation table scores it.
+#:
+#: **Level 0, cut by BbsI, scored on BbsI-HF.** Jan Vollmer (2026-10-16) corrected an earlier
+#: assumption here: BpiI and BsaI belong to different cloning levels and are never in the
+#: same tube, so there is no two-enzyme reaction to model. `assembly_spec.ASSEMBLY_STAGES`
+#: says the same thing -- level 0 is BbsI into CTCA/CGAG, level 1 is BsaI -- and that file
+#: warns that scoring a level 0 reaction with BsaI-HFv2 "describes a reaction that does not
+#: happen". Every figure in `docs/intron_fidelity.md` before that date did exactly that, and
+#: was about 0.05 optimistic as a result.
+PART_MATRIX: str = "BbsI-HF"
+
+#: Longest exon that can still be ordered as one oligo, as opposed to the longest the
+#: biology likes. A BbsI wrapper is 30 nt and IDT's oPools cap is 350, so the payload
+#: ceiling is 320 -- well under the 500 nt the splicing literature allows. Selecting on the
+#: biological rule alone produced a 450 nt exon, which is a 480 nt oligo that cannot be
+#: bought.
+MAX_ORDERABLE_EXON_NT = 320
 
 #: Shortest exon worth designing. MoInClo's were 234-432 nt and Baier's about 240-583, so
 #: this is a floor against arithmetic artefacts rather than a published rule: a search that
@@ -109,7 +133,7 @@ MAX_EXON_NT = 500
 
 #: What goes on every result, including the ones that succeed.
 DISCLAIMER = (
-    "This design does not take introns into consideration. The sequence PPROPT produced "
+    "This design does not take introns into consideration. The sequence PPR-opt produced "
     "contains no intron and was neither optimised for nor checked against one. The "
     "positions reported here are a reading of published placement rules, not a "
     "modification of your design, and no expression effect has been measured here."
@@ -191,7 +215,7 @@ def junction_problems(cds: str, position: int, intron: str,
     candidate position, reporting "nowhere to put an intron" when the real finding is
     "this sequence has a problem that has nothing to do with introns".
 
-    A real PPROPT coding sequence satisfies the band by construction, so in practice the two
+    A real PPR-opt coding sequence satisfies the band by construction, so in practice the two
     readings agree. They diverge exactly when something has already gone wrong, which is
     when a misleading answer would cost the most.
     """
@@ -307,12 +331,27 @@ def _overhang(cds: str, position: int) -> str:
     return cds[position - 4:position]
 
 
+def acceptor_ceiling() -> float:
+    """Best fidelity the level 0 reaction can reach with no inserts in it at all.
+
+    The two ends an empty backbone contributes are CTCA and CTCG -- one base apart -- so
+    this is well under 1 before any junction is chosen. It is the budget everything else in
+    the reaction has to come out of, which is why the advisory reports it next to the score.
+    """
+    from .assembly import reverse_complement
+    from .assembly_spec import DESTINATION_OVERHANGS
+    from .overhangs import set_fidelity
+
+    dest = DESTINATION_OVERHANGS["level0"]
+    return set_fidelity([dest[0], reverse_complement(dest[1])], PART_MATRIX)
+
+
 def _select(cds: str, clean: list[int], spacing: int,
             intron: str) -> tuple[list[int], float | None, dict[int, float]]:
     """Pick the intron positions whose junction overhangs assemble best.
 
     Enumerates the sets that satisfy the exon-length rules and scores each with the same
-    published mis-ligation data PPROPT uses for its own cut positions, so the number here is
+    published mis-ligation data PPR-opt uses for its own cut positions, so the number here is
     comparable with the fidelity the design already reports. Sets that repeat an overhang are
     discarded outright rather than scored: two identical four-base ends in one reaction is
     not a low-fidelity design, it is fragments that can swap.
@@ -331,7 +370,7 @@ def _select(cds: str, clean: list[int], spacing: int,
 
     def ok(combo) -> bool:
         bounds = [0] + list(combo) + [len(cds)]
-        return all(MIN_EXON_NT <= b - a <= MAX_EXON_NT
+        return all(MIN_EXON_NT <= b - a <= min(MAX_EXON_NT, MAX_ORDERABLE_EXON_NT)
                    for a, b in zip(bounds, bounds[1:]))
 
     # Score every intron count, not just the one the spacing rule implies. Each extra
@@ -349,7 +388,7 @@ def _select(cds: str, clean: list[int], spacing: int,
             ohs = [_overhang(cds, s) for s in combo]
             if len(set(ohs)) != len(ohs):
                 continue
-            score = set_fidelity(fixed + ohs, "BsaI-HFv2")
+            score = set_fidelity(fixed + ohs, PART_MATRIX)
             if best_k is None or score > best_k[0]:
                 best_k = (score, combo)
         if best_k is not None:
@@ -467,16 +506,19 @@ def advise(cds: str, organism: str, *, intron: str = RBCS2I1,
     # baseline of 0.83; on 19S it gives 0.003. Choosing the set for fidelity instead
     # recovers 0.80 on 9S.
     chosen, chosen_fidelity, curve = _select(cds, clean, spacing, intron)
+    ceiling = acceptor_ceiling()
     report["suggested"] = chosen
     report["predicted_fidelity"] = chosen_fidelity
     report["fidelity_by_intron_count"] = curve
     report["margin_to_floor"] = (None if chosen_fidelity is None
                                  else round(chosen_fidelity - FIDELITY_FLOOR, 4))
 
-    # Say when the placement is not worth having. Measured across the three architectures
-    # with fixed codons: 9S reaches 0.80 against a 0.83 baseline, 14S 0.68, 19S 0.48. The
-    # longer the protein the more introns the spacing rule wants, the more junctions compete
-    # in one reaction, and the smaller the pool of usable overhangs they must come from.
+    # Say when the placement is not worth having, and say it against the ceiling this
+    # reaction actually has rather than a remembered constant. Measured on BbsI-HF, the
+    # enzyme level 0 uses: 9S reaches 0.723, 14S 0.130, both under the floor. The longer the
+    # protein the more introns the orderable-exon cap forces, the more junctions compete in
+    # one reaction, and the smaller the pool of usable overhangs they must come from.
+    report["acceptor_ceiling"] = round(ceiling, 4)
     if chosen_fidelity is not None:
         if chosen_fidelity < 0.5:
             report["fidelity_warning"] = (
@@ -485,9 +527,10 @@ def advise(cds: str, organism: str, *, intron: str = RBCS2I1,
                 f"not usable as it stands.")
         elif chosen_fidelity < FIDELITY_FLOOR:
             report["fidelity_warning"] = (
-                f"predicted assembly fidelity falls to {chosen_fidelity:.3f}, against "
-                f"roughly 0.83 without introns. Expect to screen more colonies, and treat "
-                f"this as a trade-off to decide rather than a plan to follow.")
+                f"predicted assembly fidelity falls to {chosen_fidelity:.3f}, against a "
+                f"{ceiling:.3f} ceiling the empty backbone already imposes. Expect to screen "
+                f"more colonies, and treat this as a trade-off to decide rather than a plan "
+                f"to follow.")
         elif chosen_fidelity - FIDELITY_FLOOR < 0.01:
             report["fidelity_warning"] = (
                 f"this placement clears the acceptable line by {chosen_fidelity - FIDELITY_FLOOR:.4f}, "

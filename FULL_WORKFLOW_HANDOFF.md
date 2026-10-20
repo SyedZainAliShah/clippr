@@ -290,7 +290,7 @@ Derivation and both falsifiers: `validation/experiments/level1_geometry.py`, art
 ## 6. What the numbers do not mean
 
 - **CAI is a predictor, not a measurement.** A 3× CAI gain is not a 3× expression gain.
-- **Fidelity is a prediction from 2020 data, not a measured yield.** §7a shows PPROPT, the
+- **Fidelity is a prediction from 2020 data, not a measured yield.** §7a shows PPR-opt, the
   GRASP reference and NEB's own viewer agreeing on the same sets, so the number is the one
   those tools compute — but all three predict from the same dataset, and none of them
   measured an assembly. The multi-reaction summary is the **minimum** across reactions,
@@ -304,7 +304,7 @@ Derivation and both falsifiers: `validation/experiments/level1_geometry.py`, art
 
 ## 7. Vendor support — RAN, with its limits stated
 
-**PPROPT does not price anything.** Costing was removed outright: we cannot obtain quotes, and
+**PPR-opt does not price anything.** Costing was removed outright: we cannot obtain quotes, and
 a stale list price presented as a current one is worse than no number. Eligibility, pooling
 and export are the whole of vendor support, and none of them ever needed a price.
 
@@ -326,21 +326,21 @@ and only the 50 pmol scale is modelled. Confirm against the current page before 
 
 ## 7a. NEB Ligase Fidelity Viewer cross-check — RAN (by hand, 2026-09-15)
 
-**PPROPT and the reference agree on four specified BsaI cycling test sets. The recorded NEB
+**PPR-opt and the reference agree on four specified BsaI cycling test sets. The recorded NEB
 integer percentages are consistent with these scores under truncation. NEB's documented count
 normalisation explains the expected scale factor.**
 
 That sentence is the whole claim. It is deliberately narrower than the one this section
 carried before.
 
-| Set | PPROPT | GRASP reference | NEB (BsaI-HFv2 37-16 cycling) |
+| Set | PPR-opt | GRASP reference | NEB (BsaI-HFv2 37-16 cycling) |
 |---|---:|---:|---:|
 | 1 | 0.7812708969453874 | identical | 78% |
 | 2 | 0.7826598240808516 | identical | 78% |
 | 3 | 0.6556410942710312 | identical | 65% |
 | 4 | 0.5962446032548091 | identical | 59% |
 
-- PPROPT and the reference agree **to floating-point precision**, not merely four decimals,
+- PPR-opt and the reference agree **to floating-point precision**, not merely four decimals,
   by separate code paths — ours reads Pryor's `.xlsx`, theirs a `.csv` through dawdlib.
 - NEB's help documents normalisation of total events to 100,000. Our workbook totals 203,364,
   so the expected count ratio is 2.03364 — which matches the observed 2.03–2.04.
@@ -362,7 +362,7 @@ corroboration of implementation, not evidence about an assembly.
 
 ### The condition matters
 
-First run against *BsaI-HFv2 37 static*, which put NEB 11–22 points above PPROPT and looked
+First run against *BsaI-HFv2 37 static*, which put NEB 11–22 points above PPR-opt and looked
 like a scorer defect. It was not. **Pryor 2020 Table S1 is the endpoint matrix for the
 30-cycle 37↔16 °C reaction**, as the reference's own table name states. Against the matching
 cycling row the discrepancy disappears. The error was in the instructions, not the code.
@@ -418,7 +418,7 @@ Found by the orchestrator's full-workflow audit and fixed in this pass:
 
 ## 9. A finding about the deposited kit — RAN
 
-Deposited module `pPR-1_D_LD5T` contains `TTTTT` and fails PPROPT's max-homopolymer-4 rule:
+Deposited module `pPR-1_D_LD5T` contains `TTTTT` and fails PPR-opt's max-homopolymer-4 rule:
 **1 of 42 modules sits outside our synthesis profile.** That limit is our engineering choice,
 not a published rule, so this is a statement about fit, not a defect in their kit. It surfaces
 at load time through `inventories.synthesis_profile_notes()`. Recoding for *Chlamydomonas*
@@ -480,7 +480,7 @@ reason worth stating: until the substrate scope was settled our deliverable was 
 and theirs was a wrapped oligo, so a head-to-head would have compared two different kinds of
 object. Both systems now emit a synthesis-ready sequence, so one checker can hold both.
 
-**What this command does.** It reads a **saved** reference CSV and a **saved** PPROPT
+**What this command does.** It reads a **saved** reference CSV and a **saved** PPR-opt
 inventory and compares them. It executes neither optimiser, so it is a saved-output
 cross-check, not a newly run head-to-head.
 
@@ -493,7 +493,7 @@ benchmark, imports nothing from `ppropt` or from the reference, and runs twice o
 systems' output. Reporting only "each passes its own rules" would be two self-assessments
 printed side by side; the cross terms are the benchmark.
 
-| clean ordered sequences, of 42 | under PPROPT's rules | under the reference's rules |
+| clean ordered sequences, of 42 | under PPR-opt's rules | under the reference's rules |
 |---|---:|---:|
 | **ours** | **42** | 29 |
 | **reference** | 6 | 41 |
@@ -515,19 +515,19 @@ Read this as a map of where the two rule sets differ, not a scoreboard:
 identical — in the other 38 the reference carries extra boundary residues — so the spans are
 aligned before scoring and an ambiguous containment is refused rather than resolved:
 
-| | PPROPT | reference | PPROPT ahead | reference ahead |
+| | PPR-opt | reference | PPR-opt ahead | reference ahead |
 |---|---:|---:|---:|---:|
 | over the shared span | **0.621004** | **0.658672** | **22** | **20** |
 | scoring whole CDSs (a different region — not a comparison) | 0.621004 | 0.634781 | 29 | 13 |
 
-The reference is ahead on the **mean**; PPROPT is narrowly ahead on the **per-module split**,
+The reference is ahead on the **mean**; PPR-opt is narrowly ahead on the **per-module split**,
 22 to 20. Those point in different directions, so neither system is simply better here: the
 reference's advantage is concentrated in the modules it wins. An earlier version of this
 section quoted the second row, which compared different coding regions.
 
 **Per preserved run**, since one output of a stochastic optimiser is an observation and not its
 level: reference mean 0.654766 / 0.656756 / 0.656684 / 0.657501 / 0.658672 across run01–run05,
-PPROPT ahead on 23 / 22 / 24 / 24 / 22. The saved CSV behind the headline is run05, the most
+PPR-opt ahead on 23 / 22 / 24 / 24 / 22. The saved CSV behind the headline is run05, the most
 favourable of the five.
 
 **Determinism.** Ours is deterministic by construction. Across five preserved reference runs
@@ -696,7 +696,7 @@ The weights are a declared engineering choice, not a measurement, and travel wit
 ### Runtime — measured, then measured properly
 
 Section 12 asked for runtime and **neither system had any instrumentation**. Grepping the
-reference's 21 modules for `perf_counter` or equivalent finds nothing; PPROPT had a single
+reference's 21 modules for `perf_counter` or equivalent finds nothing; PPR-opt had a single
 figure for the 200-design corpus.
 
 **The first version measured no chain.** Its docstring said stages were timed "in isolation and
@@ -743,7 +743,7 @@ of work and call it speed.
 The reference does **not** solve this. Its `grasp_level1_reaction_overhangs` composes
 `final_cassette + ppr_outer + block_joins`, and searching its whole package shows the P2L2S2
 linker and DYW domain appear only in bundled GenBank data, never in reaction composition. It
-emits a `level1_fidelity` from that incomplete set regardless. On this point PPROPT is now
+emits a `level1_fidelity` from that incomplete set regardless. On this point PPR-opt is now
 stricter than the reference, which is worth knowing before anyone treats their number as an
 answer.
 

@@ -1,4 +1,4 @@
-"""PPROPT — design tooling for synthetic PPR regulators.
+"""PPR-opt — design tooling for synthetic PPR regulators.
 
 iGEM Marburg 2026. Chloroplast Library for inducible PPR-mediated Post-transcriptional
 Gene Expression Regulation.

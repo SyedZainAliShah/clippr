@@ -253,7 +253,7 @@ def level1_participants(block_subset, *, roles=None, evidence: str = "") -> dict
 
 #: Residue offsets from an ARELF motif at which the corpus designs place cuts.
 #: Measured across all 200 stored designs by `validation/compare_cuts.py`. Recorded as an
-#: observation about the corpus, not, not as a constraint PPROPT imposes -- cuts
+#: observation about the corpus, not, not as a constraint PPR-opt imposes -- cuts
 #: are *not* restricted to these positions; see `arelf.tunable_cuts`.
 ARELF_OFFSETS_OBSERVED: tuple[int, ...] = (3, 5, 7, 8, 13, 16, 17, 18, 21, 22, 28, 29)
 

@@ -61,7 +61,7 @@ to form stable secondary structures,"* and describes screening as secondary-stru
 prediction, GC analysis and melting-temperature calculation together. The quantity that
 actually obstructs synthesis is **structure**; GC is a cheap stand-in for it.
 
-We check the stand-in and not the thing. PPROPT has no hairpin, self-dimer or cross-dimer
+We check the stand-in and not the thing. PPR-opt has no hairpin, self-dimer or cross-dimer
 check of any kind, which `ordering.CURRENT_OPOOL_50PMOL.unresolved_rules` already admits:
 *"secondary-structure and synthesis-difficulty judgements are the vendor's."*
 
@@ -118,7 +118,7 @@ ceiling, so the product choice is forced, not preferred.
 **The list prices are confirmed and now dated.** €109.00 for the first 3,300 bases, then
 €0.038, €0.025 and €0.013 per base in tiers, and €1.63 per oligo for 5′ phosphorylation —
 matching the reference implementation's transcription exactly.
-`docs/reference_implementation_findings.md` §3.8 observes that PPROPT refuses to price while
+`docs/reference_implementation_findings.md` §3.8 observes that PPR-opt refuses to price while
 the reference's figures *"are undated too — but they are there, and ours are not."* That
 objection is now answerable: these figures carry a date.
 

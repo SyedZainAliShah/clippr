@@ -1,6 +1,6 @@
 """A synthesis-quality objective that does not degenerate, and why the old one did.
 
-**The problem it replaces.** PPROPT's third Pareto axis was `repeat_burden` -- duplicated
+**The problem it replaces.** PPR-opt's third Pareto axis was `repeat_burden` -- duplicated
 k-mers within a module. Over the deposited and recoded inventories it is **identically zero**,
 and not because of its parameter: measured at k = 20, 16, 12 and 10 it is zero for all 42
 modules, and only at k = 8 does anything register. A repeated 10-mer inside a ~100 nt module is
@@ -22,7 +22,7 @@ measured on the **ordered substrate** rather than the insert:
 **Why a continuous preference and not a feasibility test.** A constraint check returns the same
 answer for every feasible candidate, so it cannot rank them. Each term here is a distance, so
 ranking still moves when everything comfortably passes. That idea is taken from the GRASP
-reference's `prefer_ideal`; the formulation below is PPROPT's own.
+reference's `prefer_ideal`; the formulation below is PPR-opt's own.
 
 **The score is never reported alone.** `synthesis_fitness` returns its components beside the
 total, because an aggregate whose parts cannot be inspected is a number nobody can check -- and

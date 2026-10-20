@@ -26,11 +26,11 @@ the one that matters — the validator alone cannot produce it.
 ### An advisory rule enforced as a rejection
 
 Twist publishes, for codon optimisation: *"global GC% of less than 25% or more than 65% and
-local GC windows (50 bp) of less than 35% or more than 65%."* That is PPROPT's band exactly.
+local GC windows (50 bp) of less than 35% or more than 65%."* That is PPR-opt's band exactly.
 But Twist frames it as guidance applied **during optimisation**, and separates it from the
 sequence-acceptance rules that decide whether an order is taken.
 
-PPROPT enforced it as a hard rejection. Measured cost: about **0.16 CAI**, and 3 of 42 modules
+PPR-opt enforced it as a hard rejection. Measured cost: about **0.16 CAI**, and 3 of 42 modules
 returned unchanged rather than improved. The inverse error is just as bad — a soft warning read
 as vendor approval — so the two can never be allowed to share a return value.
 
@@ -70,7 +70,7 @@ There is a test.
 | local GC / 50 nt | 0.35–0.65 **hard** | 0.35–0.65 **target** | 0.15–0.85 **hard** |
 | global GC | none | 0.25–0.65 **target** | none |
 | homopolymer | ≤ 4 **hard** | ≤ 4 **target** | ≤ 4 **hard** |
-| source | **this project's own choice**, settled 2026-10-13 | Twist gene resources, read 2026-09-16 | PPROPT experiment |
+| source | **this project's own choice**, settled 2026-10-13 | Twist gene resources, read 2026-09-16 | PPR-opt experiment |
 | for ordering? | yes — the default | yes, with warnings | **no** |
 | mean CAI, 42 modules, 4 seeds | **0.618830** | — | **0.819921** |
 
@@ -81,7 +81,7 @@ number came from and matching a guideline after the fact is not being derived fr
 **Settled 2026-10-13:** the band is recorded as this project's own engineering choice, dated
 to that decision rather than to the commit that introduced the constant. It is not back-dated
 to Twist, and it is not described as a vendor requirement: no IDT document contains this
-window, Twist frames it as optimisation guidance rather than acceptance, and PPROPT orders
+window, Twist frames it as optimisation guidance rather than acceptance, and PPR-opt orders
 from IDT. It stays **hard** because it now costs nothing — with the ordered-fragment
 constraint on, all 200 corpus designs satisfy it, so loosening a rule the designs already
 pass would weaken the claim and buy nothing. Reasoning in
