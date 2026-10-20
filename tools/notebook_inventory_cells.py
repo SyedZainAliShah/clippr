@@ -314,8 +314,9 @@ if selected is not None:
     out.append(md("""
 > **This route does not take introns into consideration.** The deposited kit modules carry
 > none, recoding would silently remove one from a module it rewrote, and nothing here checks
-> for them. If you are building for a nuclear host where intron-mediated enhancement matters,
-> that is a reason to look at the de novo notebook, not this one.
+> for them. Neither does the de novo notebook: PPR-opt places no introns on either route.
+> If you are building for a nuclear host where intron-mediated enhancement matters, that is
+> something to handle outside this software.
 
 ## Plan the order
 

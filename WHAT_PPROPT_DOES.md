@@ -110,8 +110,14 @@ comes from the version with it on; the earlier corpus is kept as
   a codon-optimised gene with no introns expressed barely at all; adding three copies of a
   short intron to the same gene raised mRNA more than 100-fold and protein about 8-fold
   (Baier 2018). Codon choice is the whole of what this software does for expression, so a
-  design it calls good may still express poorly for a reason it does not model. The
-  designer notebook now reports where introns could go; it does not put them there. See
-  `docs/intron_feasibility.md`.
+  design it calls good may still express poorly for a reason it does not model.
+- **We assessed the documented fix and left it out.** Introns are that fix, and the software
+  places none — the designer takes no intron input and the notebook offers no intron
+  control. The intron itself was not the problem: it passes every synthesis rule unchanged,
+  and placement sites are abundant. Assembly fidelity closed it. At level 0 the acceptor's
+  two ends differ by one base and cap the reaction at 0.794, which leaves 0.044 above the
+  line we treat as acceptable, while three intron junctions cost 0.071. The best any
+  architecture reached was 0.723. See `docs/intron_wiki_figures.md` for the numbers and
+  `docs/intron_feasibility.md` for how the question was framed.
 - **The kit route's pooling plan** is checked against vendor rules we copied by hand. That is
   not vendor approval.

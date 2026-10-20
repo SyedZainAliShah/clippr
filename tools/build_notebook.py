@@ -892,103 +892,6 @@ if scores:
 cells.append(md("""
 ---
 
-## Where an intron could go
-
-**Your design has no intron in it.** This cell does not change that. It reads the published
-placement rules and reports where one *could* go, so the wet lab can decide.
-
-Why it is worth asking: in *Chlamydomonas*, a codon-optimised gene with no introns expressed
-barely at all, and three copies of a short intron in the same gene raised mRNA more than
-100-fold and protein about 8-fold (Baier 2018). Codon choice is the only expression lever
-this software has.
-
-A position qualifies when it sits **between two guanines** — that junction splices at 132% of
-control, while a C|C junction manages 3%.
-
-Then there are two ways to actually order it, and only one of them works. Putting the intron
-**inside an exon's oligo** means a 50-nt window spanning the seam is synthesised as one piece,
-and it almost always breaks the GC band this project enforces. Ordering the intron as **its
-own part** removes that window from synthesis entirely, because the two sides are made
-separately. Both are reported below so you can see the difference rather than take it on
-trust.
-
-Three hosts are **refused, not warned**: `e_coli` and both chloroplast tables have no nuclear
-spliceosome, so the intron is never cut out. At 145 nt it would shift the reading frame and it
-carries a stop in all three frames, which destroys the protein rather than failing to help it.
-
-**Introns cost assembly fidelity**, because each one adds a junction competing in the same
-reaction. How much depends on how many you place, so the count is searched rather than
-derived from the spacing rule, and the whole curve is printed. The ceiling is set by your
-destination vector, not by the introns: at level 0 the two acceptor ends are `CTCA` and
-`CTCG`, one base apart, which caps any reaction here at about 0.83 before an intron exists.
-"""))
-
-cells.append(code('''
-from ppropt import introns
-
-advice = introns.advise(result["cds"], organism)
-
-print(f"host {advice['organism']}: "
-      f"{'introns are spliced here' if advice['applicable'] else 'NOT APPLICABLE'}")
-if not advice["applicable"]:
-    print()
-    print(advice["why_not"])
-else:
-    if not advice["evidence_in_this_host"]:
-        print("   (a spliceosome exists here, but this intron was never tested in it)")
-    print()
-    a, b = advice["route_a_embedded"], advice["route_b_own_part"]
-    print(f"candidate positions (between two Gs) : {advice['sites_available']}")
-    print()
-    print(f"   inside an exon's own oligo      : {a['sites_clean']:3d} usable")
-    print(f"   ordered as its own {b['enzyme']} part   : {b['sites_clean']:3d} usable")
-    print()
-    print("   Putting the intron inside an exon oligo means a 50-nt window spanning the")
-    print("   seam gets synthesised as one piece, and it almost always breaks the GC band.")
-    print(f"   Ordering it separately removes that window entirely. {b['enzyme']} rather than")
-    print("   BsaI because its recognition site carries one less G or C, which is the")
-    print("   difference between 0.660 and 0.640 against a 0.65 ceiling.")
-    if advice["suggested"]:
-        print()
-        print(f"suggested: {len(advice['suggested'])} intron(s) at {advice['suggested']}")
-        print(f"   exon lengths would be {advice['exon_lengths']} nt "
-              f"(published guideline: {introns.MAX_EXON_NT} or shorter)")
-        print(f"   you would order {len(advice['exon_lengths'])} exon pieces plus "
-              f"{len(advice['suggested'])} intron piece(s)")
-        if advice.get("predicted_fidelity") is not None:
-            print(f"   predicted assembly fidelity {advice['predicted_fidelity']:.3f}, "
-                  f"against {result['fidelity']:.3f} for the design without introns")
-        curve = advice.get("fidelity_by_intron_count") or {}
-        if len(curve) > 1:
-            print()
-            print("   what each count would cost:")
-            for n, f in sorted(curve.items()):
-                mark = "  <- chosen" if n == len(advice["suggested"]) else ""
-                print(f"     {n} intron(s): {f:.3f}{mark}")
-            print("   More introns raised expression in every published series, so this")
-            print("   takes the most that still assembles acceptably.")
-        if advice.get("fidelity_warning"):
-            print()
-            print(f"   WARNING: {advice['fidelity_warning']}")
-        print()
-        print("   This is one seed. Across five seeds on the same target the same")
-        print("   machinery gave two or three introns at 0.75 to 0.80, so read the count")
-        print("   and the number as a draw from that range rather than a fixed answer.")
-    else:
-        print()
-        print(advice.get("blocked_by", "no placement found"))
-    print()
-    print(f"intron: {advice['intron']['name']}, {advice['intron']['length_nt']} nt, "
-          f"{advice['intron']['source']}")
-
-print()
-print(advice["disclaimer"])
-''', title="Where an intron could go"))
-
-
-cells.append(md("""
----
-
 ## Going deeper — why this design, and not another
 
 *You do not need this to order. Read it if a design looks surprising.*
@@ -1054,12 +957,6 @@ cells.append(glossary(md, [
                    "It is what stops several regulators being controlled independently."),
     ("library", "Several PPRs designed together, so they can be checked against each other "
                 "rather than one at a time."),
-    ("intron", "A stretch of DNA inside a gene that the cell cuts out of the RNA copy before "
-               "the protein is made. It is not part of the protein, but in some hosts having "
-               "one raises how much protein you get. PPR-opt designs none."),
-    ("splicing", "The cutting-out step. Only hosts with the right machinery do it: a nucleus "
-                 "can, a bacterium and a chloroplast cannot, which is why an intron would "
-                 "wreck a construct meant for those."),
 ]))
 
 write_notebook(cells, OUT, NAME)

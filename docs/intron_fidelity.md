@@ -3,6 +3,35 @@
 *Measured 2026-10-16 on branch `feature/intron-advisory`. Reproduce with
 `validation/experiments/intron_fidelity_tradeoff.py`; results land in `work/introns/`.*
 
+> ## ⛔ Retracted 2026-10-19. Every fidelity figure below is on the wrong enzyme.
+>
+> **Scored on BsaI-HFv2, which is the level 1 enzyme. Level 0 is a BbsI reaction.**
+> `assembly_spec.py` calls scoring it the other way "a reaction that does not happen", and
+> Jan Vollmer said the same independently on 2026-10-16: BpiI and BsaI belong to different
+> cloning levels and never share a tube. A second correction landed with it — selection
+> respected the published 500 nt exon guideline but never IDT's 350 nt oligo cap, so it was
+> recommending exons that cannot be bought. The orderable ceiling is 320 nt.
+>
+> **Both corrections push the same way, and together they reverse this document's
+> conclusion.** On the enzyme the reaction actually uses, the level 0 acceptor alone scores
+> **0.7944**, 9S with three introns reaches **0.7234**, and 14S and 19S fall to **0.1299**
+> and **0.0812** because the oligo cap forces more junctions. `FIDELITY_FLOOR = 0.75`, so
+> **nothing clears it** — the best result anywhere in the corrected sweep is 0.7234, and
+> none of five seeds on the same 9S target clears the floor either.
+>
+> The figures in this document are about 0.035 optimistic, which is *larger* than the 0.026
+> that the table below attributes to three introns. Quoting any number from here beside a
+> BbsI-HF one would report the matrix change as if it were the intron cost.
+>
+> **The decision this led to: PPROPT places no introns, and the designer takes no intron
+> input.** Not because placement is hard — placement is abundant — but because the backbone
+> has spent the fidelity budget before an intron exists. See
+> [`intron_wiki_figures.md`](intron_wiki_figures.md) for the corrected numbers and
+> [`intron_feasibility.md`](intron_feasibility.md) §8 for how the question was framed.
+>
+> This document is kept as the record of the superseded measurement, not as a source. Do not
+> redraw a figure from it.
+
 ---
 
 ## Where it ends up
@@ -11,14 +40,23 @@
 and gets assembled into a level 0 acceptor. MoInClo does the same: exons and level −1 intron
 parts go into a level 0 backbone, which then feeds level 1 and 2.
 
-| architecture | introns | fidelity | baseline | cost | |
+*`fidelity`, `baseline` and `cost` are BsaI-HFv2 and all three are retracted. The `introns`
+column is retracted for a separate reason — it predates the 320 nt orderable exon cap, which
+forces 14S to 4 and 19S to 6. The verdict column is what this document concluded at the
+time, not what the corrected sweep says.*
+
+| architecture | introns | fidelity | baseline | cost | verdict at the time |
 |---|---:|---:|---:|---:|---|
-| 9S | 3 | **0.803** | 0.828 | 0.026 | usable |
-| 14S | 3 | **0.751** | 0.825 | 0.075 | usable |
-| 19S | 4 | **0.686** | 0.828 | 0.143 | marginal, warned |
+| 9S | 3 | **0.803** | 0.828 | 0.026 | ~~usable~~ |
+| 14S | 3 | **0.751** | 0.825 | 0.075 | ~~usable~~ |
+| 19S | 4 | **0.686** | 0.828 | 0.143 | ~~marginal, warned~~ |
 
 Three introns is Baier's own architecture. Introns always cost something here, and the cost
-grows with the protein, but none of the three is closed.
+grows with the protein.
+
+**On BbsI-HF all three are closed**, and the intron counts for 14S and 19S are not even
+choices — with exons capped at 320 nt the junction count is forced upward by the ordering
+constraint. The corrected row is 9S at 0.7234, 14S at 0.1299, 19S at 0.0812.
 
 **That 9S row is seed 42, and seed 42 is an outlier.** Across seeds 1, 7, 42, 99 and 2024 on
 the same target, only seed 42 reaches 0.803; the other four land at exactly **0.7507**. Two of

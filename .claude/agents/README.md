@@ -100,7 +100,7 @@ and the reason that role quotes every line rather than asserting it checked.
 
 Ask for the orchestrator by name and give it the task:
 
-> Use ppropt-orchestrator to add the intron advisory output to the designer notebook.
+> Use ppropt-orchestrator to thread the caller's enzyme profile into the coding-span QC verdict.
 
 It will record the gate hash, delegate research if the task rests on a claim, brief the
 worker, run the tester, loop on failure up to three times, and report the gate's verdict in

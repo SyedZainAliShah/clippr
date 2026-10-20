@@ -5,13 +5,35 @@ not an implementation. Every measurement in §4 was taken from this checkout; ev
 §2 and §3 is from the cited literature and was measured by someone else, in someone else's
 construct, in an organism that is sometimes not ours.*
 
-> **Partly superseded, 2026-10-16.** This document established *whether* an intron can be
-> ordered. It did not measure what placing one costs in assembly fidelity, and that turned out
-> to dominate: the naive placement it implies scores 0.18 on 9S and 0.003 on 19S, because
-> every candidate position sits between two guanines and the junction overhangs repeat.
-> `docs/intron_fidelity.md` has the measurements, the corrected placement, and the finding
-> that the acceptor vector rather than the introns is what caps the result. Read that one for
-> the current numbers; this one for how the question was framed.
+> **2026-10-20: the advisory came off the notebook, and the five commits that built it
+> stay.** The designer notebook no longer carries an intron cell, an intron glossary term or
+> any intron output, so nothing a reader can reach suggests PPR-opt works with introns or
+> invites them to place one. `src/ppropt/introns.py`, `tests/test_introns.py` and these
+> documents are kept, and `feature/intron-advisory`'s five commits — `04e8039`, `6ddb715`,
+> `d26bb64`, `0df8e06`, `1a506f6` — are kept too, not reverted and not rebased away.
+>
+> The reason is that the feature and the finding are not the same thing. What those commits
+> actually produced is the measurement that answered the question, plus two corrections of
+> record that have nothing to do with introns: the level 0 reaction is scored on BbsI-HF,
+> and `DESTINATION_OVERHANGS["level0"]` now carries Jan Vollmer's external confirmation of
+> CTCA/CGAG and pIM 046. Deleting the history would leave the answer standing on nothing.
+> `design_oneshot` has never called this module and still does not; it is reachable only by
+> importing it on purpose, which is what a record rather than a feature looks like.
+
+> **Answered 2026-10-19: no. PPR-opt places no introns and the designer takes no intron
+> input.** This document established *whether* an intron can be ordered, and the answer to
+> that narrower question is still yes — rbcS2i1 passes every synthesis rule unchanged. What
+> closed the question is assembly fidelity, which this document did not measure and which
+> turned out to dominate. On BbsI-HF, the enzyme a level 0 reaction actually uses, the empty
+> backbone scores 0.7944 and leaves 0.0444 above our floor, while three intron junctions cost
+> 0.0710. The budget is spent before the introns arrive. 9S reaches 0.7234 at best and 14S
+> and 19S collapse to 0.1299 and 0.0812, because IDT's 350 nt oligo cap forces more junctions
+> than the biology would ask for.
+>
+> Read [`intron_wiki_figures.md`](intron_wiki_figures.md) for the corrected numbers. Do not
+> read `intron_fidelity.md` for them — it is retracted, every figure in it is on BsaI-HFv2,
+> and §5 and §8 below still cite it as current. This document is kept for how the question
+> was framed and what was measured on the way.
 
 > **Independently verified 2026-10-16.** 37 claims were re-checked by a separate reader that
 > did not write this document: every `file:line`, every measurement re-derived from scratch,
@@ -406,7 +428,12 @@ already uses.
 only route that can carry the stronger intron". There is no route that carries it. LHCBM1i2
 breaches the GC band 0.680 at offset 14, inside the intron rather than at a seam, so no
 wrapping enzyme or pad moves it. rbcS2i1 is not a preference; it is the only one that fits.
-See `docs/intron_fidelity.md`.
+See [`intron_wiki_figures.md`](intron_wiki_figures.md).
+
+*Moot 2026-10-19:* the choice between the routes no longer decides anything, because neither
+clears the fidelity floor at level 0. The comparison is kept because it is what established
+that ordering, not biology, is the binding constraint — and because the 320 nt orderable
+exon ceiling that follows from it is what forces 14S and 19S to extra junctions.
 
 ---
 
@@ -476,6 +503,15 @@ outside PPR-opt's scope and may matter more than anything PPR-opt can do to the 
 ## 8. Verdict
 
 Staged, because the three stages have very different risk.
+
+> **What happened to each stage, recorded 2026-10-19.** Stage 1 was done, and the limitation
+> is in `WHAT_PPROPT_DOES.md` and on the wiki page. Stage 2 was built, and building it is
+> what killed the feature: the advisory measured its own cost on the right enzyme and found
+> no architecture clears the floor. It is kept, reporting the cost rather than offering a
+> placement, and the designer takes no intron input. **Stage 3 is not being attempted.**
+> Route B's premise was that fidelity would permit it, and on BbsI-HF it does not — so none
+> of the fifteen residue-to-nucleotide corruption sites catalogued in §6 need touching.
+> The stop condition was measurement, not effort.
 
 **1 — Now, zero risk, no code.** Record two things in `WHAT_PPROPT_DOES.md`: that codon
 optimisation alone is documented as insufficient for this host, and that rbcS2i1 passes our
