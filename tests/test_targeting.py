@@ -13,7 +13,8 @@ from __future__ import annotations
 import pytest
 
 from ppropt.offtarget import Transcript, find_in_transcripts
-from ppropt.targeting import (COORDINATE_CONVENTION, IntendedLocus, Occurrence, SearchSequence,
+from ppropt.targeting import (COORDINATE_CONVENTION, ORIGIN_MEANS, ORIGINS, IntendedLocus,
+                              Occurrence, SearchSequence, Selection,
                               enumerate_windows, feature_identity, loci_for_gene,
                               occurrences_in_reference, occurrences_in_source, window_report,
                               screen_window, select_window)
@@ -219,6 +220,60 @@ class TestProvenanceAndHonesty:
         sel = select_window(src, lengths=(9,))
         assert sel.chosen.source_sha256 == src.content_sha256
         assert sel.chosen.coordinate_convention == COORDINATE_CONVENTION
+
+    @pytest.mark.parametrize("origin", ORIGINS)
+    def test_the_selection_records_the_origin_it_was_computed_under(self, origin):
+        """`origin` was write-only: required, validated, then dropped before the result.
+
+        So a stored selection could not say which assumption produced it, although the
+        field exists precisely to stop that. Parametrised over every origin rather than
+        asserting one value, because a result that hard-coded any single one would satisfy
+        a single-value assertion.
+        """
+        src = seq_of(UNIQUE, origin)
+        sel = select_window(src, lengths=(9,))
+        assert sel.origin == origin == src.origin
+
+    def test_the_origin_survives_the_paths_that_find_nothing(self):
+        """The two refusal paths, which are the ones a later change would forget.
+
+        A selection that found no window is exactly the one whose provenance matters -- it
+        is the result someone will come back to and ask what it was run against.
+        """
+        too_short = select_window(seq_of("ACGTA", "designed"), lengths=(9,))
+        assert not too_short.found and too_short.origin == "designed"
+
+        trs = [TWIN_A, TWIN_B]
+        nothing_clean = select_window(seq_of(TWIN_A.sequence, "native"), lengths=(9,),
+                                      transcripts=trs)
+        assert not nothing_clean.found and nothing_clean.origin == "native"
+
+    def test_a_selection_cannot_be_built_without_an_origin(self):
+        """Pins the field as required, so a default cannot quietly restore the gap.
+
+        A default would let a `Selection` look complete while recording nothing, which is
+        the state this module refuses for `SearchSequence` and now refuses for its result.
+        """
+        with pytest.raises(TypeError, match="origin"):
+            Selection(chosen=None)
+
+    @pytest.mark.parametrize("origin", ORIGINS)
+    def test_the_report_states_the_origin_and_what_it_means(self, origin):
+        """A bare word would need looking up, so the report carries the consequence."""
+        text = window_report(select_window(seq_of(UNIQUE, origin), lengths=(9,)))
+        assert f"source declared as: {origin}" in text
+        assert ORIGIN_MEANS[origin] in text
+
+    def test_the_report_states_the_origin_when_nothing_was_found(self):
+        text = window_report(select_window(seq_of("ACGTA", "unknown"), lengths=(9,)))
+        assert "NO WINDOW SELECTED" in text
+        assert "source declared as: unknown" in text
+
+    def test_the_report_distinguishes_the_origins(self):
+        """Three origins must read as three reports, not one with a word swapped."""
+        texts = {o: window_report(select_window(seq_of(UNIQUE, o), lengths=(9,)))
+                 for o in ORIGINS}
+        assert len(set(texts.values())) == len(ORIGINS)
 
     def test_raw_occurrences_are_retained_so_a_caller_can_recount(self):
         trs = [TWIN_A, TWIN_B]

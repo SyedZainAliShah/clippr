@@ -54,6 +54,19 @@ from .offtarget import Transcript, _context, _normalise
 #: Where a supplied sequence came from. This is never inferred: see `SearchSequence.origin`.
 ORIGINS = ("designed", "native", "unknown")
 
+#: What each origin means for reading the occurrences, written out so a report carries the
+#: consequence rather than a bare word a later reader has to look up. Each says only what
+#: the origin settles about the *reference*; what to do about it is the undeclared-intent
+#: note's job, and saying it twice in one report would read as two findings.
+ORIGIN_MEANS = {
+    "designed": "its intended site is absent from a wild-type reference, so every "
+                "occurrence found is an off-target",
+    "native": "its intended site is in the reference, so a scan finds it whether or not "
+              "it has been declared",
+    "unknown": "whether its intended site is in the reference is not recorded, so no "
+               "occurrence can be classified either way",
+}
+
 #: How an offset in this module is to be read. Recorded on every result, because a
 #: source-relative offset is **not** a genomic coordinate -- `psbA`'s feature spans five joined
 #: segments, so `feature.start + offset` is wrong across a join and wrong again on the minus
@@ -215,6 +228,16 @@ class Selection:
     """What was chosen, what else qualified, and what did not -- with the reason in each case."""
 
     chosen: TargetWindow | None
+    #: The origin the source declared, carried through so a stored result says what it was
+    #: computed under. Required, and deliberately without a default, for the same reason
+    #: `SearchSequence.origin` is: it decides how every occurrence here reads, and a default
+    #: would let a selection claim nothing while looking complete.
+    #:
+    #: It was write-only until 2026-10-20 -- required and validated on the way in, then
+    #: dropped before it reached any result. `SearchSequence` promises "enough provenance to
+    #: audit the choice", and the forcing half worked, but the record did not survive to the
+    #: artifact, which is the thing requiring the field was meant to prevent.
+    origin: str
     alternatives: tuple[TargetWindow, ...] = ()
     rejected: tuple[tuple[TargetWindow, str], ...] = ()
     reference: str = ""
@@ -420,7 +443,8 @@ def select_window(source: SearchSequence, lengths: Sequence[int],
                      "therefore count against it")
 
     if not candidates:
-        return Selection(chosen=None, reference=ref, reference_binding=binding, lengths=wanted,
+        return Selection(chosen=None, origin=source.origin, reference=ref,
+                         reference_binding=binding, lengths=wanted,
                          intended_declared=bool(loci), notes=tuple(notes),
                          reason=f"the supplied sequence is {len(source.rna)} nt, shorter than "
                                 f"every requested window length {wanted}")
@@ -436,7 +460,8 @@ def select_window(source: SearchSequence, lengths: Sequence[int],
                                 f"{' ...' if n > 3 else ''}"))
 
     if not ok:
-        return Selection(chosen=None, alternatives=(), rejected=tuple(rejected),
+        return Selection(chosen=None, origin=source.origin, alternatives=(),
+                         rejected=tuple(rejected),
                          reference=ref, reference_binding=binding,
                          lengths=wanted, intended_declared=bool(loci), notes=tuple(notes),
                          reason=f"no window of {wanted} in {source.identifier} has "
@@ -451,8 +476,10 @@ def select_window(source: SearchSequence, lengths: Sequence[int],
                      f"taken, which is arbitrary")
 
     notes.extend(ok[0].multiply_intended)
-    return Selection(chosen=ok[0], alternatives=tuple(ok[1:1 + keep_alternatives]),
-                     rejected=tuple(rejected), reference=ref, reference_binding=binding, lengths=wanted,
+    return Selection(chosen=ok[0], origin=source.origin,
+                     alternatives=tuple(ok[1:1 + keep_alternatives]),
+                     rejected=tuple(rejected), reference=ref, reference_binding=binding,
+                     lengths=wanted,
                      intended_declared=bool(loci), tie_count=ties, notes=tuple(notes))
 
 
@@ -472,6 +499,10 @@ def window_report(selection: Selection) -> str:
             lines.append(f"  declared intended: {len(w.intended)}")
         lines.append(f"  {len(selection.alternatives)} alternative(s) scored as well or worse; "
                      f"{len(selection.rejected)} rejected")
+    # Stated on every report, including the no-window case: how the occurrences above
+    # should be read depends on it, so a report that omitted it could not be audited.
+    lines.append(f"  source declared as: {selection.origin} -- "
+                 f"{ORIGIN_MEANS.get(selection.origin, 'origin not recognised')}")
     lines.append(f"  reference screened: {selection.reference}")
     lines.append(f"  lengths considered: {selection.lengths}")
     lines.append(f"  coordinates: {COORDINATE_CONVENTION}")
