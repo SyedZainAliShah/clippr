@@ -176,7 +176,7 @@ def explore(protein: str, codon_table, *, n_fragments: int, destination, matrix:
             cuts=tuple(cuts), overhangs=tuple(overhangs), fidelity=float(fidelity),
             cds=opt["cds"], constraints_ok=bool(opt["constraints_ok"]),
             objectives_score=float(opt.get("objectives_score", 0.0)),
-            qc=synthesis_qc(opt["cds"]),
+            qc=synthesis_qc(opt["cds"], enzymes=enzyme_profile),
         ))
         if on_progress:
             on_progress(i, min(budget, len(plans)), out[-1])

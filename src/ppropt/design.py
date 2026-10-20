@@ -496,7 +496,10 @@ def design_oneshot(
                     "optimiser's budget; the coding-span design is reported unchanged")
 
     with _stage(timings, "qc"):
-        qc = synthesis_qc(cds)
+        # The blacklist the caller declared, not the module default. `enzyme_profile` has
+        # `extra_blacklist` merged in by this point, so the coding-span verdict and the
+        # ordered-oligo gate below judge one and the same declared policy.
+        qc = synthesis_qc(cds, enzymes=C.enzymes_for(enzyme_profile))
 
     dest = destination or C.DESTINATION_OVERHANGS["level0"]
     reaction = reaction_overhangs(overhangs, "level0") if destination is None else [
